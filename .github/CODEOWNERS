@@ -1,0 +1,8 @@
+# 代码所有者（按匹配优先级从上到下）
+# 为整个仓库指定默认 CODEOWNER（根据需要修改 GitHub 用户或团队）
+*       @kilocode
+
+# 典型路径示例（如需精细化可解除注释并调整）：
+# /src/pysearch/    @kilocode
+# /tests/           @kilocode
+# /.github/         @kilocode

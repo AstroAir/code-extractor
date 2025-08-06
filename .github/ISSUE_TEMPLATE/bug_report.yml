@@ -1,0 +1,49 @@
+name: Bug report
+description: 报告一个问题或回归
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 感谢报告问题！请尽量提供可复现信息以便我们定位和修复。
+  - type: textarea
+    id: description
+    attributes:
+      label: 描述
+      description: 简要描述问题现象
+      placeholder: 当我运行 pysearch ... 时，出现 ...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 提供最小可复现步骤（命令、输入、期望 vs 实际）
+      placeholder: |
+        1. 命令: pysearch find --path ... --pattern ...
+        2. 期望: ...
+        3. 实际: ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本信息
+      description: pysearch 版本（或 commit hash）
+      placeholder: 0.1.0
+  - type: input
+    id: python
+    attributes:
+      label: Python 版本
+      placeholder: 3.10.14
+  - type: textarea
+    id: env
+    attributes:
+      label: 运行环境
+      description: OS、Shell、终端、CI 环境等
+      placeholder: Ubuntu 22.04 / bash / GitHub Actions
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志/输出
+      description: 附上相关日志、traceback、截图
+      render: bash

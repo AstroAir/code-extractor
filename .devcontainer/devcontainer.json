@@ -1,0 +1,32 @@
+{
+  "name": "pysearch-dev",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": false,
+      "username": "vscode"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "ms-python.black-formatter",
+        "streetsidesoftware.code-spell-checker",
+        "znck.grammarly"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.formatting.provider": "black",
+        "editor.formatOnSave": true,
+        "editor.rulers": [100],
+        "ruff.lint.args": ["--select=E,F,I,UP,B"]
+      }
+    }
+  },
+  "postCreateCommand": "python -m pip install -U pip && python -m pip install -e . && python -m pip install -e '.[dev]' && python -m pip install pre-commit && pre-commit install",
+  "remoteUser": "vscode"
+}

@@ -1,0 +1,23 @@
+site_name: pysearch 文档
+repo_url: https://github.com/your-org/pysearch
+repo_name: your-org/pysearch
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.sections
+    - content.code.copy
+    - content.action.edit
+nav:
+  - 首页: docs/index.md
+  - 快速上手: docs/usage.md
+  - 配置说明: docs/configuration.md
+  - 架构设计: docs/architecture.md
+  - 路线图: docs/roadmap.md
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+plugins:
+  - search
