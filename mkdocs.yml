@@ -38,29 +38,34 @@ theme:
     - toc.integrate
 
 nav:
-  - Home: docs/index.md
+  - Home: index.md
   - Getting Started:
-    - Installation: docs/installation.md
-    - Quick Start: docs/usage.md
-    - Your First Search: docs/tutorials/01_getting_started.md
+    - Installation: installation.md
+    - Quick Start: usage.md
+    - Your First Search: ../examples/tutorials/01_getting_started.py
   - User Guide:
-    - Usage Guide: docs/usage.md
-    - Configuration: docs/configuration.md
-    - Search Types: docs/tutorials/05_search_types.md
-    - Performance: docs/performance.md
+    - Usage Guide: usage.md
+    - Configuration: configuration.md
+    - Search Types: ../examples/tutorials/05_search_types.py
+    - Performance: performance.md
   - Reference:
-    - API Reference: docs/api-reference.md
-    - Configuration Reference: docs/configuration.md
+    - API Reference: api-reference.md
+    - Configuration Reference: configuration.md
+  - MCP Integration:
+    - Overview: mcp-overview.md
+    - Tutorial: mcp-tutorial.md
+    - API Reference: mcp-api.md
+    - Advanced Features: mcp-advanced.md
   - Advanced Topics:
-    - Architecture: docs/architecture.md
-    - Performance Tuning: docs/performance.md
+    - Architecture: architecture.md
+    - Performance Tuning: performance.md
   - Help & Support:
-    - FAQ: docs/faq.md
-    - Troubleshooting: docs/troubleshooting.md
-    - Examples: examples/README.md
+    - FAQ: faq.md
+    - Troubleshooting: troubleshooting.md
+    - Examples: ../examples/README.md
   - Development:
-    - Contributing: CONTRIBUTING.md
-    - Roadmap: docs/roadmap.md
+    - Contributing: ../CONTRIBUTING.md
+    - Roadmap: roadmap.md
 
 markdown_extensions:
   - admonition

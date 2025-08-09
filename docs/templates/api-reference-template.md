@@ -448,6 +448,13 @@ except Exception as e:
     logger.error(f"Unexpected error: {e}")
 ```
 
+### Pattern 3: Chaining Method Calls
+
+```python
+# Example of chaining method calls for a fluent interface
+result = ClassName1("config").method1("param1").another_method("param2")
+```
+
 ---
 
 ## Performance Considerations

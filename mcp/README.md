@@ -90,6 +90,14 @@ These servers are designed to work with MCP-compatible LLM clients, providing se
 
 ## Documentation
 
+Comprehensive documentation for MCP integration is available in the [main documentation](../docs/mcp-overview.md):
+
+- [MCP Overview](../docs/mcp-overview.md) - Introduction to MCP integration
+- [MCP Tutorial](../docs/mcp-tutorial.md) - Step-by-step guide to using MCP with PySearch
+- [MCP API Reference](../docs/mcp-api.md) - Detailed API documentation for all MCP tools
+- [Advanced MCP Features](../docs/mcp-advanced.md) - In-depth coverage of advanced capabilities
+
+Additional resources:
 - `MCP_SERVER_README.md` - Detailed server documentation
 - `MCP_SERVER_SUMMARY.md` - Quick reference
 - `ENHANCED_FEATURES_README.md` - Enhanced features documentation

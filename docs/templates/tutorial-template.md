@@ -366,3 +366,20 @@ Congratulations! You've completed the tutorial. You now know how to:
 - **Experiment**: Modify the code analyzer to count imports or find other patterns.
 - **Explore**: Read the [API Reference](api-reference.md) to discover more features.
 - **Integrate**: Try using `pysearch` in your own projects.
+
+### Additional Example: Find all function calls
+
+```python
+# Example: Find all function calls in the src directory
+config = SearchConfig(paths=["./src"])
+engine = PySearch(config)
+
+# This regex is a simplified example and may not catch all edge cases
+results = engine.search(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(', regex=True)
+
+print(f"\nFound {len(results.items)} potential function calls:")
+for item in results.items:
+    print(f"- {item.file}:{item.start_line} -> {item.lines[0].strip()}")
+```
+
+```

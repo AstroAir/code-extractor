@@ -111,6 +111,14 @@ Run an MCP server:
 ./scripts/run-mcp-server.sh main
 ```
 
+#### MCP Documentation
+
+Comprehensive documentation for MCP integration is available:
+- [MCP Overview](docs/mcp-overview.md) - Introduction to MCP integration
+- [MCP Tutorial](docs/mcp-tutorial.md) - Step-by-step guide to using MCP with PySearch
+- [MCP API Reference](docs/mcp-api.md) - Detailed API documentation for all MCP tools
+- [Advanced MCP Features](docs/mcp-advanced.md) - In-depth coverage of advanced capabilities
+
 ## Typical Use Cases
 
 - Find all functions using specific decorators

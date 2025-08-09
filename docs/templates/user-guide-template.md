@@ -7,7 +7,7 @@ This guide provides a comprehensive overview of the [Feature Name] feature in py
 - [Overview](#overview)
 - [Getting Started](#getting-started)
 - [Basic Usage](#basic-usage)
-- [Advanced Usage](#advanced-usage)
+- [Advanced Usage](#advanced-advanced)
 - [Configuration](#configuration)
 - [Examples](#examples)
 - [Best Practices](#best-practices)
@@ -216,6 +216,36 @@ def example_function():
 if __name__ == "__main__":
     results = example_function()
     print(f"\nFound {len(results.items)} total matches.")
+```
+
+### Example 2: [Another Practical Scenario]
+
+**Scenario:** A different real-world problem this feature can solve.
+
+```python
+# Complete, runnable example for the second scenario
+from pysearch import PySearch, SearchConfig
+
+def another_example_function():
+    """Another example function demonstrating [Feature Name]."""
+    
+    config = SearchConfig(
+        paths=["./src"],
+        [another_feature_config]=True
+    )
+    engine = PySearch(config)
+    
+    results = engine.[another_feature_method]("another example pattern")
+    
+    # Process results in a different way
+    for item in results.items:
+        print(f"{item.file}:{item.start_line}")
+    
+    return results
+
+if __name__ == "__main__":
+    results = another_example_function()
+    print(f"\nProcessed {len(results.items)} items.")
 ```
 
 ---
