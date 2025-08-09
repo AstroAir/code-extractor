@@ -1,16 +1,18 @@
-# pysearch 文档
+# pysearch Documentation
 
-pysearch 是一个面向 Python 代码库的高性能、上下文感知搜索引擎，支持文本/正则/AST/语义搜索，提供 CLI 与可编程 API，适用于大型多模块项目的工程化检索。
+pysearch is a high-performance, context-aware search engine for Python codebases that supports text/regex/AST/semantic search, providing both CLI and programmable API interfaces, designed for engineering-grade retrieval in large multi-module projects.
 
-特性
-- 代码块匹配（函数/类/装饰器/导入/字符串/注释等）
-- 上下文感知输出与结果排序
-- 全项目索引与缓存，增量更新
-- 多格式输出（text/json/highlight）
-- CLI 与 API 双形态
+## Features
 
-快速链接
-- 快速上手: usage.md
-- 配置说明: configuration.md
-- 架构设计: architecture.md
-- 路线图: roadmap.md
+- Code block matching (functions/classes/decorators/imports/strings/comments, etc.)
+- Context-aware output with result ranking
+- Project-wide indexing and caching with incremental updates
+- Multiple output formats (text/json/highlight)
+- Dual CLI and API interfaces
+
+## Quick Links
+
+- [Quick Start](usage.md)
+- [Configuration](configuration.md)
+- [Architecture](architecture.md)
+- [Roadmap](roadmap.md)

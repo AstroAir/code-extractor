@@ -57,3 +57,5 @@ Thumbs.db
 .env.*
 !*.example
 configs/*.local.*
+
+.pysearch-cache

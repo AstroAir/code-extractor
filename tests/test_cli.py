@@ -29,14 +29,21 @@ version = "0.0.0"
     mod.write_text("def hello():\n    return 1\n", encoding="utf-8")
 
     # invoke CLI as module
-    code, out, err = run_cli([
-        "find",
-        "--path", str(pkg / "src"),
-        "--include", "**/*.py",
-        "--pattern", "hello",
-        "--context", "0",
-        "--format", "json",
-    ], cwd=tmp_path)
+    code, out, err = run_cli(
+        [
+            "find",
+            "--path",
+            str(pkg / "src"),
+            "--include",
+            "**/*.py",
+            "--context",
+            "0",
+            "--format",
+            "json",
+            "hello",
+        ],
+        cwd=tmp_path,
+    )
 
     assert code == 0
     # ensure json is parseable and contains at least one item

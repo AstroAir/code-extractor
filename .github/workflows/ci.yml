@@ -42,6 +42,12 @@ jobs:
       - name: Run tests with coverage
         run: |
           python -m pytest
+
+      - name: Validate project structure
+        run: make check-structure
+
+      - name: Test MCP servers
+        run: make mcp-servers
       - name: Upload coverage to artifact
         if: ${{ matrix.python-version == '3.12' }}
         uses: actions/upload-artifact@v4

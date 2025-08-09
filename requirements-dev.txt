@@ -1,0 +1,20 @@
+# PySearch Development Dependencies
+#
+# This file is generated from pyproject.toml for compatibility.
+# Preferred method: pip install -e ".[dev]"
+
+# Include core dependencies
+-r requirements.txt
+
+# Development tools
+pytest
+pytest-cov
+coverage[toml]
+hypothesis
+mypy
+ruff
+black
+pygments
+pytest-benchmark
+mkdocs-material
+pre-commit

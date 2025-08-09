@@ -1,10 +1,8 @@
-import os
 from pathlib import Path
 
 from pysearch.api import PySearch
 from pysearch.config import SearchConfig
-from pysearch.types import Query, OutputFormat, ASTFilters
-
+from pysearch.types import ASTFilters, OutputFormat, Query
 
 SAMPLE = """
 def foo():
@@ -39,7 +37,14 @@ def test_smoke_search_ast(tmp_path: Path):
     engine = PySearch(cfg)
 
     filters = ASTFilters(func_name="baz")
-    q = Query(pattern="baz", use_regex=False, use_ast=True, context=1, output=OutputFormat.TEXT, filters=filters)
+    q = Query(
+        pattern="baz",
+        use_regex=False,
+        use_ast=True,
+        context=1,
+        output=OutputFormat.TEXT,
+        filters=filters,
+    )
     res = engine.run(q)
     assert res.items, "expected ast search to find method 'baz'"
     # ensure context window contains class method

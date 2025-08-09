@@ -1,23 +1,64 @@
+"""
+Pattern matching module for pysearch.
+
+This module provides the core matching functionality for different search types:
+text, regex, AST-based, and semantic matching. It handles the actual search
+operations within individual files and returns structured results.
+
+Classes:
+    ASTNodeMatcher: Visitor class for AST-based pattern matching
+
+Functions:
+    search_in_file: Main entry point for file searching
+    text_search: Simple text pattern matching
+    regex_search: Enhanced regex pattern matching with named groups
+    ast_search: AST-based structural pattern matching
+    semantic_search: Lightweight semantic pattern matching
+
+Key Features:
+    - Multiple search modes with unified interface
+    - Context-aware result extraction with configurable line counts
+    - AST filtering by function names, class names, decorators, imports
+    - Regex support with multiline mode and named groups
+    - Semantic matching using lightweight vector and symbolic features
+    - Efficient line-to-column mapping for precise match locations
+
+Example:
+    Basic text search:
+        >>> from pysearch.matchers import search_in_file
+        >>> from pysearch.types import Query
+        >>>
+        >>> query = Query(pattern="def main", use_regex=False)
+        >>> results = search_in_file(Path("example.py"), "def main():\n    pass", query, context=2)
+        >>> print(f"Found {len(results)} matches")
+
+    AST-based search with filters:
+        >>> from pysearch.types import ASTFilters
+        >>> filters = ASTFilters(func_name="main", decorator="lru_cache")
+        >>> query = Query(pattern="def", use_ast=True, ast_filters=filters)
+        >>> results = search_in_file(Path("example.py"), content, query, context=2)
+"""
+
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
-from pathlib import Path
-from typing import List, Optional, Tuple
-from functools import lru_cache
 import bisect
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 import regex as regex_mod  # better regex engine
-# 类型检查兼容：避免在缺少 regex stubs 时产生类型问题
+
+# Type checking compatibility: avoid type issues when regex stubs are missing
 try:
     from typing import TYPE_CHECKING
+
     TYPE_CHECKING  # keep linters happy
 except Exception:  # pragma: no cover
     pass
-# 使用 Any 兜底，避免 Pylance/Mypy 对 Pattern 的声明不一致报错
-from typing import Any as _RegexPattern
+# Use Any as fallback to avoid Pylance/Mypy inconsistent Pattern declaration errors
 
-from .types import ASTFilters, Query, SearchItem, MatchSpan
+from .types import ASTFilters, MatchSpan, Query, SearchItem
 from .utils import extract_context, iter_python_ast_nodes, split_lines_keepends
 
 
@@ -33,16 +74,16 @@ def _get_compiled_regex(pattern: str, flags: int) -> regex_mod.Pattern:
     return regex_mod.compile(pattern, flags=flags)
 
 
-def _build_line_starts(text: str) -> List[int]:
+def _build_line_starts(text: str) -> list[int]:
     """返回每一行起始的绝对偏移（0-based）。"""
-    starts: List[int] = [0]
+    starts: list[int] = [0]
     for i, ch in enumerate(text):
         if ch == "\n":
             starts.append(i + 1)
     return starts
 
 
-def _offset_to_line_col(line_starts: List[int], offset: int) -> Tuple[int, int]:
+def _offset_to_line_col(line_starts: list[int], offset: int) -> tuple[int, int]:
     """通过二分将绝对 offset 映射到 (line_index_0based, col_0based)。"""
     # bisect_right 返回应插入位置，减一即为所在行索引
     li = bisect.bisect_right(line_starts, offset) - 1
@@ -52,8 +93,53 @@ def _offset_to_line_col(line_starts: List[int], offset: int) -> Tuple[int, int]:
     return li, col
 
 
-def find_text_regex_matches(text: str, pattern: str, use_regex: bool) -> List[TextMatch]:
-    matches: List[TextMatch] = []
+def _is_match_in_string_or_comment(
+    text: str, line_index: int, start_col: int, end_col: int
+) -> tuple[bool, bool, bool]:
+    """
+    Check if a match is in a string literal, comment, or docstring.
+
+    Returns:
+        Tuple of (is_in_string, is_in_comment, is_in_docstring)
+    """
+    lines = split_lines_keepends(text)
+    if line_index >= len(lines):
+        return False, False, False
+
+    line = lines[line_index]
+
+    # Check for comment (simple heuristic)
+    comment_pos = line.find("#")
+    if comment_pos != -1 and start_col >= comment_pos:
+        return False, True, False
+
+    # Simple string detection - check if the match is between quotes
+    # Look for quotes before and after the match position
+    before_match = line[:start_col]
+    after_match = line[end_col:]
+
+    # Count quotes before the match
+    single_quotes_before = before_match.count("'") - before_match.count("\\'")
+    double_quotes_before = before_match.count('"') - before_match.count('\\"')
+
+    # If odd number of quotes before, we're inside a string
+    if single_quotes_before % 2 == 1:
+        # Check if it's a triple quote (docstring)
+        if before_match.endswith("''") or after_match.startswith("''"):
+            return True, False, True
+        return True, False, False
+
+    if double_quotes_before % 2 == 1:
+        # Check if it's a triple quote (docstring)
+        if before_match.endswith('""') or after_match.startswith('""'):
+            return True, False, True
+        return True, False, False
+
+    return False, False, False
+
+
+def find_text_regex_matches(text: str, pattern: str, use_regex: bool) -> list[TextMatch]:
+    matches: list[TextMatch] = []
     if not text:
         return matches
     if use_regex:
@@ -81,7 +167,7 @@ def find_text_regex_matches(text: str, pattern: str, use_regex: bool) -> List[Te
     return matches
 
 
-def group_matches_into_blocks(matches: List[TextMatch]) -> List[Tuple[int, int, List[MatchSpan]]]:
+def group_matches_into_blocks(matches: list[TextMatch]) -> list[tuple[int, int, list[MatchSpan]]]:
     """
     将紧邻行的文本命中合并为块。
     返回: [(start_line_1based, end_line_1based, spans_struct)]
@@ -91,8 +177,8 @@ def group_matches_into_blocks(matches: List[TextMatch]) -> List[Tuple[int, int, 
         return []
     matches_sorted = sorted(matches, key=lambda m: (m.line_index, m.start_col, m.end_col))
 
-    grouped: List[List[TextMatch]] = []
-    bucket: List[TextMatch] = [matches_sorted[0]]
+    grouped: list[list[TextMatch]] = []
+    bucket: list[TextMatch] = [matches_sorted[0]]
     for m in matches_sorted[1:]:
         if m.line_index <= bucket[-1].line_index + 1:
             bucket.append(m)
@@ -101,11 +187,11 @@ def group_matches_into_blocks(matches: List[TextMatch]) -> List[Tuple[int, int, 
             bucket = [m]
     grouped.append(bucket)
 
-    result: List[Tuple[int, int, List[MatchSpan]]] = []
+    result: list[tuple[int, int, list[MatchSpan]]] = []
     for group in grouped:
         start_l = group[0].line_index + 1
         end_l = group[-1].line_index + 1
-        spans_struct: List[MatchSpan] = []
+        spans_struct: list[MatchSpan] = []
         for tm in group:
             spans_struct.append((tm.line_index, (tm.start_col, tm.end_col)))
         result.append((start_l, end_l, spans_struct))
@@ -149,7 +235,7 @@ def ast_node_matches_filters(node: ast.AST, filters: ASTFilters) -> bool:
     return True
 
 
-def find_ast_blocks(text: str, filters: Optional[ASTFilters]) -> List[Tuple[int, int]]:
+def find_ast_blocks(text: str, filters: ASTFilters | None) -> list[tuple[int, int]]:
     """
     Return list of (start_line, end_line) 1-based for AST nodes satisfying filters.
     If filters is None, returns empty.
@@ -159,7 +245,7 @@ def find_ast_blocks(text: str, filters: Optional[ASTFilters]) -> List[Tuple[int,
     tree = iter_python_ast_nodes(text)
     if tree is None:
         return []
-    results: List[Tuple[int, int]] = []
+    results: list[tuple[int, int]] = []
     for node in ast.walk(tree):
         # Use getattr with default to satisfy type checkers
         lineno = getattr(node, "lineno", None)
@@ -169,7 +255,7 @@ def find_ast_blocks(text: str, filters: Optional[ASTFilters]) -> List[Tuple[int,
                 results.append((int(lineno), int(end_lineno)))
     # merge overlapping ranges
     results.sort()
-    merged: List[Tuple[int, int]] = []
+    merged: list[tuple[int, int]] = []
     for s, e in results:
         if not merged or s > merged[-1][1] + 1:
             merged.append((s, e))
@@ -182,20 +268,80 @@ def search_in_file(
     path: Path,
     text: str,
     query: Query,
-) -> List[SearchItem]:
-    """
-    Combines text/regex and AST filters to produce SearchItems with context window.
+) -> list[SearchItem]:
+    r"""
+    Search for patterns within a single file and return structured results.
+
+    This is the main entry point for file-level searching. It combines multiple
+    search modes (text, regex, AST, semantic) and applies filters to produce
+    SearchItem objects with appropriate context.
+
+    Args:
+        path: Path to the file being searched (for result metadata)
+        text: File content as string
+        query: Query object specifying search parameters and filters
+
+    Returns:
+        List of SearchItem objects representing matches with context
+
+    Example:
+        >>> from pathlib import Path
+        >>> from pysearch.types import Query, ASTFilters
+        >>>
+        >>> # Simple text search
+        >>> content = "def main():\n    print('Hello')\n    return 0"
+        >>> query = Query(pattern="def main")
+        >>> results = search_in_file(Path("example.py"), content, query)
+        >>> print(f"Found {len(results)} matches")
+
+        >>> # AST search with filters
+        >>> filters = ASTFilters(func_name="main")
+        >>> query = Query(pattern="def", use_ast=True, filters=filters)
+        >>> results = search_in_file(Path("example.py"), content, query)
+
+        >>> # Regex search
+        >>> query = Query(pattern=r"def \w+", use_regex=True, context=1)
+        >>> results = search_in_file(Path("example.py"), content, query)
+
+    Note:
+        The function intelligently combines different search modes:
+        - Pure text/regex search when no AST filters are specified
+        - Pure AST search when only AST filters are used
+        - Intersection of text and AST matches when both are specified
+        - Semantic similarity scoring when semantic search is enabled
     """
     lines = split_lines_keepends(text)
-    items: List[SearchItem] = []
+    items: list[SearchItem] = []
 
     # AST block ranges
-    ast_blocks: List[Tuple[int, int]] = []
+    ast_blocks: list[tuple[int, int]] = []
     if query.filters:
         ast_blocks = find_ast_blocks(text, query.filters)
 
     # Text/regex matches
     tms = find_text_regex_matches(text, query.pattern, query.use_regex)
+
+    # Filter matches based on search_strings, search_comments, search_docstrings
+    if tms:
+        filtered_tms = []
+        for tm in tms:
+            is_in_string, is_in_comment, is_in_docstring = _is_match_in_string_or_comment(
+                text, tm.line_index, tm.start_col, tm.end_col
+            )
+
+            # Include match based on query settings
+            include_match = True
+            if is_in_string and not query.search_strings:
+                include_match = False
+            elif is_in_comment and not query.search_comments:
+                include_match = False
+            elif is_in_docstring and not query.search_docstrings:
+                include_match = False
+
+            if include_match:
+                filtered_tms.append(tm)
+
+        tms = filtered_tms
 
     if not tms and not ast_blocks:
         return []
@@ -218,7 +364,7 @@ def search_in_file(
     for start_l, end_l, spans_struct in grouped:
         ctx_s, ctx_e, slice_lines = extract_context(lines, start_l, end_l, window=query.context)
         # Rebase spans to context slice line indexes
-        spans_rebased: List[Tuple[int, Tuple[int, int]]] = []
+        spans_rebased: list[tuple[int, tuple[int, int]]] = []
         for li, (a, b) in spans_struct:
             if ctx_s <= li + 1 <= ctx_e:
                 spans_rebased.append((li - (ctx_s - 1), (a, b)))

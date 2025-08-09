@@ -1,23 +1,26 @@
-# 路线图
+# Roadmap
 
-以下为 pysearch 的阶段性规划，按优先级与影响度综合排序。
+The following is the phased planning for pysearch, sorted by priority and impact.
 
-## 近期（优先）
-- 语义检索增强：引入可选嵌入后端（本地/远程），支持开关与可插拔策略
-- 并行索引：多进程/多线程，提升大型仓库扫描性能
-- 结果去重与聚合：跨匹配器、跨文件的统一聚合
-- 更丰富输出：Markdown/HTML 导出，附高亮与跳转链接
-- IDE 集成：VS Code 扩展（最小可用），与 CLI 输出协议化
+## Near-term (Priority)
 
-## 中期
-- 持久化缓存：SQLite/磁盘结构化缓存，跨会话复用
-- 跨语言基座：抽象通用匹配管线，探索对 TS/Go 的基础支持
-- 更强 AST 查询：DSL 化，支持模式模板与占位符
-- 性能画像：生成火焰图/metrics 导出，用于基准与回归分析
+- **Enhanced Semantic Search**: Introduce optional embedding backends (local/remote), support toggles and pluggable strategies
+- **Parallel Indexing**: Multi-process/multi-threading to improve large repository scanning performance
+- **Result Deduplication & Aggregation**: Unified aggregation across matchers and files
+- **Richer Output**: Markdown/HTML export with highlighting and jump links
+- **IDE Integration**: VS Code extension (minimal viable), protocol-based CLI output
 
-## 长期
-- 分布式索引与检索：多节点协同，面向超大单体仓库
-- 更智能排序：学习排序（LTR）与交互反馈
-- 团队工作流：服务器/服务化部署，统一检索门户
+## Medium-term
 
-欢迎通过 Issue/PR 补充建议或参与实现，详细贡献流程见 CONTRIBUTING.md。
+- **Persistent Caching**: SQLite/disk structured caching for cross-session reuse
+- **Cross-language Foundation**: Abstract universal matching pipeline, explore basic support for TS/Go
+- **Enhanced AST Queries**: DSL-based with pattern templates and placeholders
+- **Performance Profiling**: Generate flame graphs/metrics export for benchmarking and regression analysis
+
+## Long-term
+
+- **Distributed Indexing & Search**: Multi-node collaboration for ultra-large monolithic repositories
+- **Smarter Ranking**: Learning to Rank (LTR) with interactive feedback
+- **Team Workflows**: Server/service deployment with unified search portal
+
+Welcome to contribute suggestions or participate in implementation through Issues/PRs. See CONTRIBUTING.md for detailed contribution process.

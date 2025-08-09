@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from pathlib import Path
-from typing import Iterable, List, Sequence, Tuple
 
 import orjson
 from rich.console import Console
 from rich.syntax import Syntax
 
-from .types import OutputFormat, SearchItem, SearchResult
+from .types import OutputFormat, SearchResult
 from .utils import highlight_spans
 
 
@@ -17,6 +16,7 @@ def to_json_bytes(result: SearchResult) -> bytes:
         if isinstance(obj, Path):
             return str(obj)
         return asdict(obj)
+
     # Convert manually to avoid asdict recursion issues for nested dataclasses within lists
     payload = {
         "items": [
@@ -35,24 +35,28 @@ def to_json_bytes(result: SearchResult) -> bytes:
 
 
 def format_text(result: SearchResult, highlight: bool = False) -> str:
-    out: List[str] = []
+    out: list[str] = []
     for it in result.items:
         header = f"{it.file}:{it.start_line}-{it.end_line}"
         out.append(header)
         ln = it.start_line
-        spans_by_line: dict[int, List[Tuple[int, int]]] = {}
+        spans_by_line: dict[int, list[tuple[int, int]]] = {}
         for li, (a, b) in it.match_spans:
             spans_by_line.setdefault(li, []).append((a, b))
         for idx, line in enumerate(it.lines, start=0):
             prefix = f"{ln + idx:6d} | "
             content = line
             if highlight and idx in spans_by_line:
-                content = highlight_spans(content, spans_by_line[idx], marker_left="[[", marker_right="]]")
+                content = highlight_spans(
+                    content, spans_by_line[idx], marker_left="[[", marker_right="]]"
+                )
             out.append(prefix + content)
         out.append("")
     # stats
     s = result.stats
-    out.append(f"# files_scanned={s.files_scanned} files_matched={s.files_matched} items={s.items} elapsed_ms={s.elapsed_ms:.2f} indexed={s.indexed_files}")
+    out.append(
+        f"# files_scanned={s.files_scanned} files_matched={s.files_matched} items={s.items} elapsed_ms={s.elapsed_ms:.2f} indexed={s.indexed_files}"
+    )
     return "\n".join(out)
 
 
@@ -66,7 +70,9 @@ def render_highlight_console(result: SearchResult) -> None:
         console.print(syntax)
         console.print()
     s = result.stats
-    console.print(f"[dim]files_scanned={s.files_scanned} files_matched={s.files_matched} items={s.items} elapsed_ms={s.elapsed_ms:.2f} indexed={s.indexed_files}[/dim]")
+    console.print(
+        f"[dim]files_scanned={s.files_scanned} files_matched={s.files_matched} items={s.items} elapsed_ms={s.elapsed_ms:.2f} indexed={s.indexed_files}[/dim]"
+    )
 
 
 def format_result(result: SearchResult, fmt: OutputFormat) -> str:

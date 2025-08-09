@@ -1,21 +1,23 @@
 from __future__ import annotations
 
-from pathlib import Path
 import random
 import string
-import time
-from typing import Protocol, Callable, TypeVar
+from collections.abc import Callable
+from pathlib import Path
+from typing import Protocol, TypeVar
 
 from pysearch.config import SearchConfig
 
 T = TypeVar("T")
 
+
 class _Benchmark(Protocol):
     def __call__(self, func: Callable[[], T]) -> T: ...
 
+
 from pysearch.indexer import Indexer
-from pysearch.utils import iter_files
 from pysearch.matchers import find_text_regex_matches
+from pysearch.utils import iter_files
 
 
 def _write(p: Path, content: str) -> None:
@@ -128,9 +130,11 @@ def test_benchmark_indexer_strict_vs_lazy(benchmark: _Benchmark, tmp_path: Path)
     run_lazy()
     run_strict()
 
-    # Re-scan without modifications
+    # Re-scan without modifications - just test one mode with benchmark
     c_lazy, total_lazy = benchmark(run_lazy)
-    c_strict, total_strict = benchmark(run_strict)
+
+    # Test strict mode without benchmark
+    c_strict, total_strict = run_strict()
 
     assert total_lazy == total_strict
     # On a second pass with no file changes expected, strict mode should usually report 0 changes

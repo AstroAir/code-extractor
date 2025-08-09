@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import time
+from pathlib import Path
 
 from pysearch.config import SearchConfig
 from pysearch.indexer import Indexer

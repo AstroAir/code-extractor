@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import ast
 import hashlib
-import io
 import os
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator, List, Optional, Tuple
 
 import pathspec
+
+from .language_detection import detect_language, is_text_file
+from .types import FileMetadata
 
 
 @dataclass(slots=True)
@@ -16,7 +18,7 @@ class FileMeta:
     path: Path
     size: int
     mtime: float
-    sha1: Optional[str] = None
+    sha1: str | None = None
 
 
 def sha1_bytes(data: bytes) -> str:
@@ -25,7 +27,7 @@ def sha1_bytes(data: bytes) -> str:
     return h.hexdigest()
 
 
-def file_sha1(path: Path, chunk_size: int = 1024 * 1024) -> Optional[str]:
+def file_sha1(path: Path, chunk_size: int = 1024 * 1024) -> str | None:
     """按块计算文件 sha1，避免一次性读取大文件。"""
     try:
         h = hashlib.sha1()
@@ -40,37 +42,85 @@ def file_sha1(path: Path, chunk_size: int = 1024 * 1024) -> Optional[str]:
         return None
 
 
-def read_text_safely(path: Path, max_bytes: int = 2_000_000) -> Optional[str]:
+def read_text_safely(path: Path, max_bytes: int = 2_000_000) -> str | None:
+    """
+    Safely read text file with encoding detection and size limits.
+    Enhanced to handle more file types and better encoding detection.
+    """
     try:
+        # Check if it's likely a text file first
+        if not is_text_file(path):
+            return None
+
         size = path.stat().st_size
         if size > max_bytes:
             return None
-        # Prefer UTF-8 with fallback
+
+        # Read raw bytes
         with path.open("rb") as f:
             raw = f.read()
-        for enc in ("utf-8", "utf-8-sig", "latin-1"):
+
+        # Try multiple encodings in order of preference
+        encodings = ["utf-8", "utf-8-sig", "latin-1", "cp1252", "iso-8859-1"]
+
+        for enc in encodings:
             try:
-                return raw.decode(enc)
+                content = raw.decode(enc)
+                # Basic sanity check - ensure it's mostly printable text
+                if _is_likely_text_content(content):
+                    return content
             except UnicodeDecodeError:
                 continue
+
+        # Last resort - decode with errors ignored
         return raw.decode("utf-8", errors="ignore")
     except Exception:
         return None
 
 
-def build_pathspec(include: List[str], exclude: List[str]) -> tuple[pathspec.PathSpec, pathspec.PathSpec]:
+def _is_likely_text_content(content: str) -> bool:
+    """Check if content appears to be text (not binary)."""
+    if not content:
+        return True
+
+    # Check for null bytes (common in binary files)
+    if "\x00" in content:
+        return False
+
+    # Check ratio of printable characters
+    printable_chars = sum(1 for c in content if c.isprintable() or c.isspace())
+    ratio = printable_chars / len(content)
+
+    return ratio > 0.7  # At least 70% printable characters
+
+
+def build_pathspec(
+    include: list[str], exclude: list[str]
+) -> tuple[pathspec.PathSpec, pathspec.PathSpec]:
     inc = pathspec.PathSpec.from_lines("gitwildmatch", include or ["**/*"])
     exc = pathspec.PathSpec.from_lines("gitwildmatch", exclude or [])
     return inc, exc
 
 
+def matches_patterns(path: Path, patterns: list[str] | tuple[str, ...]) -> bool:
+    """Return True if the given path matches any of the gitwildmatch patterns.
+
+    This helper mirrors the matching logic used elsewhere (absolute, normalized path).
+    """
+    if not patterns:
+        return False
+    spec = pathspec.PathSpec.from_lines("gitwildmatch", list(patterns))
+    return spec.match_file(str(Path(path).resolve()))
+
+
 def iter_files(
     roots: Iterable[str],
-    include: List[str],
-    exclude: List[str],
+    include: list[str],
+    exclude: list[str],
     follow_symlinks: bool = False,
     *,
     prune_excluded_dirs: bool = True,
+    language_filter: set | None = None,
 ) -> Iterator[Path]:
     """
     遍历文件。支持通过 exclude 规则对目录进行剪枝以减少无谓遍历。
@@ -90,7 +140,7 @@ def iter_files(
         for dirpath, dirnames, filenames in os.walk(root_path, followlinks=follow_symlinks):
             # 目录剪枝：原地修改 dirnames，阻止 os.walk 进入被排除的子树
             if prune_excluded_dirs and dirnames:
-                pruned: List[str] = []
+                pruned: list[str] = []
                 for d in list(dirnames):
                     full = Path(dirpath) / d
                     rel_dir = str(full.resolve())
@@ -109,10 +159,17 @@ def iter_files(
                     continue
                 if exc.match_file(rel):
                     continue
+
+                # Language filtering if specified
+                if language_filter is not None:
+                    detected_lang = detect_language(p)
+                    if detected_lang not in language_filter:
+                        continue
+
                 yield p
 
 
-def file_meta(path: Path) -> Optional[FileMeta]:
+def file_meta(path: Path) -> FileMeta | None:
     """仅返回最小 stat 信息（不读取全文、不计算 sha1）。"""
     try:
         st = path.stat()
@@ -121,7 +178,35 @@ def file_meta(path: Path) -> Optional[FileMeta]:
         return None
 
 
-def extract_context(lines: List[str], start: int, end: int, window: int) -> Tuple[int, int, List[str]]:
+def create_file_metadata(path: Path, content: str | None = None) -> FileMetadata | None:
+    """Create enhanced file metadata with language detection."""
+    try:
+        st = path.stat()
+
+        # Detect language
+        language = detect_language(path, content)
+
+        # Count lines if content is available
+        line_count = None
+        if content is not None:
+            line_count = content.count("\n") + 1 if content else 0
+
+        return FileMetadata(
+            path=path,
+            size=st.st_size,
+            mtime=st.st_mtime,
+            language=language,
+            line_count=line_count,
+            created_date=st.st_ctime,
+            modified_date=st.st_mtime,
+        )
+    except Exception:
+        return None
+
+
+def extract_context(
+    lines: list[str], start: int, end: int, window: int
+) -> tuple[int, int, list[str]]:
     """
     lines: full file lines without trailing newlines normalization assumed
     start/end: 1-based line numbers of the primary match segment (inclusive)
@@ -135,19 +220,21 @@ def extract_context(lines: List[str], start: int, end: int, window: int) -> Tupl
     return s, e, lines[s - 1 : e]
 
 
-def split_lines_keepends(text: str) -> List[str]:
+def split_lines_keepends(text: str) -> list[str]:
     # 实际不保留换行符，名称容易误导；保留以兼容现有调用。
     # 未来可考虑更名为 split_lines，并保持行为不变。
     return text.splitlines()
 
 
-def highlight_spans(line: str, spans: List[Tuple[int, int]], marker_left: str = "[", marker_right: str = "]") -> str:
+def highlight_spans(
+    line: str, spans: list[tuple[int, int]], marker_left: str = "[", marker_right: str = "]"
+) -> str:
     """Lightweight span highlighting for plain text output when rich is unavailable in some contexts."""
     if not spans:
         return line
     # Ensure non-overlapping and sorted
     spans = sorted(spans, key=lambda x: x[0])
-    out: List[str] = []
+    out: list[str] = []
     last = 0
     for a, b in spans:
         a = max(0, min(len(line), a))
@@ -165,7 +252,7 @@ def highlight_spans(line: str, spans: List[Tuple[int, int]], marker_left: str = 
     return "".join(out)
 
 
-def iter_python_ast_nodes(src: str) -> Optional[ast.AST]:
+def iter_python_ast_nodes(src: str) -> ast.AST | None:
     try:
         return ast.parse(src)
     except SyntaxError:

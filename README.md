@@ -1,35 +1,59 @@
 # pysearch
 
-pysearch 是一个面向 Python 代码库的高性能、上下文感知搜索引擎，支持文本/正则/AST/语义搜索，提供 CLI 与可编程 API，适用于大型多模块项目的工程化检索。
+pysearch is a high-performance, context-aware search engine for Python codebases that supports text/regex/AST/semantic search, providing both CLI and programmable API interfaces, designed for engineering-grade retrieval in large multi-module projects.
 
-特性概览
-- 代码块匹配：函数、类、装饰器、导入、字符串/注释、任意代码片段
-- 上下文感知：返回匹配代码并带可配置上下文行数
-- 全项目搜索：高效索引与缓存，适配大型代码库
-- 多种匹配：正则、AST 结构化、语义（轻量向量/符号特征）
-- 强定制化：包含/排除目录、文件类型、上下文窗口、过滤器（函数名、类名、装饰器、导入等）
-- 多格式输出：plain text、JSON、带高亮的控制台输出
-- 评分排序：可配置的结果打分规则
-- 性能指标：检索时间、扫描文件数、命中数量等
-- CLI 与 API：命令行操作与 Python 内嵌调用
-- 测试与基准：pytest 覆盖率 > 90%，附带基准脚本
+## Features Overview
 
-## 安装
+- **Code Block Matching**: Functions, classes, decorators, imports, strings/comments, arbitrary code snippets
+- **Context-Aware**: Returns matched code with configurable context lines
+- **Project-Wide Search**: Efficient indexing and caching, optimized for large codebases
+- **Multiple Match Types**: Regex, AST structural, semantic (lightweight vector/symbolic features)
+- **Highly Customizable**: Include/exclude directories, file types, context windows, filters (function names, class names, decorators, imports, etc.)
+- **Multiple Output Formats**: Plain text, JSON, highlighted console output
+- **Scoring and Ranking**: Configurable result scoring rules
+- **Performance Metrics**: Search time, files scanned, match counts, etc.
+- **CLI & API**: Command-line operations and Python embedded calls
+- **Testing & Benchmarks**: pytest coverage > 90%, with benchmark scripts
 
-建议使用 Python 3.10+。
-```
+## Installation
+
+Recommended Python 3.10+.
+
+### Basic Installation
+
+```bash
 pip install -e .
 ```
 
-开发依赖：
+### Development Setup
+
+For development, use the provided setup script:
+
+```bash
+./scripts/dev-install.sh
 ```
+
+Or manually:
+
+```bash
 pip install -e ".[dev]"
+pre-commit install
 ```
 
-## 快速开始
+### Validation
 
-CLI
+Verify your installation:
+
+```bash
+make validate
+# or
+./scripts/validate-project.sh
 ```
+
+## Quick Start
+
+### CLI Usage
+```bash
 pysearch find \
   --pattern "requests.get" \
   --path . \
@@ -38,7 +62,7 @@ pysearch find \
   --format text
 ```
 
-API
+### API Usage
 ```python
 from pysearch.api import PySearch
 from pysearch.config import SearchConfig
@@ -49,25 +73,55 @@ for r in results.items:
     print(r.file, r.lines)
 ```
 
-## 核心能力
+## Core Capabilities
 
-- 文本/正则搜索：基于 `regex` 提供更强正则能力，支持多行模式与命名分组
-- AST 搜索：基于 `ast` 和自定义匹配器，按函数/类/装饰器/导入过滤或定位节点
-- 语义搜索：轻量向量+符号特征，考虑结构与标识符语义（无需外部模型）
-- 索引与缓存：记录文件 mtime、哈希、大小，实现增量更新
-- 输出与高亮：`rich`/`pygments` 控制台高亮，`orjson` 快速 JSON 输出
+- **Text/Regex Search**: Enhanced regex capabilities based on `regex` library, supporting multiline mode and named groups
+- **AST Search**: Based on `ast` module and custom matchers, filter or locate nodes by function/class/decorator/import
+- **Semantic Search**: Lightweight vector + symbolic features, considering structure and identifier semantics (no external models required)
+- **Indexing & Caching**: Records file mtime, hash, size for incremental updates
+- **Output & Highlighting**: `rich`/`pygments` console highlighting, `orjson` fast JSON output
 
-## 典型用例
+## Project Structure
 
-- 查找使用特定装饰器的所有函数
-- 定位引入特定模块的文件，并显示上下文
-- 搜索所有包含某正则模式的代码块
-- 基于 AST 查找所有名为 X 的类/函数定义
-- 跨项目统计匹配结果与性能指标
-
-## CLI 使用
-
+```text
+├── src/pysearch/          # Core PySearch library
+├── mcp/                   # MCP (Model Context Protocol) servers
+│   ├── servers/           # MCP server implementations
+│   ├── shared/            # Shared MCP utilities
+│   └── README.md          # MCP documentation
+├── tools/                 # Development and utility tools
+├── examples/              # Usage examples and demos
+├── tests/                 # Test suite
+├── docs/                  # Documentation
+├── scripts/               # Build and development scripts
+└── configs/               # Configuration files
 ```
+
+### MCP Servers
+
+PySearch includes several MCP server implementations for LLM integration:
+
+- **Main MCP Server**: Advanced features with fuzzy search, analysis, and composition
+- **Basic MCP Server**: Core search functionality (legacy)
+- **FastMCP Server**: Optimized performance implementation
+
+Run an MCP server:
+
+```bash
+./scripts/run-mcp-server.sh main
+```
+
+## Typical Use Cases
+
+- Find all functions using specific decorators
+- Locate files importing specific modules with context
+- Search all code blocks containing certain regex patterns
+- Find all class/function definitions named X using AST
+- Cross-project statistics of match results and performance metrics
+
+## CLI Usage
+
+```bash
 pysearch find \
   --path src tests \
   --include "**/*.py" \
@@ -81,19 +135,20 @@ pysearch find \
   --rank "ast_weight:2,text_weight:1"
 ```
 
-主要参数
-- --path: 搜索路径（可多个）
-- --include/--exclude: 包含/排除的 glob 模式
-- --pattern: 文本/正则模式或语义查询
-- --regex: 启用正则匹配
-- --context: 上下文行数
-- --format: 输出格式 text/json/highlight
-- --filter-func-name/--filter-class-name/--filter-decorator/--filter-import: AST 过滤器
-- --rank: 排序权重配置
-- --docstrings/--comments/--strings: 是否搜索文档字符串、注释、字符串字面量
-- --stats: 打印性能统计
+### Main Parameters
 
-## 编程接口
+- `--path`: Search paths (multiple allowed)
+- `--include/--exclude`: Include/exclude glob patterns
+- `--pattern`: Text/regex pattern or semantic query
+- `--regex`: Enable regex matching
+- `--context`: Number of context lines
+- `--format`: Output format (text/json/highlight)
+- `--filter-func-name/--filter-class-name/--filter-decorator/--filter-import`: AST filters
+- `--rank`: Ranking weight configuration
+- `--docstrings/--comments/--strings`: Whether to search docstrings, comments, string literals
+- `--stats`: Print performance statistics
+
+## Programming Interface
 
 ```python
 from pysearch.api import PySearch
@@ -116,25 +171,27 @@ res = engine.run(Query(pattern="ClassName", use_regex=False, use_ast=True))
 print(res.stats, len(res.items))
 ```
 
-## 测试与基准
+## Testing & Benchmarks
 
-运行测试与覆盖率：
-```
+Run tests with coverage:
+
+```bash
 pytest
 ```
 
-运行基准：
-```
+Run benchmarks:
+
+```bash
 pytest tests/benchmarks -k benchmark -q
 ```
 
-## 路线图
+## Roadmap
 
-- 更强的语义检索（可选外部嵌入后端）
-- IDE/编辑器集成（VS Code/JetBrains）协议化输出
-- 并行与分布式索引
-- 更精细的语法高亮与差异化展示
+- **Enhanced Semantic Search**: Optional external embedding backends
+- **IDE/Editor Integration**: VS Code/JetBrains with protocol-based output
+- **Parallel & Distributed Indexing**: Multi-process/multi-threaded indexing
+- **Advanced Syntax Highlighting**: More refined highlighting and differentiated display
 
-## 许可证
+## License
 
 MIT

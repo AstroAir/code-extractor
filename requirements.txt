@@ -1,0 +1,16 @@
+# PySearch Core Dependencies
+# 
+# This file is generated from pyproject.toml for compatibility.
+# For development, use: pip install -e ".[dev]"
+# For production, use: pip install -e .
+
+rich>=13.7.1
+orjson>=3.10.7
+regex>=2024.5.15
+pathspec>=0.12.1
+click>=8.1.7
+pydantic>=2.7.0
+fastmcp>=2.11.0
+fuzzywuzzy>=0.18.0
+python-levenshtein>=0.21.0
+rapidfuzz>=3.0.0

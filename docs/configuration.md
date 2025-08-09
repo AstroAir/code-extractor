@@ -1,95 +1,710 @@
-# 配置说明
+# Configuration Guide
 
-pysearch 通过 `SearchConfig` 与 CLI 参数进行配置，支持包含/排除规则、上下文窗口、输出格式、AST 过滤与语义搜索开关等。
+This comprehensive guide covers all configuration options for pysearch, from basic setup to advanced performance tuning.
 
-本页同步介绍新增的性能相关配置：目录剪枝与严格哈希校验。
+## Table of Contents
 
-## 配置项（API）
+- [Overview](#overview)
+- [Basic Configuration](#basic-configuration)
+- [Search Scope Configuration](#search-scope-configuration)
+- [Performance Configuration](#performance-configuration)
+- [Content Filtering](#content-filtering)
+- [Output Configuration](#output-configuration)
+- [Advanced Options](#advanced-options)
+- [Configuration Files](#configuration-files)
+- [Environment Variables](#environment-variables)
+- [Best Practices](#best-practices)
+
+---
+
+## Overview
+
+pysearch uses the `SearchConfig` class for all configuration management. Configuration can be set through:
+
+- **Python API**: Direct instantiation of `SearchConfig`
+- **CLI parameters**: Command-line arguments
+- **Configuration files**: TOML configuration files
+- **Environment variables**: Environment-based settings
+
+### Configuration Hierarchy
+
+Settings are applied in this order (later overrides earlier):
+
+1. Default values
+2. Configuration file settings
+3. Environment variables
+4. CLI parameters
+5. API parameters
+
+---
+
+## Basic Configuration
+
+### Minimal Setup
+
+```python
+from pysearch import PySearch, SearchConfig
+
+# Minimal configuration
+config = SearchConfig()
+engine = PySearch(config)
+
+# Search current directory for Python files
+results = engine.search("def main")
+```
+
+### Common Setup
 
 ```python
 from pysearch.config import SearchConfig
 from pysearch.types import OutputFormat
 
-cfg = SearchConfig(
-    paths=["."],
-    include=["**/*.py"],
-    exclude=["**/.venv/**", "**/.git/**", "**/build/**", "**/dist/**", "**/__pycache__/**"],
-    context=2,
-    output_format=OutputFormat.TEXT,
-    enable_docstrings=True,
-    enable_comments=True,
-    enable_strings=True,
+config = SearchConfig(
+    paths=["./src", "./tests"],           # Search paths
+    include=["**/*.py"],                  # Include patterns
+    exclude=["**/.venv/**", "**/.git/**"], # Exclude patterns
+    context=3,                            # Context lines
+    output_format=OutputFormat.JSON,      # Output format
+    parallel=True,                        # Enable parallel processing
+    workers=4                             # Number of workers
 )
-# 新增配置可在实例化后按需调整
-cfg.strict_hash_check = False   # 默认 False
-cfg.dir_prune_exclude = True    # 默认 True
 ```
 
-字段说明
-- paths: 搜索路径列表
-- include: 包含的 glob 模式
-- exclude: 排除的 glob 模式
-- context: 匹配上下文行数
-- output_format: text/json/highlight
-- enable_docstrings/comments/strings: 是否在这些位置搜索
-- strict_hash_check（新增）: 严格哈希校验。默认 False。开启后 Indexer 在 size/mtime 变化时计算 SHA1 与索引对比，仅当哈希变化才视为内容变更；首次扫描会记录 sha1。关闭时仅以 size/mtime 判定，避免全量读取，提升性能。
-- dir_prune_exclude（新增）: 目录剪枝。默认 True。遍历时依据 exclude 规则跳过整棵不需要的子树（如 `.venv/`、`.git/`、`__pycache__/`），减少磁盘 IO 与路径匹配开销。不开启时仍会在文件级别按规则过滤，结果一致，仅性能不同。
+---
 
-## AST 过滤器
+## Search Scope Configuration
+
+### Paths
+
+Define which directories to search.
 
 ```python
-from pysearch.types import ASTFilters
-
-filters = ASTFilters(
-    func_name="^handle_.*$",
-    class_name=".*Controller$",
-    decorator="lru_cache",
-    imported="requests.get",
+config = SearchConfig(
+    paths=[
+        "./src",           # Source code
+        "./tests",         # Test files
+        "./docs",          # Documentation
+        "../shared-lib"    # External library
+    ]
 )
 ```
 
-- func_name / class_name: 正则匹配函数名 / 类名
-- decorator: 正则匹配装饰器标识符
-- imported: 正则匹配导入符号（含模块前缀）
+**CLI equivalent:**
 
-## CLI 与配置等价性
-
-CLI 参数与 `SearchConfig` 字段一一对应，例如：
 ```bash
-pysearch find \
-  --path src --include "**/*.py" --exclude "**/.venv/**" \
-  --pattern "def main" --regex --context 2 --format json \
-  --filter-func-name "^main$"
+pysearch find --path ./src --path ./tests --path ./docs --pattern "pattern"
 ```
 
-启用新增配置（示例，以 TOML 为例，字段名等同于 API）：
-```toml
-# configs/config.example.toml
-paths = ["."]
-include = ["**/*.py"]
-exclude = ["**/.venv/**", "**/.git/**", "**/__pycache__/**"]
-strict_hash_check = true
-dir_prune_exclude = true
-```
+### Include Patterns
 
-或在 Python API 中：
+Specify which files to include using glob patterns.
+
 ```python
-from pysearch.config import SearchConfig
-cfg = SearchConfig(paths=["."], include=["**/*.py"], exclude=["**/.venv/**"])
-cfg.strict_hash_check = True
-cfg.dir_prune_exclude = True
+config = SearchConfig(
+    include=[
+        "**/*.py",         # Python files
+        "**/*.pyx",        # Cython files
+        "**/*.pyi",        # Type stub files
+        "**/Dockerfile",   # Docker files
+        "**/Makefile"      # Make files
+    ]
+)
 ```
 
-## 典型组合建议
+**Auto-detection:** If `include` is `None`, pysearch automatically detects patterns based on supported languages.
 
-- 本地快速迭代
-  - strict_hash_check = False（默认）
-  - dir_prune_exclude = True（默认）
+### Exclude Patterns
 
-- CI / 稳定构建审核（更强一致性）
-  - strict_hash_check = True
-  - dir_prune_exclude = True
+Specify which files/directories to exclude.
 
-## 环境与示例配置
+```python
+config = SearchConfig(
+    exclude=[
+        "**/.venv/**",         # Virtual environments
+        "**/.git/**",          # Git directories
+        "**/node_modules/**",  # Node.js modules
+        "**/__pycache__/**",   # Python cache
+        "**/build/**",         # Build artifacts
+        "**/dist/**",          # Distribution files
+        "**/.pytest_cache/**", # Pytest cache
+        "**/htmlcov/**"        # Coverage reports
+    ]
+)
+```
 
-在仓库根目录提供 `.env.example` 与 `configs/config.example.toml`，用于演示本地环境变量与项目级配置组织方式，便于在 CI 或示例中复用。
+**Default exclusions:** If `exclude` is `None`, sensible defaults are applied automatically.
+
+### Language Filtering
+
+Limit search to specific programming languages.
+
+```python
+from pysearch.types import Language
+
+config = SearchConfig(
+    languages={
+        Language.PYTHON,
+        Language.JAVASCRIPT,
+        Language.TYPESCRIPT
+    }
+)
+```
+
+**Supported languages:**
+
+- Python (.py, .pyx, .pyi)
+- JavaScript (.js, .jsx, .mjs)
+- TypeScript (.ts, .tsx)
+- Java (.java)
+- C/C++ (.c, .cpp, .h, .hpp)
+- Rust (.rs)
+- Go (.go)
+- And more...
+
+### File Size Limits
+
+Control which files are processed based on size.
+
+```python
+config = SearchConfig(
+    file_size_limit=2_000_000,  # 2MB limit
+    max_file_bytes=2_000_000    # Backup limit (deprecated)
+)
+```
+
+---
+
+## Performance Configuration
+
+### Parallel Processing
+
+Enable multi-threaded search for better performance.
+
+```python
+config = SearchConfig(
+    parallel=True,      # Enable parallel processing
+    workers=8,          # Number of worker threads (0 = auto)
+)
+```
+
+**Auto-detection:** Setting `workers=0` automatically uses `cpu_count()`.
+
+### Caching Configuration
+
+Configure file content and index caching.
+
+```python
+from pathlib import Path
+
+config = SearchConfig(
+    cache_dir=Path("./custom-cache"),  # Custom cache directory
+    # Default: .pysearch-cache under first search path
+)
+
+# Enable caching in engine
+engine = PySearch(config)
+engine.enable_caching(ttl=3600)  # 1 hour cache
+```
+
+### Hash Verification
+
+Control file change detection precision.
+
+```python
+config = SearchConfig(
+    strict_hash_check=False  # Default: False for performance
+)
+```
+
+**Options:**
+
+- `True`: Compute SHA1 hash for precise change detection (slower)
+- `False`: Use size/mtime only for change detection (faster)
+
+### Directory Pruning
+
+Optimize directory traversal by skipping excluded directories.
+
+```python
+config = SearchConfig(
+    dir_prune_exclude=True  # Default: True
+)
+```
+
+**Options:**
+
+- `True`: Skip excluded directories during traversal (faster)
+- `False`: Check all files individually (slower but same results)
+
+---
+
+## Content Filtering
+
+### Content Type Toggles
+
+Control which parts of files to search.
+
+```python
+config = SearchConfig(
+    enable_docstrings=True,   # Search in docstrings
+    enable_comments=True,     # Search in comments
+    enable_strings=True       # Search in string literals
+)
+```
+
+**Use cases:**
+
+- Code-only search: `enable_docstrings=False, enable_comments=False`
+- Documentation search: `enable_docstrings=True, enable_comments=False, enable_strings=False`
+- Full-text search: All enabled (default)
+
+### Symlink Handling
+
+Control whether to follow symbolic links.
+
+```python
+config = SearchConfig(
+    follow_symlinks=False  # Default: False for security
+)
+```
+
+**Security note:** Following symlinks can lead to infinite loops or access to unintended files.
+
+---
+
+## Output Configuration
+
+### Output Format
+
+Choose the output format for results.
+
+```python
+from pysearch.types import OutputFormat
+
+config = SearchConfig(
+    output_format=OutputFormat.JSON  # JSON, TEXT, or HIGHLIGHT
+)
+```
+
+**Formats:**
+
+- `TEXT`: Human-readable plain text
+- `JSON`: Machine-readable structured data
+- `HIGHLIGHT`: Terminal with syntax highlighting
+
+### Context Lines
+
+Control how many lines of context to show around matches.
+
+```python
+config = SearchConfig(
+    context=5  # Show 5 lines before and after each match
+)
+```
+
+**Performance impact:** More context lines increase memory usage and output size.
+
+### Ranking Configuration
+
+Configure result scoring and ranking.
+
+```python
+from pysearch.config import RankStrategy
+
+config = SearchConfig(
+    rank_strategy=RankStrategy.DEFAULT,
+    ast_weight=2.0,    # Boost AST matches
+    text_weight=1.0    # Standard text matches
+)
+```
+
+---
+
+## Advanced Options
+
+### Complete Configuration Example
+
+```python
+from pysearch.config import SearchConfig, RankStrategy
+from pysearch.types import OutputFormat, Language
+from pathlib import Path
+
+config = SearchConfig(
+    # Search scope
+    paths=["./src", "./tests", "./docs"],
+    include=["**/*.py", "**/*.pyx", "**/*.md"],
+    exclude=[
+        "**/.venv/**",
+        "**/.git/**",
+        "**/build/**",
+        "**/__pycache__/**"
+    ],
+    languages={Language.PYTHON},
+
+    # Behavior
+    context=3,
+    output_format=OutputFormat.JSON,
+    follow_symlinks=False,
+    file_size_limit=5_000_000,  # 5MB
+
+    # Content filtering
+    enable_docstrings=True,
+    enable_comments=False,
+    enable_strings=True,
+
+    # Performance
+    parallel=True,
+    workers=6,
+    cache_dir=Path("./custom-cache"),
+    strict_hash_check=False,
+    dir_prune_exclude=True,
+
+    # Ranking
+    rank_strategy=RankStrategy.DEFAULT,
+    ast_weight=2.5,
+    text_weight=1.0
+)
+```
+
+### Dynamic Configuration
+
+Modify configuration after creation:
+
+```python
+config = SearchConfig()
+
+# Adjust for development
+config.parallel = True
+config.workers = 8
+config.enable_comments = False
+
+# Adjust for production
+if production_mode:
+    config.strict_hash_check = True
+    config.file_size_limit = 1_000_000
+```
+
+---
+
+## Configuration Files
+
+### TOML Configuration
+
+Create a `pysearch.toml` file:
+
+```toml
+# pysearch.toml
+[search]
+paths = ["./src", "./tests"]
+include = ["**/*.py", "**/*.pyx"]
+exclude = ["**/.venv/**", "**/.git/**", "**/__pycache__/**"]
+context = 3
+parallel = true
+workers = 4
+
+[content]
+enable_docstrings = true
+enable_comments = false
+enable_strings = true
+
+[performance]
+strict_hash_check = false
+dir_prune_exclude = true
+file_size_limit = 2000000
+
+[output]
+format = "json"
+```
+
+### Loading Configuration Files
+
+```python
+import tomllib
+from pysearch.config import SearchConfig
+
+# Load from TOML file
+with open("pysearch.toml", "rb") as f:
+    config_data = tomllib.load(f)
+
+# Create config from loaded data
+config = SearchConfig(**config_data.get("search", {}))
+
+# Apply other sections
+if "content" in config_data:
+    for key, value in config_data["content"].items():
+        setattr(config, key, value)
+```
+
+### Configuration File Locations
+
+pysearch looks for configuration files in this order:
+
+1. `./pysearch.toml` (current directory)
+2. `~/.config/pysearch/config.toml` (user config)
+3. `/etc/pysearch/config.toml` (system config)
+
+---
+
+## Environment Variables
+
+### Supported Variables
+
+```bash
+# Basic settings
+export PYSEARCH_PATHS="./src:./tests"
+export PYSEARCH_CONTEXT="5"
+export PYSEARCH_PARALLEL="true"
+export PYSEARCH_WORKERS="8"
+
+# Content filtering
+export PYSEARCH_ENABLE_DOCSTRINGS="false"
+export PYSEARCH_ENABLE_COMMENTS="false"
+export PYSEARCH_ENABLE_STRINGS="true"
+
+# Performance
+export PYSEARCH_STRICT_HASH_CHECK="false"
+export PYSEARCH_DIR_PRUNE_EXCLUDE="true"
+export PYSEARCH_FILE_SIZE_LIMIT="2000000"
+
+# Output
+export PYSEARCH_OUTPUT_FORMAT="json"
+
+# Debug
+export PYSEARCH_DEBUG="true"
+export PYSEARCH_LOG_LEVEL="DEBUG"
+```
+
+### Loading Environment Variables
+
+```python
+import os
+from pysearch.config import SearchConfig
+
+config = SearchConfig()
+
+# Override with environment variables
+if "PYSEARCH_PARALLEL" in os.environ:
+    config.parallel = os.environ["PYSEARCH_PARALLEL"].lower() == "true"
+
+if "PYSEARCH_WORKERS" in os.environ:
+    config.workers = int(os.environ["PYSEARCH_WORKERS"])
+
+if "PYSEARCH_CONTEXT" in os.environ:
+    config.context = int(os.environ["PYSEARCH_CONTEXT"])
+```
+
+---
+
+## Best Practices
+
+### Development Configuration
+
+Optimized for fast iteration during development:
+
+```python
+dev_config = SearchConfig(
+    paths=["./src"],
+    exclude=["**/.venv/**", "**/.git/**", "**/__pycache__/**"],
+    parallel=True,
+    workers=4,
+    strict_hash_check=False,  # Faster
+    dir_prune_exclude=True,   # Skip excluded dirs
+    enable_comments=False,    # Focus on code
+    context=2                 # Minimal context
+)
+```
+
+### Production Configuration
+
+Optimized for accuracy and comprehensive results:
+
+```python
+prod_config = SearchConfig(
+    paths=["./src", "./tests", "./docs"],
+    parallel=True,
+    workers=8,
+    strict_hash_check=True,   # More accurate
+    dir_prune_exclude=True,
+    enable_docstrings=True,   # Include documentation
+    enable_comments=True,     # Include comments
+    context=5,                # More context
+    file_size_limit=5_000_000 # Larger files
+)
+```
+
+### CI/CD Configuration
+
+Optimized for continuous integration:
+
+```python
+ci_config = SearchConfig(
+    paths=["./src", "./tests"],
+    parallel=True,
+    workers=2,                # Limited resources
+    strict_hash_check=True,   # Consistency
+    dir_prune_exclude=True,
+    file_size_limit=1_000_000, # Limit memory usage
+    context=3
+)
+```
+
+### Large Codebase Configuration
+
+Optimized for very large repositories:
+
+```python
+large_config = SearchConfig(
+    paths=["./src"],          # Limit scope
+    exclude=[
+        "**/.venv/**", "**/.git/**", "**/__pycache__/**",
+        "**/node_modules/**", "**/build/**", "**/dist/**",
+        "**/vendor/**", "**/third_party/**"
+    ],
+    parallel=True,
+    workers=12,               # More workers
+    strict_hash_check=False,  # Performance over precision
+    dir_prune_exclude=True,   # Essential for large repos
+    file_size_limit=500_000,  # Smaller limit
+    enable_docstrings=False,  # Reduce processing
+    context=1                 # Minimal context
+)
+```
+
+### Configuration Validation
+
+```python
+def validate_config(config: SearchConfig) -> list[str]:
+    """Validate configuration and return warnings."""
+    warnings = []
+
+    # Check for common issues
+    if config.workers > 16:
+        warnings.append("High worker count may cause resource contention")
+
+    if config.file_size_limit > 10_000_000:
+        warnings.append("Large file size limit may cause memory issues")
+
+    if not config.exclude:
+        warnings.append("No exclude patterns may slow down search")
+
+    if config.context > 10:
+        warnings.append("High context count increases output size")
+
+    return warnings
+
+# Usage
+warnings = validate_config(config)
+for warning in warnings:
+    print(f"Warning: {warning}")
+```
+
+### Performance Monitoring
+
+```python
+def benchmark_config(config: SearchConfig, pattern: str) -> dict:
+    """Benchmark a configuration with a test pattern."""
+    import time
+
+    engine = PySearch(config)
+
+    start_time = time.time()
+    results = engine.search(pattern)
+    elapsed = time.time() - start_time
+
+    return {
+        "elapsed_seconds": elapsed,
+        "files_scanned": results.stats.files_scanned,
+        "matches_found": len(results.items),
+        "files_per_second": results.stats.files_scanned / elapsed if elapsed > 0 else 0
+    }
+
+# Usage
+benchmark = benchmark_config(config, "def main")
+print(f"Performance: {benchmark['files_per_second']:.1f} files/second")
+```
+
+---
+
+## Configuration Reference
+
+### Complete Field Reference
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `paths` | `list[str]` | `["."]` | Search paths |
+| `include` | `list[str] \| None` | `None` | Include patterns (auto-detect if None) |
+| `exclude` | `list[str] \| None` | `None` | Exclude patterns (defaults if None) |
+| `languages` | `set[Language] \| None` | `None` | Language filter (auto-detect if None) |
+| `file_size_limit` | `int` | `2_000_000` | File size limit in bytes |
+| `context` | `int` | `2` | Context lines around matches |
+| `output_format` | `OutputFormat` | `TEXT` | Output format |
+| `follow_symlinks` | `bool` | `False` | Follow symbolic links |
+| `enable_docstrings` | `bool` | `True` | Search in docstrings |
+| `enable_comments` | `bool` | `True` | Search in comments |
+| `enable_strings` | `bool` | `True` | Search in string literals |
+| `parallel` | `bool` | `True` | Enable parallel processing |
+| `workers` | `int` | `0` | Worker threads (0 = auto) |
+| `cache_dir` | `Path \| None` | `None` | Cache directory |
+| `strict_hash_check` | `bool` | `False` | Strict file change detection |
+| `dir_prune_exclude` | `bool` | `True` | Prune excluded directories |
+| `rank_strategy` | `RankStrategy` | `DEFAULT` | Ranking strategy |
+| `ast_weight` | `float` | `2.0` | AST match weight |
+| `text_weight` | `float` | `1.0` | Text match weight |
+
+### Method Reference
+
+| Method | Description |
+|--------|-------------|
+| `get_include_patterns()` | Get resolved include patterns |
+| `get_exclude_patterns()` | Get resolved exclude patterns |
+| `resolve_cache_dir()` | Get resolved cache directory |
+
+---
+
+## Troubleshooting Configuration
+
+### Common Configuration Issues
+
+1. **No matches found**
+   - Check `include`/`exclude` patterns
+   - Verify `paths` are correct
+   - Ensure `languages` includes target files
+
+2. **Slow performance**
+   - Enable `parallel=True`
+   - Set appropriate `workers` count
+   - Use `dir_prune_exclude=True`
+   - Add more `exclude` patterns
+
+3. **High memory usage**
+   - Reduce `file_size_limit`
+   - Lower `workers` count
+   - Decrease `context` lines
+
+4. **Missing results**
+   - Check content toggles (`enable_docstrings`, etc.)
+   - Verify `file_size_limit` isn't too restrictive
+   - Ensure `follow_symlinks` setting is appropriate
+
+### Debug Configuration
+
+```python
+from pysearch.logging_config import enable_debug_logging
+
+# Enable debug logging
+enable_debug_logging()
+
+# Create config with debug info
+config = SearchConfig(paths=["./src"])
+print(f"Include patterns: {config.get_include_patterns()}")
+print(f"Exclude patterns: {config.get_exclude_patterns()}")
+print(f"Cache directory: {config.resolve_cache_dir()}")
+```
+
+---
+
+## See Also
+
+- [Usage Guide](usage.md) - How to use pysearch effectively
+- [API Reference](api-reference.md) - Complete API documentation
+- [Architecture](architecture.md) - Internal design and components

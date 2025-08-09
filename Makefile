@@ -2,7 +2,7 @@
 PYTHON := python3
 PKG := pysearch
 
-.PHONY: help install dev lint format type test cov htmlcov bench clean pre-commit hooks docs serve release
+.PHONY: help install dev lint format type test cov htmlcov bench clean pre-commit hooks docs serve release mcp-servers check-structure validate
 
 help:
 	@echo "Targets:"
@@ -21,6 +21,9 @@ help:
 	@echo "  docs        - Build docs with mkdocs"
 	@echo "  serve       - Serve docs locally"
 	@echo "  release     - Build and publish (requires env vars)"
+	@echo "  mcp-servers - Test MCP servers"
+	@echo "  check-structure - Validate project structure"
+	@echo "  validate    - Run all validation checks"
 
 install:
 	$(PYTHON) -m pip install -U pip
@@ -40,8 +43,7 @@ format:
 	$(PYTHON) -m ruff check . --fix
 
 type:
-	$(PYTHON) -m mypy src tests
-
+	$(PYTHON) -m mypy
 test:
 	$(PYTHON) -m pytest
 
@@ -79,3 +81,27 @@ release:
 	$(PYTHON) -m build
 	twine check dist/*
 	@echo "To upload: TWINE_USERNAME=__token__ TWINE_PASSWORD=***** twine upload dist/*"
+
+mcp-servers:
+	@echo "Testing MCP servers..."
+	$(PYTHON) -c "import mcp.servers.mcp_server; print('✅ Basic MCP server imports successfully')"
+	$(PYTHON) -c "import mcp.servers.enhanced_mcp_server; print('✅ Enhanced MCP server imports successfully')"
+	@echo "✅ All MCP servers validated"
+
+check-structure:
+	@echo "Checking project structure..."
+	@test -d src/pysearch || (echo "❌ src/pysearch directory missing" && exit 1)
+	@test -d mcp/servers || (echo "❌ mcp/servers directory missing" && exit 1)
+	@test -d mcp/shared || (echo "❌ mcp/shared directory missing" && exit 1)
+	@test -d tools || (echo "❌ tools directory missing" && exit 1)
+	@test -d tests || (echo "❌ tests directory missing" && exit 1)
+	@test -d docs || (echo "❌ docs directory missing" && exit 1)
+	@test -d examples || (echo "❌ examples directory missing" && exit 1)
+	@test -d scripts || (echo "❌ scripts directory missing" && exit 1)
+	@test -f pyproject.toml || (echo "❌ pyproject.toml missing" && exit 1)
+	@test -f README.md || (echo "❌ README.md missing" && exit 1)
+	@test -f mcp/README.md || (echo "❌ mcp/README.md missing" && exit 1)
+	@echo "✅ Project structure is valid"
+
+validate: lint type test mcp-servers check-structure
+	@echo "✅ All validation checks passed"

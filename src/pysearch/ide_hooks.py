@@ -5,13 +5,13 @@ IDE 集成占位：为 IDE/编辑器提供简易接口，后续可扩展为 LSP/
 """
 
 from dataclasses import asdict
-from typing import Any, Dict
+from typing import Any
 
 from .api import PySearch
 from .types import Query
 
 
-def ide_query(engine: PySearch, query: Query) -> Dict[str, Any]:
+def ide_query(engine: PySearch, query: Query) -> dict[str, Any]:
     """
     供 IDE 调用的查询接口，返回结构化 JSON（dict）。
     """
