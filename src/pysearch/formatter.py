@@ -81,7 +81,9 @@ def to_json_bytes(result: SearchResult) -> bytes:
         Uses orjson for performance, which is significantly faster than
         the standard library json module for large result sets.
     """
-    def default(obj):
+    from typing import Any  # Add import for type annotation
+
+    def default(obj: Any) -> Any:  # Add type annotation to function
         if isinstance(obj, Path):
             return str(obj)
         return asdict(obj)
