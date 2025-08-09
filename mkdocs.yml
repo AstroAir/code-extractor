@@ -42,15 +42,31 @@ nav:
   - Getting Started:
     - Installation: installation.md
     - Quick Start: usage.md
-    - Your First Search: ../examples/tutorials/01_getting_started.py
   - User Guide:
     - Usage Guide: usage.md
     - Configuration: configuration.md
-    - Search Types: ../examples/tutorials/05_search_types.py
+    - CLI Reference: cli-reference.md
     - Performance: performance.md
-  - Reference:
-    - API Reference: api-reference.md
-    - Configuration Reference: configuration.md
+  - API Reference:
+    - Overview: api-reference.md
+    - Core API:
+      - PySearch: api/pysearch.md
+      - Configuration: api/config.md
+      - Types: api/types.md
+    - Search Components:
+      - Indexer: api/indexer.md
+      - Matchers: api/matchers.md
+      - Scorer: api/scorer.md
+      - Formatter: api/formatter.md
+    - Advanced Features:
+      - Semantic Search: api/semantic.md
+      - Multi-Repository: api/multi_repo.md
+      - File Watching: api/file_watcher.md
+      - History: api/history.md
+    - Utilities:
+      - Utils: api/utils.md
+      - Error Handling: api/error_handling.md
+      - Language Detection: api/language_detection.md
   - MCP Integration:
     - Overview: mcp-overview.md
     - Tutorial: mcp-tutorial.md
@@ -62,9 +78,8 @@ nav:
   - Help & Support:
     - FAQ: faq.md
     - Troubleshooting: troubleshooting.md
-    - Examples: ../examples/README.md
   - Development:
-    - Contributing: ../CONTRIBUTING.md
+    - Style Guide: style-guide.md
     - Roadmap: roadmap.md
 
 markdown_extensions:
@@ -99,5 +114,30 @@ markdown_extensions:
 plugins:
   - search:
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            docstring_options:
+              ignore_init_summary: true
+            merge_init_into_class: true
+            show_submodules: true
+            show_source: false
+            show_bases: true
+            show_inheritance_diagram: false
+            group_by_category: true
+            heading_level: 2
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+  - autorefs
   - minify:
       minify_html: true
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+  - git-committers:
+      repository: your-org/pysearch
+      branch: main

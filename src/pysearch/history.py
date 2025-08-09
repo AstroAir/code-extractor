@@ -1,3 +1,62 @@
+"""
+Search history tracking and management for pysearch.
+
+This module provides comprehensive search history functionality including
+session tracking, query categorization, performance analytics, and search
+pattern analysis. It helps users understand their search behavior and
+provides insights for improving search efficiency.
+
+Key Features:
+    - Persistent search history storage
+    - Query categorization and tagging
+    - Performance metrics tracking
+    - Search pattern analysis
+    - Session management
+    - Bookmark and favorite queries
+    - Search analytics and insights
+    - Query suggestion based on history
+
+Classes:
+    SearchCategory: Enumeration of search categories
+    SearchHistoryEntry: Individual search record
+    SearchSession: Search session information
+    SearchHistory: Main history management class
+
+Key Capabilities:
+    - Track all search operations with detailed metadata
+    - Categorize searches by type (function, class, variable, etc.)
+    - Analyze search patterns and suggest improvements
+    - Provide search suggestions based on history
+    - Export/import history for backup and sharing
+    - Generate search analytics and reports
+
+Example:
+    Basic history usage:
+        >>> from pysearch.history import SearchHistory
+        >>> from pysearch.config import SearchConfig
+        >>>
+        >>> config = SearchConfig()
+        >>> history = SearchHistory(config)
+        >>>
+        >>> # Record a search
+        >>> history.record_search(query, results)
+        >>>
+        >>> # Get recent searches
+        >>> recent = history.get_recent_searches(limit=10)
+        >>> for entry in recent:
+        ...     print(f"{entry.query_pattern}: {entry.items_count} results")
+
+    Advanced analytics:
+        >>> # Get search analytics
+        >>> analytics = history.get_search_analytics()
+        >>> print(f"Total searches: {analytics.total_searches}")
+        >>> print(f"Average results: {analytics.avg_results_per_search:.1f}")
+        >>>
+        >>> # Get suggestions based on history
+        >>> suggestions = history.get_query_suggestions("def")
+        >>> print("Suggested queries:", suggestions)
+"""
+
 from __future__ import annotations
 
 import hashlib

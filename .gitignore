@@ -58,4 +58,18 @@ Thumbs.db
 !*.example
 configs/*.local.*
 
+# PySearch cache
 .pysearch-cache
+
+# Documentation build artifacts
+site/
+.mkdocs_cache/
+docs_build/
+
+# MkDocs temporary files
+.mkdocs/
+mkdocs_cache/
+
+# Documentation generation cache
+.docstring_cache/
+.api_docs_cache/

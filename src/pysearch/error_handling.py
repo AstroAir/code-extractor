@@ -1,3 +1,71 @@
+"""
+Comprehensive error handling and reporting system for pysearch.
+
+This module provides a robust error handling framework that categorizes, tracks,
+and reports errors encountered during search operations. It enables graceful
+degradation and provides detailed diagnostics for troubleshooting.
+
+Key Features:
+    - Hierarchical error classification system
+    - Detailed error information collection
+    - Error severity assessment
+    - Batch error collection and reporting
+    - Context-aware error handling
+    - Performance impact tracking
+    - Recovery strategy suggestions
+
+Error Categories:
+    - FILE_ACCESS: File permission and access issues
+    - PERMISSION: Security and permission errors
+    - ENCODING: Text encoding and character set issues
+    - PARSING: Code parsing and syntax errors
+    - MEMORY: Memory allocation and resource issues
+    - TIMEOUT: Operation timeout errors
+    - CONFIGURATION: Configuration and setup errors
+    - NETWORK: Network connectivity issues
+    - VALIDATION: Input validation errors
+
+Classes:
+    ErrorSeverity: Error severity levels (LOW, MEDIUM, HIGH, CRITICAL)
+    ErrorCategory: Error classification categories
+    ErrorInfo: Detailed error information container
+    ErrorCollector: Batch error collection and analysis
+    PySearchError: Base exception class for pysearch errors
+
+Functions:
+    handle_file_error: Specialized file error handling
+    create_error_report: Generate comprehensive error reports
+    classify_error: Automatic error classification
+
+Example:
+    Basic error handling:
+        >>> from pysearch.error_handling import ErrorCollector, handle_file_error
+        >>> from pathlib import Path
+        >>>
+        >>> collector = ErrorCollector()
+        >>> try:
+        ...     # Perform file operation
+        ...     content = Path("file.py").read_text()
+        ... except Exception as e:
+        ...     error_info = handle_file_error(e, Path("file.py"))
+        ...     collector.add_error_info(error_info)
+        >>>
+        >>> # Generate report
+        >>> report = collector.generate_report()
+        >>> print(f"Collected {len(report.errors)} errors")
+
+    Advanced error analysis:
+        >>> # Analyze error patterns
+        >>> by_category = report.group_by_category()
+        >>> for category, errors in by_category.items():
+        ...     print(f"{category}: {len(errors)} errors")
+        >>>
+        >>> # Get recovery suggestions
+        >>> suggestions = report.get_recovery_suggestions()
+        >>> for suggestion in suggestions:
+        ...     print(f"- {suggestion}")
+"""
+
 from __future__ import annotations
 
 # Import built-in exceptions before defining custom ones

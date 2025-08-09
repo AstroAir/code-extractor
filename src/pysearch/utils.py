@@ -1,3 +1,55 @@
+"""
+Utility functions and helpers for pysearch.
+
+This module provides essential utility functions used throughout the PySearch system,
+including file operations, text processing, AST utilities, and path management.
+The utilities are designed to be efficient, safe, and handle edge cases gracefully.
+
+Key Functions:
+    File Operations:
+        - read_text_safely: Safe file reading with encoding detection and size limits
+        - file_sha1: Efficient SHA1 hash computation for files
+        - create_file_metadata: Comprehensive file metadata extraction
+
+    Text Processing:
+        - split_lines_keepends: Line splitting preserving line endings
+        - extract_context: Context extraction around specific lines
+        - highlight_spans: Text highlighting with custom markers
+
+    AST Utilities:
+        - iter_python_ast_nodes: Efficient AST node iteration
+        - get_ast_node_info: Extract information from AST nodes
+
+    Path Utilities:
+        - iter_files_prune: Efficient file iteration with directory pruning
+        - resolve_path_patterns: Pattern-based path resolution
+
+Example:
+    Basic file operations:
+        >>> from pysearch.utils import read_text_safely, file_sha1
+        >>> from pathlib import Path
+        >>>
+        >>> # Safe file reading
+        >>> content = read_text_safely(Path("example.py"), max_bytes=1_000_000)
+        >>> if content:
+        ...     print(f"File has {len(content)} characters")
+        >>>
+        >>> # File hashing
+        >>> hash_value = file_sha1(Path("example.py"))
+        >>> print(f"SHA1: {hash_value}")
+
+    Text processing:
+        >>> from pysearch.utils import split_lines_keepends, highlight_spans
+        >>>
+        >>> # Line splitting
+        >>> lines = split_lines_keepends("line1\\nline2\\nline3\\n")
+        >>> print(lines)  # ['line1\\n', 'line2\\n', 'line3\\n']
+        >>>
+        >>> # Text highlighting
+        >>> highlighted = highlight_spans("def main():", [(0, 3), (4, 8)])
+        >>> print(highlighted)  # Highlighted "def" and "main"
+"""
+
 from __future__ import annotations
 
 import ast
@@ -15,6 +67,19 @@ from .types import FileMetadata
 
 @dataclass(slots=True)
 class FileMeta:
+    """
+    Lightweight file metadata container.
+
+    This class holds essential file metadata used for caching and change detection.
+    It's optimized for performance with slots and minimal memory footprint.
+
+    Attributes:
+        path: Path to the file
+        size: File size in bytes
+        mtime: Last modification time as Unix timestamp
+        sha1: Optional SHA1 hash of file content
+    """
+
     path: Path
     size: int
     mtime: float
@@ -22,13 +87,48 @@ class FileMeta:
 
 
 def sha1_bytes(data: bytes) -> str:
+    """
+    Compute SHA1 hash of byte data.
+
+    Args:
+        data: Byte data to hash
+
+    Returns:
+        Hexadecimal SHA1 hash string
+
+    Example:
+        >>> sha1_bytes(b"hello world")
+        '2aae6c35c94fcfb415dbe95f408b9ce91ee846ed'
+    """
     h = hashlib.sha1()
     h.update(data)
     return h.hexdigest()
 
 
 def file_sha1(path: Path, chunk_size: int = 1024 * 1024) -> str | None:
-    """按块计算文件 sha1，避免一次性读取大文件。"""
+    """
+    Compute SHA1 hash of file content using chunked reading.
+
+    This function reads files in chunks to avoid loading large files entirely
+    into memory, making it suitable for processing large codebases efficiently.
+
+    Args:
+        path: Path to the file to hash
+        chunk_size: Size of chunks to read at once (default: 1MB)
+
+    Returns:
+        Hexadecimal SHA1 hash string, or None if file cannot be read
+
+    Example:
+        >>> from pathlib import Path
+        >>> hash_value = file_sha1(Path("large_file.py"))
+        >>> if hash_value:
+        ...     print(f"File hash: {hash_value}")
+
+    Note:
+        Returns None on any file access error (permission denied, file not found, etc.)
+        to allow graceful handling in batch operations.
+    """
     try:
         h = hashlib.sha1()
         with path.open("rb") as f:

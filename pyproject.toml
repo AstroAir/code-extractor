@@ -69,7 +69,12 @@ dev = [
   "pytest-benchmark",
   "pytest-asyncio",
   "types-regex",
-  "mkdocs-material"
+  "mkdocs-material",
+  "mkdocstrings[python]",
+  "mkdocs-autorefs",
+  "mkdocs-git-revision-date-localized-plugin",
+  "mkdocs-git-committers-plugin-2",
+  "mkdocs-minify-plugin"
 ]
 watch = [
   "watchdog>=4.0.0"

@@ -53,24 +53,108 @@ make validate
 ## Quick Start
 
 ### CLI Usage
+
+Find all function definitions:
+```bash
+pysearch find --pattern "def " --path ./src --include "**/*.py"
+```
+
+Search for handler functions with regex:
 ```bash
 pysearch find \
-  --pattern "requests.get" \
-  --path . \
+  --pattern "def.*handler" \
   --regex \
   --context 3 \
-  --format text
+  --format highlight
+```
+
+AST-based search with filters:
+```bash
+pysearch find \
+  --pattern "def" \
+  --ast \
+  --filter-func-name ".*handler" \
+  --filter-decorator "lru_cache"
+```
+
+Semantic search for database-related code:
+```bash
+pysearch find \
+  --pattern "database connection" \
+  --semantic \
+  --context 5
 ```
 
 ### API Usage
+
+Basic search:
 ```python
 from pysearch.api import PySearch
 from pysearch.config import SearchConfig
 
-engine = PySearch(SearchConfig(paths=["."], include=["**/*.py"], context=2))
-results = engine.search(pattern="def main", regex=True)
-for r in results.items:
-    print(r.file, r.lines)
+# Create search configuration
+config = SearchConfig(
+    paths=["."],
+    include=["**/*.py"],
+    context=3
+)
+
+# Initialize search engine
+engine = PySearch(config)
+
+# Perform search
+results = engine.search("def main")
+print(f"Found {len(results.items)} matches in {results.stats.elapsed_ms}ms")
+
+# Process results
+for item in results.items:
+    print(f"\n{item.file}:{item.start_line}-{item.end_line}")
+    for line in item.lines:
+        print(f"  {line}")
+```
+
+Advanced query with filters:
+```python
+from pysearch.types import Query, ASTFilters
+
+# Create AST filters
+filters = ASTFilters(
+    func_name=".*handler",
+    decorator="lru_cache|cache",
+    imported="requests\\.(get|post)"
+)
+
+# Create advanced query
+query = Query(
+    pattern="def",
+    use_ast=True,
+    use_regex=True,
+    ast_filters=filters,
+    context=5
+)
+
+# Execute query
+results = engine.run(query)
+```
+
+Multi-repository search:
+```python
+from pysearch.multi_repo import MultiRepoSearchEngine
+
+# Initialize multi-repo engine
+multi_engine = MultiRepoSearchEngine()
+
+# Add repositories
+multi_engine.add_repository("frontend", "./frontend")
+multi_engine.add_repository("backend", "./backend")
+multi_engine.add_repository("shared", "./shared-lib")
+
+# Search across all repositories
+results = multi_engine.search_all("async def")
+
+# Process results by repository
+for repo_name, repo_results in results.repository_results.items():
+    print(f"{repo_name}: {len(repo_results.items)} matches")
 ```
 
 ## Core Capabilities
@@ -119,13 +203,75 @@ Comprehensive documentation for MCP integration is available:
 - [MCP API Reference](docs/mcp-api.md) - Detailed API documentation for all MCP tools
 - [Advanced MCP Features](docs/mcp-advanced.md) - In-depth coverage of advanced capabilities
 
-## Typical Use Cases
+## Common Use Cases
 
-- Find all functions using specific decorators
-- Locate files importing specific modules with context
-- Search all code blocks containing certain regex patterns
-- Find all class/function definitions named X using AST
-- Cross-project statistics of match results and performance metrics
+### Code Navigation and Discovery
+
+Find all function definitions in a project:
+```bash
+pysearch find --pattern "def " --path ./src --include "**/*.py"
+```
+
+Locate all class definitions:
+```bash
+pysearch find --pattern "class " --path . --regex --filter-class-name ".*"
+```
+
+Find imports of specific modules:
+```bash
+pysearch find --pattern "from requests import" --path . --context 2
+```
+
+### Refactoring and Code Analysis
+
+Find all usages of a specific function:
+```bash
+pysearch find --pattern "deprecated_function" --path . --context 3
+```
+
+Locate all TODO comments:
+```bash
+pysearch find --pattern "TODO|FIXME|HACK" --regex --comments
+```
+
+Find functions with specific decorators:
+```bash
+pysearch find --pattern "def" --ast --filter-decorator "lru_cache|cache"
+```
+
+### Code Quality and Patterns
+
+Search for potential security issues:
+```bash
+pysearch find --pattern "eval|exec|subprocess" --regex --context 5
+```
+
+Find async/await patterns:
+```bash
+pysearch find --pattern "async def|await " --regex --semantic
+```
+
+Locate error handling patterns:
+```bash
+pysearch find --pattern "try:|except:|finally:" --regex --context 3
+```
+
+### Documentation and Learning
+
+Find examples of specific patterns:
+```bash
+pysearch find --pattern "database connection" --semantic --context 10
+```
+
+Locate test functions:
+```bash
+pysearch find --pattern "test_" --path ./tests --filter-func-name "test_.*"
+```
+
+Search for configuration patterns:
+```bash
+pysearch find --pattern "config|settings" --semantic --include "**/*.py"
+```
 
 ## CLI Usage
 

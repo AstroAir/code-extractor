@@ -2,7 +2,7 @@
 PYTHON := python3
 PKG := pysearch
 
-.PHONY: help install dev lint format type test cov htmlcov bench clean pre-commit hooks docs serve release mcp-servers check-structure validate
+.PHONY: help install dev lint format type test cov htmlcov bench clean pre-commit hooks docs docs-serve docs-clean docs-check docs-deploy serve release mcp-servers check-structure validate
 
 help:
 	@echo "Targets:"
@@ -19,7 +19,10 @@ help:
 	@echo "  pre-commit  - Run pre-commit on all files"
 	@echo "  hooks       - Install pre-commit hooks"
 	@echo "  docs        - Build docs with mkdocs"
-	@echo "  serve       - Serve docs locally"
+	@echo "  docs-serve  - Serve docs locally for development"
+	@echo "  docs-clean  - Clean documentation build artifacts"
+	@echo "  docs-check  - Check documentation for issues"
+	@echo "  docs-deploy - Deploy documentation (requires setup)"
 	@echo "  release     - Build and publish (requires env vars)"
 	@echo "  mcp-servers - Test MCP servers"
 	@echo "  check-structure - Validate project structure"
@@ -61,6 +64,7 @@ bench:
 clean:
 	rm -rf build/ dist/ sdist/ wheels/
 	rm -rf .pytest_cache/ .mypy_cache/ .ruff_cache/ .coverage/ htmlcov/ .benchmarks/
+	rm -rf site/ .mkdocs_cache/ docs_build/ .docstring_cache/ .api_docs_cache/
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 
 pre-commit:
@@ -70,10 +74,45 @@ hooks:
 	pre-commit install
 
 docs:
-	mkdocs build
+	@echo "Building documentation..."
+	mkdocs build --clean --strict
+	@echo "✅ Documentation built successfully in site/"
 
-serve:
-	mkdocs serve -a 0.0.0.0:8000
+docs-serve:
+	@echo "Starting documentation server..."
+	@echo "📖 Documentation will be available at http://localhost:8000"
+	mkdocs serve -a 0.0.0.0:8000 --dev-addr=localhost:8000
+
+docs-clean:
+	@echo "Cleaning documentation build artifacts..."
+	rm -rf site/
+	rm -rf .mkdocs_cache/
+	rm -rf docs_build/
+	@echo "✅ Documentation artifacts cleaned"
+
+docs-check:
+	@echo "Checking documentation for issues..."
+	mkdocs build --clean --strict --verbose
+	@echo "Checking for broken links..."
+	@if command -v linkchecker >/dev/null 2>&1; then \
+		linkchecker site/index.html; \
+	else \
+		echo "⚠️  linkchecker not installed, skipping link check"; \
+		echo "   Install with: pip install linkchecker"; \
+	fi
+	@echo "✅ Documentation check completed"
+
+docs-deploy:
+	@echo "Deploying documentation..."
+	@if [ -z "$$GITHUB_TOKEN" ]; then \
+		echo "❌ GITHUB_TOKEN environment variable required for deployment"; \
+		exit 1; \
+	fi
+	mkdocs gh-deploy --clean --message "Deploy documentation [skip ci]"
+	@echo "✅ Documentation deployed to GitHub Pages"
+
+# Legacy alias for backwards compatibility
+serve: docs-serve
 
 release:
 	$(PYTHON) -m pip install -U build twine

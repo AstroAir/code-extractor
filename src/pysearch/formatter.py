@@ -1,3 +1,50 @@
+"""
+Output formatting module for pysearch.
+
+This module handles the formatting and rendering of search results in different output
+formats including plain text, JSON, and rich console output with syntax highlighting.
+It provides a unified interface for result presentation across CLI and API usage.
+
+Key Functions:
+    format_result: Main entry point for formatting results in any supported format
+    to_json_bytes: Fast JSON serialization using orjson
+    format_text: Plain text formatting with optional highlighting
+    render_highlight_console: Rich console output with syntax highlighting
+
+Supported Output Formats:
+    - TEXT: Plain text with line numbers and file paths
+    - JSON: Structured JSON for programmatic processing
+    - HIGHLIGHT: Rich console output with syntax highlighting and colors
+
+Key Features:
+    - Fast JSON serialization with orjson
+    - Syntax highlighting based on file type detection
+    - Match span highlighting within code lines
+    - Configurable context display
+    - Performance-optimized for large result sets
+    - Memory-efficient streaming for large outputs
+
+Example:
+    Basic formatting:
+        >>> from pysearch.formatter import format_result
+        >>> from pysearch.types import OutputFormat
+        >>>
+        >>> # Format as plain text
+        >>> text_output = format_result(search_results, OutputFormat.TEXT)
+        >>> print(text_output)
+        >>>
+        >>> # Format as JSON
+        >>> json_output = format_result(search_results, OutputFormat.JSON)
+        >>> print(json_output.decode('utf-8'))
+
+    Rich console output:
+        >>> from pysearch.formatter import render_highlight_console
+        >>> from rich.console import Console
+        >>>
+        >>> console = Console()
+        >>> render_highlight_console(search_results, console)
+"""
+
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -12,6 +59,28 @@ from .utils import highlight_spans
 
 
 def to_json_bytes(result: SearchResult) -> bytes:
+    """
+    Convert search results to JSON bytes using fast orjson serialization.
+
+    This function provides high-performance JSON serialization optimized for
+    search results. It handles Path objects and nested dataclasses correctly
+    while maintaining compatibility with standard JSON parsers.
+
+    Args:
+        result: SearchResult object containing search results and statistics
+
+    Returns:
+        JSON-encoded bytes with pretty formatting (indented)
+
+    Example:
+        >>> json_bytes = to_json_bytes(search_results)
+        >>> json_str = json_bytes.decode('utf-8')
+        >>> print(json_str)
+
+    Note:
+        Uses orjson for performance, which is significantly faster than
+        the standard library json module for large result sets.
+    """
     def default(obj):
         if isinstance(obj, Path):
             return str(obj)
@@ -35,6 +104,32 @@ def to_json_bytes(result: SearchResult) -> bytes:
 
 
 def format_text(result: SearchResult, highlight: bool = False) -> str:
+    """
+    Format search results as plain text with line numbers.
+
+    This function creates a human-readable text representation of search results
+    with file paths, line numbers, and optional match highlighting. It's the
+    fastest formatting option and suitable for console output or logging.
+
+    Args:
+        result: SearchResult object containing search results
+        highlight: Whether to highlight match spans with markers (default: False)
+
+    Returns:
+        Formatted text string with file paths, line numbers, and content
+
+    Example:
+        >>> formatted = format_text(search_results, highlight=True)
+        >>> print(formatted)
+        example.py:10-12
+            10 | def main():
+            11 |     print("Hello, world!")
+            12 |     return 0
+
+    Note:
+        When highlight=True, match spans are highlighted with special markers.
+        This is useful for terminal output but may not render well in all contexts.
+    """
     out: list[str] = []
     for it in result.items:
         header = f"{it.file}:{it.start_line}-{it.end_line}"
