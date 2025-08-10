@@ -48,14 +48,17 @@ from typing import Any
 from .cache_manager import CacheManager
 from .config import SearchConfig
 from .dependency_analysis import DependencyAnalyzer, DependencyGraph, DependencyMetrics
+from .indexer_metadata import MetadataIndexer, IndexQuery
 from .error_handling import ErrorCollector, create_error_report, handle_file_error
 from .file_watcher import FileEvent, WatchManager
+from .graphrag_engine import GraphRAGEngine
 from .history import SearchHistory
 from .indexer import Indexer
 from .logging_config import SearchLogger, get_logger
 from .matchers import search_in_file
 from .metadata_filters import apply_metadata_filters, get_file_author
 from .multi_repo import MultiRepoSearchEngine, MultiRepoSearchResult, RepositoryInfo
+from .qdrant_client import QdrantConfig, QdrantVectorStore
 from .scorer import (
     RankingStrategy,
     cluster_results_by_similarity,
@@ -63,7 +66,9 @@ from .scorer import (
     sort_items,
 )
 from .semantic_advanced import SemanticSearchEngine
-from .types import OutputFormat, Query, SearchItem, SearchResult, SearchStats
+from .types import (
+    GraphRAGQuery, GraphRAGResult, OutputFormat, Query, SearchItem, SearchResult, SearchStats
+)
 from .utils import create_file_metadata, read_text_safely
 
 
@@ -112,7 +117,12 @@ class PySearch:
     """
 
     def __init__(
-        self, config: SearchConfig | None = None, logger: SearchLogger | None = None
+        self,
+        config: SearchConfig | None = None,
+        logger: SearchLogger | None = None,
+        qdrant_config: QdrantConfig | None = None,
+        enable_graphrag: bool = False,
+        enable_enhanced_indexing: bool = False
     ) -> None:
         """
         Initialize the PySearch engine.
@@ -120,6 +130,9 @@ class PySearch:
         Args:
             config: Search configuration object. If None, uses default configuration.
             logger: Custom logger instance. If None, uses default logger.
+            qdrant_config: Qdrant vector database configuration for GraphRAG.
+            enable_graphrag: Whether to enable GraphRAG capabilities.
+            enable_enhanced_indexing: Whether to enable enhanced metadata indexing.
         """
         self.cfg = config or SearchConfig()
         self.indexer = Indexer(self.cfg)
@@ -135,11 +148,127 @@ class PySearch:
         self.multi_repo_engine: MultiRepoSearchEngine | None = None
         self._multi_repo_enabled = False
 
+        # GraphRAG and enhanced indexing components
+        self.qdrant_config = qdrant_config
+        self.enable_graphrag = enable_graphrag
+        self.enable_enhanced_indexing = enable_enhanced_indexing
+        self._graphrag_engine: GraphRAGEngine | None = None
+        self._enhanced_indexer: MetadataIndexer | None = None
+        self._vector_store: QdrantVectorStore | None = None
+        self._graphrag_initialized = False
+        self._enhanced_indexing_initialized = False
+
         # In-memory caches
         self._file_content_cache: dict[Path, tuple[float, str]] = {}
         self._search_result_cache: dict[str, tuple[float, SearchResult]] = {}
         self._cache_lock = threading.RLock()
         self.cache_ttl = 300  # 5 minutes TTL
+
+    async def initialize_graphrag(self) -> None:
+        """Initialize GraphRAG components."""
+        if not self.enable_graphrag or self._graphrag_initialized:
+            return
+
+        try:
+            if not self._graphrag_engine:
+                self._graphrag_engine = GraphRAGEngine(self.cfg, self.qdrant_config)
+
+            await self._graphrag_engine.initialize()
+            self._graphrag_initialized = True
+            self.logger.info("GraphRAG engine initialized successfully")
+
+        except Exception as e:
+            self.logger.error(f"Failed to initialize GraphRAG: {e}")
+            self.error_collector.add_error(e)
+
+    async def initialize_enhanced_indexing(self) -> None:
+        """Initialize enhanced indexing components."""
+        if not self.enable_enhanced_indexing or self._enhanced_indexing_initialized:
+            return
+
+        try:
+            if not self._enhanced_indexer:
+                self._enhanced_indexer = MetadataIndexer(self.cfg)
+
+            await self._enhanced_indexer.initialize()
+            self._enhanced_indexing_initialized = True
+            self.logger.info("Enhanced indexing initialized successfully")
+
+        except Exception as e:
+            self.logger.error(f"Failed to initialize enhanced indexing: {e}")
+            self.error_collector.add_error(e)
+
+    async def build_knowledge_graph(self, force_rebuild: bool = False) -> bool:
+        """Build the GraphRAG knowledge graph."""
+        if not self.enable_graphrag:
+            self.logger.warning("GraphRAG not enabled")
+            return False
+
+        try:
+            await self.initialize_graphrag()
+            if self._graphrag_engine:
+                await self._graphrag_engine.build_knowledge_graph(force_rebuild)
+                self.logger.info("Knowledge graph built successfully")
+                return True
+        except Exception as e:
+            self.logger.error(f"Failed to build knowledge graph: {e}")
+            self.error_collector.add_error(e)
+
+        return False
+
+    async def build_enhanced_index(self, include_semantic: bool = True, force_rebuild: bool = False) -> bool:
+        """Build the enhanced metadata index."""
+        if not self.enable_enhanced_indexing:
+            self.logger.warning("Enhanced indexing not enabled")
+            return False
+
+        try:
+            await self.initialize_enhanced_indexing()
+            if self._enhanced_indexer:
+                stats = await self._enhanced_indexer.build_index(include_semantic, force_rebuild)
+                self.logger.info(f"Enhanced index built: {stats.total_files} files, {stats.total_entities} entities")
+                return True
+        except Exception as e:
+            self.logger.error(f"Failed to build enhanced index: {e}")
+            self.error_collector.add_error(e)
+
+        return False
+
+    async def graphrag_search(self, query: GraphRAGQuery) -> GraphRAGResult | None:
+        """Perform GraphRAG-based search."""
+        if not self.enable_graphrag:
+            self.logger.warning("GraphRAG not enabled")
+            return None
+
+        try:
+            await self.initialize_graphrag()
+            if self._graphrag_engine:
+                result = await self._graphrag_engine.query_graph(query)
+                self.logger.debug(f"GraphRAG search found {len(result.entities)} entities")
+                return result
+        except Exception as e:
+            self.logger.error(f"GraphRAG search failed: {e}")
+            self.error_collector.add_error(e)
+
+        return None
+
+    async def enhanced_index_search(self, query: IndexQuery) -> dict[str, Any] | None:
+        """Search using the enhanced metadata index."""
+        if not self.enable_enhanced_indexing:
+            self.logger.warning("Enhanced indexing not enabled")
+            return None
+
+        try:
+            await self.initialize_enhanced_indexing()
+            if self._enhanced_indexer:
+                results = await self._enhanced_indexer.query_index(query)
+                self.logger.debug(f"Enhanced index search found {len(results.get('files', []))} files")
+                return results
+        except Exception as e:
+            self.logger.error(f"Enhanced index search failed: {e}")
+            self.error_collector.add_error(e)
+
+        return None
 
     def _search_file(self, path: Path, query: Query) -> list[SearchItem]:
         text = self._get_cached_file_content(path)
@@ -503,6 +632,135 @@ class PySearch:
             search_strings=self.cfg.enable_strings,
         )
         return self.run(q)
+
+    async def hybrid_search(
+        self,
+        pattern: str,
+        use_graphrag: bool = True,
+        use_enhanced_index: bool = True,
+        graphrag_max_hops: int = 2,
+        **kwargs: Any
+    ) -> dict[str, Any]:
+        """
+        Perform hybrid search combining traditional search, GraphRAG, and enhanced indexing.
+
+        This method provides a unified interface that leverages all available search
+        capabilities to provide comprehensive results.
+
+        Args:
+            pattern: Search pattern or query
+            use_graphrag: Whether to include GraphRAG results
+            use_enhanced_index: Whether to include enhanced index results
+            graphrag_max_hops: Maximum hops for GraphRAG traversal
+            **kwargs: Additional parameters for traditional search
+
+        Returns:
+            Dictionary containing results from all enabled search methods
+        """
+        results = {
+            "traditional": None,
+            "graphrag": None,
+            "enhanced_index": None,
+            "metadata": {
+                "pattern": pattern,
+                "timestamp": time.time(),
+                "methods_used": []
+            }
+        }
+
+        # Traditional search
+        try:
+            traditional_query = Query(pattern=pattern, **kwargs)
+            traditional_results = self.run(traditional_query)
+            results["traditional"] = {
+                "items": [
+                    {
+                        "file": str(item.file),
+                        "start_line": item.start_line,
+                        "end_line": item.end_line,
+                        "lines": item.lines,
+                        "match_spans": item.match_spans
+                    }
+                    for item in traditional_results.items
+                ],
+                "stats": {
+                    "files_scanned": traditional_results.stats.files_scanned,
+                    "files_matched": traditional_results.stats.files_matched,
+                    "items": traditional_results.stats.items,
+                    "elapsed_ms": traditional_results.stats.elapsed_ms
+                }
+            }
+            results["metadata"]["methods_used"].append("traditional")
+        except Exception as e:
+            self.logger.error(f"Traditional search failed: {e}")
+
+        # GraphRAG search
+        if use_graphrag and self.enable_graphrag:
+            try:
+                graphrag_query = GraphRAGQuery(
+                    pattern=pattern,
+                    max_hops=graphrag_max_hops,
+                    include_relationships=True
+                )
+                graphrag_results = await self.graphrag_search(graphrag_query)
+                if graphrag_results:
+                    results["graphrag"] = {
+                        "entities": [
+                            {
+                                "id": entity.id,
+                                "name": entity.name,
+                                "type": entity.entity_type.value,
+                                "file": str(entity.file_path),
+                                "line": entity.start_line,
+                                "signature": entity.signature,
+                                "docstring": entity.docstring
+                            }
+                            for entity in graphrag_results.entities
+                        ],
+                        "relationships": [
+                            {
+                                "source": rel.source_entity_id,
+                                "target": rel.target_entity_id,
+                                "type": rel.relation_type.value,
+                                "confidence": rel.confidence,
+                                "context": rel.context
+                            }
+                            for rel in graphrag_results.relationships
+                        ],
+                        "similarity_scores": graphrag_results.similarity_scores,
+                        "metadata": graphrag_results.metadata
+                    }
+                    results["metadata"]["methods_used"].append("graphrag")
+            except Exception as e:
+                self.logger.error(f"GraphRAG search failed: {e}")
+
+        # Enhanced index search
+        if use_enhanced_index and self.enable_enhanced_indexing:
+            try:
+                index_query = IndexQuery(
+                    semantic_query=pattern,
+                    include_entities=True,
+                    limit=50
+                )
+                index_results = await self.enhanced_index_search(index_query)
+                if index_results:
+                    results["enhanced_index"] = index_results
+                    results["metadata"]["methods_used"].append("enhanced_index")
+            except Exception as e:
+                self.logger.error(f"Enhanced index search failed: {e}")
+
+        return results
+
+    async def close_async_components(self) -> None:
+        """Close async components properly."""
+        if self._graphrag_engine:
+            await self._graphrag_engine.close()
+
+        if self._enhanced_indexer:
+            await self._enhanced_indexer.close()
+
+        if self._vector_store:
+            await self._vector_store.close()
 
     def search_semantic_advanced(
         self,

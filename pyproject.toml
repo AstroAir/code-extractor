@@ -53,7 +53,9 @@ dependencies = [
   "fastmcp>=2.11.0",
   "fuzzywuzzy>=0.18.0",
   "python-levenshtein>=0.21.0",
-  "rapidfuzz>=3.0.0"
+  "rapidfuzz>=3.0.0",
+  "qdrant-client>=1.7.0",
+  "numpy>=1.24.0",
 ]
 
 [project.optional-dependencies]
@@ -78,6 +80,40 @@ dev = [
 ]
 watch = [
   "watchdog>=4.0.0"
+]
+
+# GraphRAG and enhanced features
+graphrag = [
+  "qdrant-client>=1.7.0",
+  "numpy>=1.24.0",
+  "sentence-transformers>=2.2.0",
+  "scikit-learn>=1.3.0"
+]
+
+# Vector database support
+vector = [
+  "qdrant-client>=1.7.0",
+  "numpy>=1.24.0",
+  "faiss-cpu>=1.7.0"
+]
+
+# Enhanced semantic analysis
+semantic = [
+  "sentence-transformers>=2.2.0",
+  "transformers>=4.30.0",
+  "torch>=2.0.0",
+  "scikit-learn>=1.3.0"
+]
+
+# All optional features
+all = [
+  "qdrant-client>=1.7.0",
+  "numpy>=1.24.0",
+  "sentence-transformers>=2.2.0",
+  "transformers>=4.30.0",
+  "torch>=2.0.0",
+  "scikit-learn>=1.3.0",
+  "faiss-cpu>=1.7.0"
 ]
 
 [project.urls]
@@ -140,6 +176,10 @@ no_implicit_optional = true
 pretty = true
 files = [
   "src/pysearch/utils.py",
+  "src/pysearch/graphrag.py",
+  "src/pysearch/graphrag_engine.py",
+  "src/pysearch/qdrant_client.py",
+  "src/pysearch/indexer_metadata.py",
   "mcp/servers/",
   "mcp/shared/",
 ]
@@ -158,6 +198,13 @@ module = [
   "watchdog.*",
   "rapidfuzz.*",
   "fastmcp.*",
+  "qdrant_client.*",
+  "numpy.*",
+  "sentence_transformers.*",
+  "transformers.*",
+  "torch.*",
+  "sklearn.*",
+  "faiss.*"
 ]
 ignore_missing_imports = true
 
@@ -176,3 +223,10 @@ sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 
 [tool.bandit]
 skips = ["B101"]
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple"
+default = true
+ 
+[tool.uv.pip]
+index-url = "https://mirrors.aliyun.com/pypi/simple"

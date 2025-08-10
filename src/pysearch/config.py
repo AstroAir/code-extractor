@@ -87,6 +87,31 @@ class SearchConfig:
     ast_weight: float = 2.0
     text_weight: float = 1.0
 
+    # GraphRAG Configuration
+    enable_graphrag: bool = False
+    graphrag_max_hops: int = 2
+    graphrag_min_confidence: float = 0.5
+    graphrag_semantic_threshold: float = 0.7
+    graphrag_context_window: int = 5
+
+    # Metadata Indexing Configuration (formerly Enhanced Indexing)
+    enable_enhanced_indexing: bool = False
+    enhanced_indexing_include_semantic: bool = True
+    enhanced_indexing_complexity_analysis: bool = True
+    enhanced_indexing_dependency_tracking: bool = True
+
+    # Qdrant Vector Database Configuration
+    qdrant_enabled: bool = False
+    qdrant_host: str = "localhost"
+    qdrant_port: int = 6333
+    qdrant_api_key: str | None = None
+    qdrant_https: bool = False
+    qdrant_timeout: float = 30.0
+    qdrant_collection_name: str = "pysearch_vectors"
+    qdrant_vector_size: int = 384
+    qdrant_distance_metric: str = "Cosine"
+    qdrant_batch_size: int = 100
+
     def resolve_cache_dir(self) -> Path:
         base = Path(self.paths[0]).resolve() if self.paths else Path(".").resolve()
         return self.cache_dir or (base / ".pysearch-cache")
@@ -148,6 +173,72 @@ class SearchConfig:
         patterns.extend(special_files)
 
         return patterns
+
+    def get_qdrant_config(self):
+        """Get Qdrant configuration object from search config."""
+        if not self.qdrant_enabled:
+            return None
+
+        from .qdrant_client import QdrantConfig
+        return QdrantConfig(
+            host=self.qdrant_host,
+            port=self.qdrant_port,
+            api_key=self.qdrant_api_key,
+            https=self.qdrant_https,
+            timeout=self.qdrant_timeout,
+            collection_name=self.qdrant_collection_name,
+            vector_size=self.qdrant_vector_size,
+            distance_metric=self.qdrant_distance_metric,
+            batch_size=self.qdrant_batch_size
+        )
+
+    def get_graphrag_query_defaults(self):
+        """Get default GraphRAG query parameters."""
+        return {
+            "max_hops": self.graphrag_max_hops,
+            "min_confidence": self.graphrag_min_confidence,
+            "semantic_threshold": self.graphrag_semantic_threshold,
+            "context_window": self.graphrag_context_window
+        }
+
+    def is_advanced_features_enabled(self) -> bool:
+        """Check if any advanced features are enabled."""
+        return (
+            self.enable_graphrag or
+            self.enable_enhanced_indexing or
+            self.qdrant_enabled
+        )
+
+    def validate_advanced_config(self) -> list[str]:
+        """Validate advanced feature configuration and return any issues."""
+        issues = []
+
+        if self.enable_graphrag and not self.enable_enhanced_indexing:
+            issues.append("GraphRAG requires enhanced indexing to be enabled")
+
+        if self.enable_graphrag and not self.qdrant_enabled:
+            issues.append("GraphRAG works best with Qdrant vector database enabled")
+
+        if self.qdrant_enabled:
+            if self.qdrant_vector_size <= 0:
+                issues.append("Qdrant vector size must be positive")
+
+            if self.qdrant_distance_metric not in ["Cosine", "Dot", "Euclid"]:
+                issues.append("Qdrant distance metric must be one of: Cosine, Dot, Euclid")
+
+            if self.qdrant_batch_size <= 0:
+                issues.append("Qdrant batch size must be positive")
+
+        if self.graphrag_max_hops < 1:
+            issues.append("GraphRAG max hops must be at least 1")
+
+        if not (0.0 <= self.graphrag_min_confidence <= 1.0):
+            issues.append("GraphRAG min confidence must be between 0.0 and 1.0")
+
+        if not (0.0 <= self.graphrag_semantic_threshold <= 1.0):
+            issues.append("GraphRAG semantic threshold must be between 0.0 and 1.0")
+
+        return issues
 
     def get_exclude_patterns(self) -> list[str]:
         """Get exclude patterns, using defaults if not specified."""

@@ -341,7 +341,7 @@ pytest tests/benchmarks -k benchmark -q
 
 ## Roadmap
 
-- **Enhanced Semantic Search**: Optional external embedding backends
+- **Advanced Semantic Search**: Optional external embedding backends
 - **IDE/Editor Integration**: VS Code/JetBrains with protocol-based output
 - **Parallel & Distributed Indexing**: Multi-process/multi-threaded indexing
 - **Advanced Syntax Highlighting**: More refined highlighting and differentiated display
