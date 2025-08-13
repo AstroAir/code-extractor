@@ -41,12 +41,12 @@ class TestIndexerInitialization:
     def test_cache_directory_creation(self, tmp_path: Path) -> None:
         """Test that cache directory is created if it doesn't exist."""
         cache_dir = tmp_path / "custom_cache"
-        config = SearchConfig(paths=[str(tmp_path)], cache_dir=str(cache_dir))
-        
+        config = SearchConfig(paths=[str(tmp_path)], cache_dir=cache_dir)
+
         assert not cache_dir.exists()
-        
+
         indexer = Indexer(config)
-        
+
         assert cache_dir.exists()
         assert indexer.cache_dir == cache_dir
 
@@ -574,9 +574,10 @@ class TestIndexerAdvancedFeatures:
         indexer._hot_cache_max_size = 2  # Small size for testing
 
         # Add records to hot cache
-        record1 = IndexRecord(path="test1.py", size=100, mtime=time.time(), sha1="1")
-        record2 = IndexRecord(path="test2.py", size=200, mtime=time.time(), sha1="2")
-        record3 = IndexRecord(path="test3.py", size=300, mtime=time.time(), sha1="3")
+        current_time = time.time()
+        record1 = IndexRecord(path="test1.py", size=100, mtime=current_time, sha1="1", last_accessed=current_time, access_count=1)
+        record2 = IndexRecord(path="test2.py", size=200, mtime=current_time, sha1="2", last_accessed=current_time, access_count=1)
+        record3 = IndexRecord(path="test3.py", size=300, mtime=current_time, sha1="3", last_accessed=current_time, access_count=1)
 
         indexer._hot_cache["test1.py"] = record1
         indexer._hot_cache["test2.py"] = record2

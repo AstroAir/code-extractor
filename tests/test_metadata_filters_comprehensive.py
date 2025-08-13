@@ -5,6 +5,7 @@ This module tests the metadata filtering functionality including
 file size, date, author, encoding, and language filters.
 """
 
+import sys
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -52,6 +53,7 @@ class TestMetadataFilters:
         assert result == "John Doe"
 
     @patch("subprocess.run")
+    @pytest.mark.skipif(sys.platform == "win32", reason="pwd module not available on Windows")
     def test_get_file_author_git_failure(self, mock_run):
         """Test getting file author when git fails."""
         mock_run.return_value = MagicMock(returncode=1, stdout="")
@@ -65,6 +67,7 @@ class TestMetadataFilters:
                 assert result == "testuser"
 
     @patch("subprocess.run")
+    @pytest.mark.skipif(sys.platform == "win32", reason="pwd module not available on Windows")
     def test_get_file_author_no_git_no_pwd(self, mock_run):
         """Test getting file author when both git and pwd fail."""
         mock_run.side_effect = FileNotFoundError()

@@ -214,9 +214,10 @@ class TestFormatter:
         json_bytes = to_json_bytes(result)
         data = json.loads(json_bytes.decode("utf-8"))
 
-        # Path should be converted to string
-        assert data["items"][0]["file"] == "/absolute/path/test.py"
-        assert isinstance(data["items"][0]["file"], str)
+        # Path should be converted to string (platform-agnostic check)
+        file_path = data["items"][0]["file"]
+        assert isinstance(file_path, str)
+        assert "absolute" in file_path and "path" in file_path and "test.py" in file_path
 
     def test_format_text_complex_spans(self):
         """Test text formatting with complex match spans."""

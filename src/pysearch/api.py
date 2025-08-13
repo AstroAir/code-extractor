@@ -174,6 +174,8 @@ class PySearch:
                 self._graphrag_engine = GraphRAGEngine(self.cfg, self.qdrant_config)
 
             await self._graphrag_engine.initialize()
+            # Set the vector store reference from the GraphRAG engine
+            self._vector_store = self._graphrag_engine.vector_store
             self._graphrag_initialized = True
             self.logger.info("GraphRAG engine initialized successfully")
 

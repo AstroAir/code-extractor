@@ -154,6 +154,11 @@ class FileAccessError(SearchError):
             category=ErrorCategory.FILE_ACCESS,
             severity=ErrorSeverity.MEDIUM,
             file_path=file_path,
+            suggestions=[
+                "Check if file exists",
+                "Verify file path is correct",
+                "Ensure file is not locked by another process",
+            ],
             context=context,
         )
 
@@ -217,6 +222,12 @@ class ParsingError(SearchError):
         line_number: int | None = None,
         context: dict[str, Any] | None = None,
     ) -> None:
+        merged_context: dict[str, Any] = {}
+        if context:
+            merged_context.update(context)
+        if line_number is not None:
+            merged_context["line_number"] = line_number
+
         super().__init__(
             message,
             category=ErrorCategory.PARSING,
@@ -227,7 +238,7 @@ class ParsingError(SearchError):
                 "Verify file is valid source code",
                 "Skip AST parsing for this file",
             ],
-            context=context,
+            context=merged_context,
         )
         self.line_number: int | None = line_number
 
@@ -321,6 +332,8 @@ class ErrorCollector:
             return ErrorCategory.MEMORY
         elif exception_type in ["TimeoutError"]:
             return ErrorCategory.TIMEOUT
+        elif exception_type in ["ValueError", "TypeError"]:
+            return ErrorCategory.VALIDATION
         else:
             return ErrorCategory.UNKNOWN
 
@@ -426,7 +439,9 @@ def create_error_report(error_collector: ErrorCollector) -> str:
     # By category
     report.append("Errors by category:")
     for category, count in summary["by_category"].items():
-        report.append(f"  {category}: {count}")
+        # Use the enum value instead of the enum name
+        category_name = category.value if hasattr(category, 'value') else str(category)
+        report.append(f"  {category_name}: {count}")
     report.append("")
 
     # Critical errors details

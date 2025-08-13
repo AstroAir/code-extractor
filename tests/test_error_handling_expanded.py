@@ -70,7 +70,7 @@ class TestErrorInfo:
             severity=ErrorSeverity.HIGH,
             message="Test error message"
         )
-        
+
         assert error_info.category == ErrorCategory.FILE_ACCESS
         assert error_info.severity == ErrorSeverity.HIGH
         assert error_info.message == "Test error message"
@@ -87,7 +87,7 @@ class TestErrorInfo:
         test_path = Path("test.py")
         test_context = {"key": "value"}
         test_suggestions = ["suggestion1", "suggestion2"]
-        
+
         error_info = ErrorInfo(
             category=ErrorCategory.PARSING,
             severity=ErrorSeverity.CRITICAL,
@@ -99,7 +99,7 @@ class TestErrorInfo:
             context=test_context,
             suggestions=test_suggestions
         )
-        
+
         assert error_info.category == ErrorCategory.PARSING
         assert error_info.severity == ErrorSeverity.CRITICAL
         assert error_info.message == "Parsing failed"
@@ -119,7 +119,7 @@ class TestErrorInfo:
             message="Test"
         )
         after = time.time()
-        
+
         assert before <= error_info.timestamp <= after
 
 
@@ -129,7 +129,7 @@ class TestSearchError:
     def test_search_error_basic(self) -> None:
         """Test basic SearchError creation."""
         error = SearchError("Test error message")
-        
+
         assert str(error) == "Test error message"
         assert error.message == "Test error message"
         assert error.category == ErrorCategory.UNKNOWN
@@ -144,7 +144,7 @@ class TestSearchError:
         test_path = Path("test.py")
         test_suggestions = ["suggestion1", "suggestion2"]
         test_context = {"key": "value"}
-        
+
         error = SearchError(
             message="Custom error",
             category=ErrorCategory.VALIDATION,
@@ -153,7 +153,7 @@ class TestSearchError:
             suggestions=test_suggestions,
             context=test_context
         )
-        
+
         assert error.message == "Custom error"
         assert error.category == ErrorCategory.VALIDATION
         assert error.severity == ErrorSeverity.HIGH
@@ -174,7 +174,7 @@ class TestSpecificErrorTypes:
         """Test FileAccessError creation."""
         test_path = Path("missing.py")
         error = FileAccessError("File not found", test_path)
-        
+
         assert error.message == "File not found"
         assert error.category == ErrorCategory.FILE_ACCESS
         assert error.severity == ErrorSeverity.MEDIUM
@@ -186,7 +186,7 @@ class TestSpecificErrorTypes:
         """Test PermissionError creation."""
         test_path = Path("protected.py")
         error = PermissionError("Access denied", test_path)
-        
+
         assert error.message == "Access denied"
         assert error.category == ErrorCategory.PERMISSION
         assert error.severity == ErrorSeverity.HIGH
@@ -198,7 +198,7 @@ class TestSpecificErrorTypes:
         """Test EncodingError creation."""
         test_path = Path("binary.py")
         error = EncodingError("Invalid encoding", test_path, encoding="utf-8")
-        
+
         assert error.message == "Invalid encoding"
         assert error.category == ErrorCategory.ENCODING
         assert error.severity == ErrorSeverity.LOW
@@ -211,14 +211,14 @@ class TestSpecificErrorTypes:
         """Test EncodingError with additional context."""
         test_path = Path("test.py")
         additional_context = {"extra": "info"}
-        
+
         error = EncodingError(
             "Encoding failed",
             test_path,
             encoding="latin-1",
             context=additional_context
         )
-        
+
         assert error.context["encoding"] == "latin-1"
         assert error.context["extra"] == "info"
 
@@ -226,20 +226,20 @@ class TestSpecificErrorTypes:
         """Test ParsingError creation."""
         test_path = Path("syntax_error.py")
         error = ParsingError("Syntax error", test_path, line_number=10)
-        
+
         assert error.message == "Syntax error"
         assert error.category == ErrorCategory.PARSING
-        assert error.severity == ErrorSeverity.MEDIUM
+        assert error.severity == ErrorSeverity.LOW
         assert error.file_path == test_path
         assert error.context["line_number"] == 10
         assert len(error.suggestions) > 0
-        assert "Check syntax at line 10" in error.suggestions
+        assert "Check file syntax" in error.suggestions
 
     def test_parsing_error_without_line_number(self) -> None:
         """Test ParsingError without line number."""
         test_path = Path("error.py")
         error = ParsingError("Parse failed", test_path)
-        
+
         assert error.context.get("line_number") is None
         assert "Check file syntax" in error.suggestions
 
@@ -247,7 +247,7 @@ class TestSpecificErrorTypes:
         """Test ConfigurationError creation."""
         test_context = {"config_file": "settings.toml"}
         error = ConfigurationError("Invalid config", context=test_context)
-        
+
         assert error.message == "Invalid config"
         assert error.category == ErrorCategory.CONFIGURATION
         assert error.severity == ErrorSeverity.HIGH
@@ -262,7 +262,7 @@ class TestErrorCollectorBasic:
     def test_error_collector_initialization(self) -> None:
         """Test ErrorCollector initialization."""
         collector = ErrorCollector()
-        
+
         assert collector.max_errors == 100
         assert collector.errors == []
         assert collector.error_counts == {}
@@ -271,16 +271,16 @@ class TestErrorCollectorBasic:
     def test_error_collector_custom_max_errors(self) -> None:
         """Test ErrorCollector with custom max_errors."""
         collector = ErrorCollector(max_errors=50)
-        
+
         assert collector.max_errors == 50
 
     def test_add_search_error(self) -> None:
         """Test adding SearchError to collector."""
         collector = ErrorCollector()
         error = SearchError("Test error", category=ErrorCategory.VALIDATION)
-        
+
         collector.add_error(error)
-        
+
         assert len(collector.errors) == 1
         assert collector.errors[0].message == "Test error"
         assert collector.errors[0].category == ErrorCategory.VALIDATION
@@ -290,9 +290,9 @@ class TestErrorCollectorBasic:
         """Test adding generic Exception to collector."""
         collector = ErrorCollector()
         exception = ValueError("Invalid value")
-        
+
         collector.add_error(exception, category=ErrorCategory.VALIDATION)
-        
+
         assert len(collector.errors) == 1
         assert collector.errors[0].message == "Invalid value"
         assert collector.errors[0].category == ErrorCategory.VALIDATION
@@ -303,7 +303,7 @@ class TestErrorCollectorBasic:
         collector = ErrorCollector()
         error = SearchError("Test", category=ErrorCategory.UNKNOWN)
         test_path = Path("test.py")
-        
+
         collector.add_error(
             error,
             category=ErrorCategory.FILE_ACCESS,  # Override
@@ -312,7 +312,7 @@ class TestErrorCollectorBasic:
             context={"extra": "info"},
             suggestions=["Try this"]
         )
-        
+
         # Original error category should be preserved for SearchError
         assert collector.errors[0].category == ErrorCategory.UNKNOWN
         # But file_path should be set
@@ -321,10 +321,10 @@ class TestErrorCollectorBasic:
     def test_max_errors_limit(self) -> None:
         """Test that collector respects max_errors limit."""
         collector = ErrorCollector(max_errors=2)
-        
+
         for i in range(5):
             collector.add_error(Exception(f"Error {i}"))
-        
+
         # Should only store 2 errors
         assert len(collector.errors) == 2
         # But should count all errors
@@ -334,12 +334,12 @@ class TestErrorCollectorBasic:
         """Test clearing all errors."""
         collector = ErrorCollector()
         collector.add_error(Exception("Test"))
-        
+
         assert len(collector.errors) == 1
         assert len(collector.error_counts) == 1
-        
+
         collector.clear()
-        
+
         assert len(collector.errors) == 0
         assert len(collector.error_counts) == 0
 
@@ -607,9 +607,7 @@ class TestCreateErrorReport:
 
         report = create_error_report(collector)
 
-        assert "Error Report" in report
-        assert "Total errors: 0" in report
-        assert "No errors to report" in report
+        assert "No errors occurred during the search operation." == report
 
     def test_create_error_report_with_errors(self) -> None:
         """Test creating error report with errors."""

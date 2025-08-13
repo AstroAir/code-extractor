@@ -26,12 +26,29 @@ class TestCLI:
         """Extract JSON from CLI output, skipping log lines."""
         lines = output.strip().split("\n")
         json_start = -1
+        json_end = -1
+        brace_count = 0
+
+        # Find the start of JSON
         for i, line in enumerate(lines):
             if line.strip().startswith("{"):
                 json_start = i
                 break
+
         assert json_start >= 0, f"No JSON found in output: {output}"
-        json_output = "\n".join(lines[json_start:])
+
+        # Find the end of JSON by counting braces
+        for i in range(json_start, len(lines)):
+            line = lines[i]
+            brace_count += line.count("{") - line.count("}")
+            if brace_count == 0:
+                json_end = i
+                break
+
+        if json_end == -1:
+            json_end = len(lines) - 1
+
+        json_output = "\n".join(lines[json_start:json_end + 1])
         return json.loads(json_output)
 
     def create_test_files(self, tmp_path: Path):
@@ -199,8 +216,11 @@ class TestCLI:
             )
 
             assert result.exit_code == 0
-            # Stats should be printed to stderr when format is not TEXT
-            assert "files_scanned=" in result.stderr or "files_scanned=" in result.output
+            # Stats should be in the output when --stats is used
+            # The stats are included in the JSON output when format is json
+            data = self.extract_json_from_output(result.output)
+            assert "stats" in data
+            assert "files_scanned" in data["stats"]
 
     def test_find_command_conflicting_options(self):
         """Test find command with conflicting options."""
@@ -304,15 +324,20 @@ class TestCLI:
         mock_engine.run.return_value.stats = MagicMock()
         mock_engine.has_critical_errors.return_value = False
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            log_file = Path(tmpdir) / "test.log"
+        # Use a specific temporary file instead of TemporaryDirectory
+        import tempfile
+        import os
 
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False) as tmp_file:
+            log_file_path = tmp_file.name
+
+        try:
             result = self.runner.invoke(
                 cli,
                 [
                     "find",
                     "--log-file",
-                    str(log_file),
+                    log_file_path,
                     "--log-format",
                     "json",
                     "--format",
@@ -322,6 +347,20 @@ class TestCLI:
             )
 
             assert result.exit_code in [0, 1]  # May fail due to log file permissions
+
+        finally:
+            # Clean up log file handlers and remove file
+            import logging
+            for handler in logging.getLogger().handlers[:]:
+                if hasattr(handler, 'close'):
+                    handler.close()
+                logging.getLogger().removeHandler(handler)
+
+            # Remove the temporary log file
+            try:
+                os.unlink(log_file_path)
+            except (OSError, PermissionError):
+                pass  # Ignore cleanup errors
 
     def test_find_command_invalid_log_level(self):
         """Test find command with invalid log level."""

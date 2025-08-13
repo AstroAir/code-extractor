@@ -35,17 +35,18 @@ version = "0.0.0"
             "--path",
             str(pkg / "src"),
             "--include",
-            "**/*.py",
+            "*.py",
             "--context",
             "0",
             "--format",
             "json",
+            "--debug",
             "hello",
         ],
         cwd=tmp_path,
     )
 
-    assert code == 0
+    assert code == 0, f"CLI failed with stderr: {err}"
     # ensure json is parseable and contains at least one item
     data = json.loads(out)
     assert "items" in data and isinstance(data["items"], list)

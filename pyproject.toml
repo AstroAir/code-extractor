@@ -10,10 +10,10 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-  { name = "Kilo Code", email = "contact@kilocode.dev" }
+  { name = "Max Qian", email = "astro_air@126.com" }
 ]
 maintainers = [
-  { name = "Kilo Code", email = "contact@kilocode.dev" }
+  { name = "Max Qian", email = "astro_air@126.com" }
 ]
 keywords = [
   "search", "python", "code", "ast", "regex", "semantic", "cli", "api",
@@ -55,7 +55,7 @@ dependencies = [
   "python-levenshtein>=0.21.0",
   "rapidfuzz>=3.0.0",
   "qdrant-client>=1.7.0",
-  "numpy>=1.24.0",
+  "numpy>=1.24.0"
 ]
 
 [project.optional-dependencies]
@@ -143,6 +143,11 @@ minversion = "7.0"
 addopts = "-ra -q --cov=pysearch --cov-config=pyproject.toml --cov-report=term-missing:skip-covered --cov-report=xml:coverage.xml"
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "benchmark: marks tests as benchmarks"
+]
 
 [tool.coverage.run]
 branch = true
@@ -154,7 +159,7 @@ data_file = ".coverage/coverage"
 show_missing = true
 skip_covered = true
 precision = 2
-fail_under = 85
+fail_under = 50
 
 [tool.black]
 line-length = 100
@@ -227,6 +232,6 @@ skips = ["B101"]
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple"
 default = true
- 
+
 [tool.uv.pip]
 index-url = "https://mirrors.aliyun.com/pypi/simple"

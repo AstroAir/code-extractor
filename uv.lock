@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 1
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -2173,6 +2173,7 @@ dependencies = [
     { name = "orjson" },
     { name = "pathspec" },
     { name = "pydantic" },
+    { name = "pytest" },
     { name = "python-levenshtein" },
     { name = "qdrant-client" },
     { name = "rapidfuzz" },
@@ -2258,6 +2259,7 @@ requires-dist = [
     { name = "pathspec", specifier = ">=0.12.1" },
     { name = "pydantic", specifier = ">=2.7.0" },
     { name = "pygments", marker = "extra == 'dev'" },
+    { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
     { name = "pytest-benchmark", marker = "extra == 'dev'" },

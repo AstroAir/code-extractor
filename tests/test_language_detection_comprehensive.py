@@ -291,7 +291,7 @@ class TestLanguageDetectionEdgeCases:
             ("config.dev.json", Language.JSON),
             ("test.spec.js", Language.JAVASCRIPT),
             ("types.d.ts", Language.TYPESCRIPT),
-            ("backup.old.py", Language.UNKNOWN),  # .py is not the final extension
+            ("backup.old.py", Language.PYTHON),  # .py is the final extension
             ("archive.tar.gz", Language.UNKNOWN),
         ]
         

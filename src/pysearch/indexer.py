@@ -157,8 +157,12 @@ class Indexer:
 
             # Read minimal metadata (stat), compute sha1 only when necessary
             # This optimization avoids expensive hash computation for unchanged files
-            meta = file_meta(p)
-            if meta is None:
+            try:
+                meta = file_meta(p)
+                if meta is None:
+                    continue
+            except Exception:
+                # Skip files that can't be accessed
                 continue
 
             rec = self._index.get(rel)

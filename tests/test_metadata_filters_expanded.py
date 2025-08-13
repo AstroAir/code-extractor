@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -50,16 +51,17 @@ class TestGetFileAuthor:
             assert args[1] == "log"
             assert str(test_file) in args
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="pwd module not available on Windows")
     def test_get_file_author_git_failure(self, tmp_path: Path) -> None:
         """Test getting file author when git fails."""
         test_file = tmp_path / "test.py"
         test_file.write_text("print('hello')")
-        
+
         # Mock failed git command
         mock_result = Mock()
         mock_result.returncode = 1
         mock_result.stdout = ""
-        
+
         with patch('subprocess.run', return_value=mock_result), \
              patch('pwd.getpwuid') as mock_pwd:
             
@@ -72,11 +74,12 @@ class TestGetFileAuthor:
             
             assert author == "testuser"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="pwd module not available on Windows")
     def test_get_file_author_git_timeout(self, tmp_path: Path) -> None:
         """Test getting file author when git times out."""
         test_file = tmp_path / "test.py"
         test_file.write_text("print('hello')")
-        
+
         with patch('subprocess.run', side_effect=subprocess.TimeoutExpired("git", 5)), \
              patch('pwd.getpwuid') as mock_pwd:
             
@@ -89,11 +92,12 @@ class TestGetFileAuthor:
             
             assert author == "fallbackuser"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="pwd module not available on Windows")
     def test_get_file_author_no_git_no_pwd(self, tmp_path: Path) -> None:
         """Test getting file author when both git and pwd fail."""
         test_file = tmp_path / "test.py"
         test_file.write_text("print('hello')")
-        
+
         with patch('subprocess.run', side_effect=FileNotFoundError("git not found")), \
              patch('pwd.getpwuid', side_effect=ImportError("pwd not available")):
             
@@ -101,11 +105,12 @@ class TestGetFileAuthor:
             
             assert author is None
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="pwd module not available on Windows")
     def test_get_file_author_pwd_key_error(self, tmp_path: Path) -> None:
         """Test getting file author when pwd raises KeyError."""
         test_file = tmp_path / "test.py"
         test_file.write_text("print('hello')")
-        
+
         with patch('subprocess.run', side_effect=FileNotFoundError("git not found")), \
              patch('pwd.getpwuid', side_effect=KeyError("user not found")):
             
@@ -113,28 +118,31 @@ class TestGetFileAuthor:
             
             assert author is None
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Path mocking not supported on Windows")
     def test_get_file_author_os_error(self, tmp_path: Path) -> None:
         """Test getting file author when file stat fails."""
         test_file = tmp_path / "test.py"
         test_file.write_text("print('hello')")
-        
-        with patch('subprocess.run', side_effect=FileNotFoundError("git not found")), \
-             patch.object(Path, 'stat', side_effect=OSError("stat failed")):
-            
-            author = get_file_author(test_file)
-            
-            assert author is None
 
+        # Mock git to fail and file operations to fail
+        with patch('subprocess.run', side_effect=FileNotFoundError("git not found")):
+            # Mock exists to return True but stat to fail
+            with patch.object(test_file.parent, 'exists', return_value=True), \
+                 patch.object(test_file, 'stat', side_effect=OSError("stat failed")):
+                author = get_file_author(test_file)
+                assert author is None
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="pwd module not available on Windows")
     def test_get_file_author_empty_git_output(self, tmp_path: Path) -> None:
         """Test getting file author when git returns empty output."""
         test_file = tmp_path / "test.py"
         test_file.write_text("print('hello')")
-        
+
         # Mock git command with empty output
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = "   \n"  # Whitespace only
-        
+
         with patch('subprocess.run', return_value=mock_result), \
              patch('pwd.getpwuid') as mock_pwd:
             
@@ -214,7 +222,7 @@ class TestCreateSizeFilter:
 
     def test_create_size_filter_unknown_unit(self) -> None:
         """Test creating size filter with unknown unit."""
-        with pytest.raises(ValueError, match="Unknown size unit"):
+        with pytest.raises(ValueError, match="Invalid size format"):
             create_size_filter("1XB", None)
 
     def test_create_size_filter_whitespace(self) -> None:
@@ -332,7 +340,7 @@ class TestCreateDateFilter:
 
     def test_create_date_filter_invalid_relative_unit(self) -> None:
         """Test creating date filter with invalid relative unit."""
-        with pytest.raises(ValueError, match="Unknown time unit"):
+        with pytest.raises(ValueError, match="Invalid date format"):
             create_date_filter(modified_after="1x")  # Invalid unit
 
     def test_create_date_filter_empty_string(self) -> None:

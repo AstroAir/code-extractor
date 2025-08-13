@@ -323,6 +323,8 @@ def is_text_file(path: Path) -> bool:
         ".py",
         ".js",
         ".ts",
+        ".tsx",
+        ".jsx",
         ".java",
         ".c",
         ".cpp",

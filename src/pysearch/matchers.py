@@ -142,6 +142,11 @@ def find_text_regex_matches(text: str, pattern: str, use_regex: bool) -> list[Te
     matches: list[TextMatch] = []
     if not text:
         return matches
+
+    # Guard against empty pattern to prevent infinite loops
+    if not pattern:
+        return matches
+
     if use_regex:
         # multiline, dotall for code; 使用 LRU 缓存避免重复编译
         flags = regex_mod.MULTILINE | regex_mod.DOTALL
@@ -163,7 +168,8 @@ def find_text_regex_matches(text: str, pattern: str, use_regex: bool) -> list[Te
                 if j == -1:
                     break
                 matches.append(TextMatch(line_index=i, start_col=j, end_col=j + len(pattern)))
-                start = j + len(pattern)
+                # Ensure we always advance position to prevent infinite loops
+                start = j + max(1, len(pattern))
     return matches
 
 
