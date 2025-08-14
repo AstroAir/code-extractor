@@ -12,7 +12,7 @@ from typing import Set
 
 import pytest
 
-from pysearch.language_detection import (
+from pysearch.analysis.language_detection import (
     detect_language,
     detect_language_by_content,
     get_language_extensions,
@@ -21,7 +21,7 @@ from pysearch.language_detection import (
     EXTENSION_MAP,
     FILENAME_PATTERNS,
 )
-from pysearch.types import Language
+from pysearch import Language
 
 
 class TestComprehensiveLanguageDetection:

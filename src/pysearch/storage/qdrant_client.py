@@ -25,7 +25,7 @@ Example:
         >>> config = QdrantConfig(host="localhost", port=6333)
         >>> vector_store = QdrantVectorStore(config)
         >>> await vector_store.initialize()
-        >>> 
+        >>>
         >>> # Add vectors
         >>> vectors = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
         >>> metadata = [{"file": "a.py", "entity": "func1"}, {"file": "b.py", "entity": "func2"}]
@@ -119,7 +119,7 @@ if TYPE_CHECKING:  # Hints only; actual runtime handled above
     from qdrant_client.http.exceptions import ResponseHandlingException as _RHE  # noqa: F401
     from qdrant_client.http.exceptions import UnexpectedResponse as _UR  # noqa: F401
 
-from .error_handling import SearchError
+from ..utils.error_handling import SearchError
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +173,8 @@ class QdrantVectorStore:
             )
 
             # Test connection
-            await self._retry_operation(lambda: self.client.get_collections())  # type: ignore[attr-defined]
+            if self.client:
+                await self._retry_operation(lambda: self.client.get_collections())
 
             # Create default collection if it doesn't exist
             await self.create_collection(
@@ -203,7 +204,7 @@ class QdrantVectorStore:
                 if asyncio.iscoroutine(result):
                     return await result
                 return result
-            except (ResponseHandlingException, UnexpectedResponse, ConnectionError) as e:  # type: ignore[misc]
+            except (ResponseHandlingException, UnexpectedResponse, ConnectionError) as e:
                 last_exception = e
                 if attempt < self.config.max_retries - 1:
                     await asyncio.sleep(self.config.retry_delay * (2 ** attempt))
@@ -229,7 +230,7 @@ class QdrantVectorStore:
             raise SearchError("Qdrant client not initialized")
 
         try:
-            collections = await self._retry_operation(lambda: client.get_collections())  # type: ignore[attr-defined]
+            collections = await self._retry_operation(lambda: client.get_collections())
             existing_names = {col.name for col in collections.collections}
 
             if collection_name not in existing_names:
@@ -242,12 +243,12 @@ class QdrantVectorStore:
                 }
 
                 await self._retry_operation(
-                    lambda: client.create_collection(  # type: ignore[attr-defined]
+                    lambda: client.create_collection(
                         collection_name=collection_name,
-                        vectors_config=models.VectorParams(  # type: ignore[attr-defined]
+                        vectors_config=models.VectorParams(
                             size=vector_size,
                             distance=distance_map.get(
-                                distance_metric, models.Distance.COSINE  # type: ignore[attr-defined]
+                                distance_metric, models.Distance.COSINE
                             ),
                         ),
                     )
@@ -294,7 +295,7 @@ class QdrantVectorStore:
 
                 assert models is not None
                 points = [
-                    models.PointStruct(  # type: ignore[attr-defined]
+                    models.PointStruct(
                         id=point_id, vector=vector, payload=payload
                     )
                     for point_id, vector, payload in zip(
@@ -303,7 +304,7 @@ class QdrantVectorStore:
                 ]
 
                 await self._retry_operation(
-                    lambda: client.upsert(  # type: ignore[attr-defined]
+                    lambda: client.upsert(
                         collection_name=collection_name,
                         points=points,
                     )
@@ -346,25 +347,25 @@ class QdrantVectorStore:
                 for key, value in filter_conditions.items():
                     if isinstance(value, list):
                         conditions.append(
-                            models.FieldCondition(  # type: ignore[attr-defined]
+                            models.FieldCondition(
                                 key=key,
-                                match=models.MatchAny(any=value),  # type: ignore[attr-defined]
+                                match=models.MatchAny(any=value),
                             )
                         )
                     else:
                         conditions.append(
-                            models.FieldCondition(  # type: ignore[attr-defined]
+                            models.FieldCondition(
                                 key=key,
-                                match=models.MatchValue(value=value),  # type: ignore[attr-defined]
+                                match=models.MatchValue(value=value),
                             )
                         )
                 if conditions:
-                    search_filter = models.Filter(  # type: ignore[attr-defined]
+                    search_filter = models.Filter(
                         must=conditions
                     )
 
             search_result = await self._retry_operation(
-                lambda: client.search(  # type: ignore[attr-defined]
+                lambda: client.search(
                     collection_name=collection,
                     query_vector=query_vector,
                     limit=top_k,
@@ -405,10 +406,10 @@ class QdrantVectorStore:
         try:
             assert models is not None
             await self._retry_operation(
-                lambda: client.delete(  # type: ignore[attr-defined]
+                lambda: client.delete(
                     collection_name=collection_name,
-                    points_selector=models.PointIdsList(  # type: ignore[attr-defined]
-                        points=vector_ids  # type: ignore[arg-type]
+                    points_selector=models.PointIdsList(
+                        points=vector_ids
                     ),
                 )
             )
@@ -433,7 +434,7 @@ class QdrantVectorStore:
 
         try:
             await self._retry_operation(
-                lambda: client.set_payload(  # type: ignore[attr-defined]
+                lambda: client.set_payload(
                     collection_name=collection_name,
                     payload=metadata,
                     points=[vector_id],
@@ -459,7 +460,7 @@ class QdrantVectorStore:
 
         try:
             info = await self._retry_operation(
-                lambda: client.get_collection(collection_name)  # type: ignore[attr-defined]
+                lambda: client.get_collection(collection_name)
             )
 
             return {

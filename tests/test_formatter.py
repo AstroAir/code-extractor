@@ -9,13 +9,13 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from pysearch.formatter import (
+from pysearch.utils.formatter import (
     format_result,
     format_text,
     render_highlight_console,
     to_json_bytes,
 )
-from pysearch.types import OutputFormat, SearchItem, SearchResult, SearchStats
+from pysearch import OutputFormat, SearchItem, SearchResult, SearchStats
 
 
 class TestFormatter:
@@ -180,7 +180,7 @@ class TestFormatter:
         assert "]]" in formatted
         assert "test1.py:1-3" in formatted
 
-    @patch("pysearch.formatter.Console")
+    @patch("pysearch.utils.formatter.Console")
     def test_render_highlight_console(self, mock_console_class):
         """Test console highlighting rendering."""
         mock_console = mock_console_class.return_value

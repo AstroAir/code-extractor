@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pysearch.matchers import find_text_regex_matches, group_matches_into_blocks
+from pysearch.search.matchers import find_text_regex_matches, group_matches_into_blocks
 
 
 def test_find_text_and_regex_and_group():

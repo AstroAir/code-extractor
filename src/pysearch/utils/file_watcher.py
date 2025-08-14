@@ -34,7 +34,7 @@ Example:
     Advanced watching with custom handler:
         >>> def on_change(events):
         ...     print(f"Files changed: {[e.path for e in events]}")
-        >>> 
+        >>>
         >>> watcher = FileWatcher("/path/to/project", change_handler=on_change)
         >>> watcher.start()
 """
@@ -61,28 +61,28 @@ except ImportError:
         def __init__(self, src_path: str):
             self.src_path = src_path
             self.is_directory = False
-    
+
     class FileSystemEventHandler:
         pass
-    
+
     class Observer:
-        def __init__(self):
-            pass
-        
-        def schedule(self, handler, path, recursive=True):
-            pass
-        
-        def start(self):
-            pass
-        
-        def stop(self):
-            pass
-        
-        def join(self):
+        def __init__(self) -> None:
             pass
 
-from .config import SearchConfig
-from .indexer import Indexer
+        def schedule(self, handler: Any, path: str, recursive: bool = True) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+        def stop(self) -> None:
+            pass
+
+        def join(self) -> None:
+            pass
+
+from ..core.config import SearchConfig
+from ..indexing.indexer import Indexer
 from .logging_config import get_logger
 from .utils import matches_patterns
 
@@ -98,7 +98,7 @@ class EventType(Enum):
 @dataclass
 class FileEvent:
     """Represents a file system event with metadata."""
-    
+
     path: Path
     event_type: EventType
     timestamp: float
@@ -110,11 +110,11 @@ class FileEvent:
 class ChangeProcessor:
     """
     Processes file changes for search index updates.
-    
+
     Handles batching, debouncing, and intelligent processing of file changes
     to maintain search index consistency while minimizing performance impact.
     """
-    
+
     def __init__(
         self,
         indexer: Indexer,
@@ -127,39 +127,39 @@ class ChangeProcessor:
         self.debounce_delay = debounce_delay
         self.max_batch_delay = max_batch_delay
         self.logger = get_logger()
-        
+
         # Event processing
         self._pending_events: dict[Path, FileEvent] = {}
         self._processing_lock = threading.RLock()
         self._last_batch_time = time.time()
         self._debounce_timer: threading.Timer | None = None
-        
+
         # Statistics
         self.events_processed = 0
         self.batches_processed = 0
         self.last_processing_time = 0.0
-    
+
     def process_event(self, event: FileEvent) -> None:
         """
         Process a single file system event.
-        
+
         Args:
             event: File system event to process
         """
         with self._processing_lock:
             # Update pending events (latest event wins for each path)
             self._pending_events[event.path] = event
-            
+
             # Cancel existing debounce timer
             if self._debounce_timer:
                 self._debounce_timer.cancel()
-            
+
             # Check if we should process immediately
             should_process_now = (
                 len(self._pending_events) >= self.batch_size or
                 time.time() - self._last_batch_time >= self.max_batch_delay
             )
-            
+
             if should_process_now:
                 self._process_pending_events()
             else:
@@ -169,36 +169,36 @@ class ChangeProcessor:
                     self._process_pending_events
                 )
                 self._debounce_timer.start()
-    
+
     def _process_pending_events(self) -> None:
         """Process all pending events in a batch."""
         with self._processing_lock:
             if not self._pending_events:
                 return
-            
+
             start_time = time.time()
             events = list(self._pending_events.values())
             self._pending_events.clear()
             self._last_batch_time = start_time
-            
+
             # Cancel debounce timer if active
             if self._debounce_timer:
                 self._debounce_timer.cancel()
                 self._debounce_timer = None
-        
+
         # Process events outside the lock
         self._process_event_batch(events)
-        
+
         # Update statistics
         processing_time = time.time() - start_time
         self.events_processed += len(events)
         self.batches_processed += 1
         self.last_processing_time = processing_time
-        
+
         self.logger.debug(
             f"Processed {len(events)} file events in {processing_time:.3f}s"
         )
-    
+
     def _process_event_batch(self, events: list[FileEvent]) -> None:
         """Process a batch of file events."""
         try:
@@ -206,11 +206,11 @@ class ChangeProcessor:
             created_files = []
             modified_files = []
             deleted_files = []
-            
+
             for event in events:
                 if event.is_directory:
                     continue  # Skip directory events
-                
+
                 if event.event_type == EventType.CREATED:
                     created_files.append(event.path)
                 elif event.event_type == EventType.MODIFIED:
@@ -222,28 +222,28 @@ class ChangeProcessor:
                     if event.old_path:
                         deleted_files.append(event.old_path)
                     created_files.append(event.path)
-            
+
             # Update indexer
             if created_files or modified_files:
                 # For created/modified files, trigger a rescan
                 self.indexer.invalidate_paths(created_files + modified_files)
-            
+
             if deleted_files:
                 # For deleted files, remove from index
                 self.indexer.remove_paths(deleted_files)
-            
+
             self.logger.info(
                 f"Index updated: {len(created_files)} created, "
                 f"{len(modified_files)} modified, {len(deleted_files)} deleted"
             )
-            
+
         except Exception as e:
             self.logger.error(f"Error processing file events: {e}")
-    
+
     def flush_pending(self) -> None:
         """Force processing of all pending events."""
         self._process_pending_events()
-    
+
     def get_stats(self) -> dict[str, Any]:
         """Get processing statistics."""
         return {
@@ -261,10 +261,10 @@ class ChangeProcessor:
 class PySearchEventHandler(FileSystemEventHandler):
     """
     File system event handler for PySearch.
-    
+
     Filters and processes file system events according to PySearch configuration.
     """
-    
+
     def __init__(
         self,
         config: SearchConfig,
@@ -276,41 +276,41 @@ class PySearchEventHandler(FileSystemEventHandler):
         self.change_processor = change_processor
         self.custom_handler = custom_handler
         self.logger = get_logger()
-        
+
         # Event filtering
         self._recent_events: deque[tuple[str, float]] = deque(maxlen=1000)
         self._duplicate_threshold = 0.1  # seconds
-    
+
     def _should_process_path(self, path: Path) -> bool:
         """Check if a path should be processed based on configuration."""
         # Check include patterns
         if self.config.include:
             if not matches_patterns(path, self.config.include):
                 return False
-        
+
         # Check exclude patterns
         if self.config.exclude:
             if matches_patterns(path, self.config.exclude):
                 return False
-        
+
         return True
-    
+
     def _is_duplicate_event(self, path: str, timestamp: float) -> bool:
         """Check if this is a duplicate event that should be ignored."""
         # Remove old events
         cutoff = timestamp - self._duplicate_threshold
         while self._recent_events and self._recent_events[0][1] < cutoff:
             self._recent_events.popleft()
-        
+
         # Check for duplicates
         for event_path, event_time in self._recent_events:
             if event_path == path and abs(event_time - timestamp) < self._duplicate_threshold:
                 return True
-        
+
         # Add this event
         self._recent_events.append((path, timestamp))
         return False
-    
+
     def _create_file_event(
         self,
         src_path: str,
@@ -321,15 +321,15 @@ class PySearchEventHandler(FileSystemEventHandler):
         """Create a FileEvent from file system event data."""
         path = Path(src_path)
         timestamp = time.time()
-        
+
         # Check for duplicates
         if self._is_duplicate_event(src_path, timestamp):
             return None
-        
+
         # Check if path should be processed
         if not self._should_process_path(path):
             return None
-        
+
         return FileEvent(
             path=path,
             event_type=event_type,
@@ -337,7 +337,7 @@ class PySearchEventHandler(FileSystemEventHandler):
             is_directory=is_directory,
             old_path=Path(dest_path) if dest_path else None
         )
-    
+
     def on_created(self, event: FileSystemEvent) -> None:
         """Handle file/directory creation events."""
         file_event = self._create_file_event(
@@ -347,7 +347,7 @@ class PySearchEventHandler(FileSystemEventHandler):
         )
         if file_event:
             self._process_event(file_event)
-    
+
     def on_modified(self, event: FileSystemEvent) -> None:
         """Handle file/directory modification events."""
         file_event = self._create_file_event(
@@ -357,7 +357,7 @@ class PySearchEventHandler(FileSystemEventHandler):
         )
         if file_event:
             self._process_event(file_event)
-    
+
     def on_deleted(self, event: FileSystemEvent) -> None:
         """Handle file/directory deletion events."""
         file_event = self._create_file_event(
@@ -367,7 +367,7 @@ class PySearchEventHandler(FileSystemEventHandler):
         )
         if file_event:
             self._process_event(file_event)
-    
+
     def on_moved(self, event: FileSystemEvent) -> None:
         """Handle file/directory move events."""
         # Handle move as delete + create
@@ -380,17 +380,17 @@ class PySearchEventHandler(FileSystemEventHandler):
             )
             if file_event:
                 self._process_event(file_event)
-    
+
     def _process_event(self, event: FileEvent) -> None:
         """Process a file event."""
         try:
             # Process through change processor
             self.change_processor.process_event(event)
-            
+
             # Call custom handler if provided
             if self.custom_handler:
                 self.custom_handler([event])
-                
+
         except Exception as e:
             self.logger.error(f"Error processing file event {event.path}: {e}")
 

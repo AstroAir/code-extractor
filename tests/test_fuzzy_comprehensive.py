@@ -6,7 +6,7 @@ various algorithms, distance calculations, and similarity scoring.
 """
 
 
-from pysearch.fuzzy import (
+from pysearch.search.fuzzy import (
     FuzzyAlgorithm,
     FuzzyMatch,
     calculate_similarity,

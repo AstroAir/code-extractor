@@ -8,9 +8,9 @@ search operations, fuzzy search, ranking, and error handling.
 import tempfile
 from pathlib import Path
 
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.types import (
+from pysearch import PySearch
+from pysearch import SearchConfig
+from pysearch import (
     ASTFilters,
     Language,
     MetadataFilters,

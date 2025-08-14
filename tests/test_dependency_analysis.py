@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.dependency_analysis import (
+from pysearch.analysis.dependency_analysis import (
     DependencyAnalyzer,
     DependencyGraph,
     ImportNode,
 )
-from pysearch.types import Language
+from pysearch import Language
 
 
 def write(tmp: Path, rel: str, text: str) -> Path:

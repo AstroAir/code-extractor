@@ -7,14 +7,15 @@ The indexing module handles file indexing, caching, and metadata management for 
 - **File Indexing**: Efficient file scanning and metadata extraction
 - **Caching**: Performance optimization through intelligent caching
 - **Metadata Management**: File metadata indexing and querying
-- **Enhanced Features**: Advanced indexing capabilities (in `enhanced/` subdirectory)
+- **Advanced Features**: Advanced indexing capabilities (in `advanced/` subdirectory)
 
 ## Key Files
 
 - `indexer.py` - Basic file indexing with incremental updates
 - `metadata.py` - Metadata indexing and querying (renamed from `indexer_metadata.py`)
 - `cache_manager.py` - Caching system for performance optimization
-- `enhanced/` - Advanced indexing features and algorithms
+- `advanced/` - Advanced indexing features and algorithms
+- `legacy_indexer.py` - Backward compatibility module (deprecated)
 - `indexes/` - Specialized index implementations
 
 ## Indexing Strategy
@@ -24,11 +25,12 @@ The indexing module handles file indexing, caching, and metadata management for 
 3. **Parallel Processing**: Multi-threaded indexing for large codebases
 4. **Cache Management**: TTL-based caching with memory optimization
 
-## Enhanced Features
+## Advanced Features
 
-The `enhanced/` subdirectory contains advanced indexing capabilities:
+The `advanced/` subdirectory contains advanced indexing capabilities:
+
 - Code-aware chunking strategies
-- Enhanced indexing engine with sophisticated algorithms
+- Advanced indexing engine with sophisticated algorithms
 - Performance monitoring and optimization
 
 ## Usage

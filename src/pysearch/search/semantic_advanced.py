@@ -79,7 +79,7 @@ class SemanticEmbedding:
     optimized for code content and programming concepts.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.vocabulary: dict[str, int] = {}
         self.idf_scores: dict[str, float] = {}
         self.is_fitted = False
@@ -173,7 +173,7 @@ class SemanticEmbedding:
 
         # Calculate IDF scores
         doc_count = len(documents)
-        token_doc_counts = defaultdict(int)
+        token_doc_counts: dict[str, int] = defaultdict(int)
 
         for tokens in doc_tokens:
             unique_tokens = set(tokens)
@@ -259,7 +259,7 @@ class CodeSemanticAnalyzer:
     - Code structure relationships
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.embedding_model = SemanticEmbedding()
 
         # Semantic categories for code elements
@@ -660,7 +660,7 @@ class SemanticSearchEngine:
                 file=file_path or Path("unknown"),
                 start_line=concept.line_number,
                 end_line=concept.line_number,
-                lines=[lines[start_line:end_line]] if start_line < len(lines) else [],
+                lines=lines[start_line:end_line] if start_line < len(lines) else [],
                 match_spans=[(0, (0, len(concept.name)))]
             )
 

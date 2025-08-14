@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
+from pysearch import PySearch
+from pysearch import SearchConfig
 
 
 def test_api_toggles_and_semantic(tmp_path: Path) -> None:

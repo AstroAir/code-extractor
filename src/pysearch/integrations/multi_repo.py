@@ -23,11 +23,11 @@ Example:
     Basic multi-repository search:
         >>> from pysearch.multi_repo import MultiRepoSearchEngine
         >>> engine = MultiRepoSearchEngine()
-        >>> 
+        >>>
         >>> # Add repositories
         >>> engine.add_repository("project-a", "/path/to/project-a")
         >>> engine.add_repository("project-b", "/path/to/project-b")
-        >>> 
+        >>>
         >>> # Search across all repositories
         >>> results = engine.search_all("def main")
         >>> print(f"Found matches in {len(results)} repositories")
@@ -39,7 +39,7 @@ Example:
         ...     "exclude": ["**/tests/**"],
         ...     "priority": "high"
         ... })
-        >>> 
+        >>>
         >>> # Search with repository filtering
         >>> results = engine.search_repositories(
         ...     pattern="database",
@@ -59,16 +59,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # avoid runtime circular import
-    from .api import PySearch  # pragma: no cover
-from .config import SearchConfig
-from .logging_config import get_logger
-from .types import Query, SearchItem, SearchResult
+    from ..core.api import PySearch  # pragma: no cover
+from ..core.config import SearchConfig
+from ..utils.logging_config import get_logger
+from ..core.types import Query, SearchItem, SearchResult
 
 
 @dataclass
 class RepositoryInfo:
     """Information about a repository in the multi-repo system."""
-    
+
     name: str
     path: Path
     config: SearchConfig
@@ -77,33 +77,33 @@ class RepositoryInfo:
     last_updated: float = 0.0
     health_status: str = "unknown"  # "healthy", "warning", "error", "unknown"
     metadata: dict[str, Any] = field(default_factory=dict)
-    
+
     # Git information
     git_remote: str = ""
     git_branch: str = ""
     git_commit: str = ""
-    
+
     def __post_init__(self) -> None:
         """Initialize repository information."""
         if self.last_updated == 0.0:
             self.last_updated = time.time()
-        
+
         # Try to get Git information
         self._update_git_info()
-    
+
     def _update_git_info(self) -> None:
         """Update Git repository information."""
         if not self.path.exists():
             self.health_status = "error"
             return
-        
+
         try:
             # Check if it's a Git repository
             git_dir = self.path / ".git"
             if not git_dir.exists():
                 self.health_status = "warning"
                 return
-            
+
             # Get Git information
             result = subprocess.run(
                 ["git", "remote", "get-url", "origin"],
@@ -114,7 +114,7 @@ class RepositoryInfo:
             )
             if result.returncode == 0:
                 self.git_remote = result.stdout.strip()
-            
+
             result = subprocess.run(
                 ["git", "branch", "--show-current"],
                 cwd=self.path,
@@ -124,7 +124,7 @@ class RepositoryInfo:
             )
             if result.returncode == 0:
                 self.git_branch = result.stdout.strip()
-            
+
             result = subprocess.run(
                 ["git", "rev-parse", "HEAD"],
                 cwd=self.path,
@@ -134,12 +134,12 @@ class RepositoryInfo:
             )
             if result.returncode == 0:
                 self.git_commit = result.stdout.strip()[:8]  # Short hash
-            
+
             self.health_status = "healthy"
-            
+
         except Exception:
             self.health_status = "warning"
-    
+
     def refresh_status(self) -> None:
         """Refresh repository status and Git information."""
         self._update_git_info()
@@ -149,19 +149,19 @@ class RepositoryInfo:
 @dataclass
 class MultiRepoSearchResult:
     """Results from a multi-repository search."""
-    
+
     repository_results: dict[str, SearchResult]
     aggregated_result: SearchResult | None = None
     total_repositories: int = 0
     successful_repositories: int = 0
     failed_repositories: list[str] = field(default_factory=list)
     search_time_ms: float = 0.0
-    
+
     @property
     def total_matches(self) -> int:
         """Get total number of matches across all repositories."""
         return sum(result.stats.items for result in self.repository_results.values())
-    
+
     @property
     def success_rate(self) -> float:
         """Get the success rate of repository searches."""
@@ -173,16 +173,16 @@ class MultiRepoSearchResult:
 class RepositoryManager:
     """
     Manages multiple repository configurations and metadata.
-    
+
     Provides centralized management of repository information,
     configurations, and health monitoring.
     """
-    
-    def __init__(self):
+
+    def __init__(self) -> None:
         self.repositories: dict[str, RepositoryInfo] = {}
         self.logger = get_logger()
         self._lock = threading.RLock()
-    
+
     def add_repository(
         self,
         name: str,
@@ -193,14 +193,14 @@ class RepositoryManager:
     ) -> bool:
         """
         Add a repository to the manager.
-        
+
         Args:
             name: Unique name for the repository
             path: Path to the repository
             config: Search configuration for this repository
             priority: Priority level ("high", "normal", "low")
             **metadata: Additional metadata for the repository
-            
+
         Returns:
             True if repository was added successfully, False otherwise
         """
@@ -208,15 +208,15 @@ class RepositoryManager:
             if name in self.repositories:
                 self.logger.warning(f"Repository '{name}' already exists")
                 return False
-            
+
             path = Path(path)
             if not path.exists():
                 self.logger.error(f"Repository path does not exist: {path}")
                 return False
-            
+
             if config is None:
                 config = SearchConfig(paths=[str(path)])
-            
+
             repo_info = RepositoryInfo(
                 name=name,
                 path=path,
@@ -224,18 +224,18 @@ class RepositoryManager:
                 priority=priority,
                 metadata=metadata
             )
-            
+
             self.repositories[name] = repo_info
             self.logger.info(f"Added repository '{name}' at {path}")
             return True
-    
+
     def remove_repository(self, name: str) -> bool:
         """
         Remove a repository from the manager.
-        
+
         Args:
             name: Name of the repository to remove
-            
+
         Returns:
             True if repository was removed, False if not found
         """
@@ -245,27 +245,27 @@ class RepositoryManager:
                 self.logger.info(f"Removed repository '{name}'")
                 return True
             return False
-    
+
     def get_repository(self, name: str) -> RepositoryInfo | None:
         """Get repository information by name."""
         return self.repositories.get(name)
-    
+
     def list_repositories(self) -> list[str]:
         """Get list of repository names."""
         return list(self.repositories.keys())
-    
+
     def get_enabled_repositories(self) -> dict[str, RepositoryInfo]:
         """Get all enabled repositories."""
         return {name: repo for name, repo in self.repositories.items() if repo.enabled}
-    
+
     def configure_repository(self, name: str, **config_updates: Any) -> bool:
         """
         Update repository configuration.
-        
+
         Args:
             name: Repository name
             **config_updates: Configuration updates
-            
+
         Returns:
             True if configuration was updated, False if repository not found
         """
@@ -273,22 +273,22 @@ class RepositoryManager:
             repo = self.repositories.get(name)
             if not repo:
                 return False
-            
+
             # Update repository attributes
             for key, value in config_updates.items():
                 if hasattr(repo, key):
                     setattr(repo, key, value)
                 else:
                     repo.metadata[key] = value
-            
+
             self.logger.info(f"Updated configuration for repository '{name}'")
             return True
-    
+
     def refresh_all_status(self) -> None:
         """Refresh status for all repositories."""
         for repo in self.repositories.values():
             repo.refresh_status()
-    
+
     def get_health_summary(self) -> dict[str, Any]:
         """Get health summary for all repositories."""
         summary = {
@@ -300,29 +300,29 @@ class RepositoryManager:
             "enabled": 0,
             "disabled": 0
         }
-        
+
         for repo in self.repositories.values():
             summary[repo.health_status] += 1
             if repo.enabled:
                 summary["enabled"] += 1
             else:
                 summary["disabled"] += 1
-        
+
         return summary
 
 
 class SearchCoordinator:
     """
     Coordinates searches across multiple repositories.
-    
+
     Handles parallel execution, result aggregation, and error handling
     for multi-repository search operations.
     """
-    
+
     def __init__(self, max_workers: int = 4):
         self.max_workers = max_workers
         self.logger = get_logger()
-    
+
     def search_repositories(
         self,
         repositories: dict[str, RepositoryInfo],
@@ -331,25 +331,25 @@ class SearchCoordinator:
     ) -> MultiRepoSearchResult:
         """
         Execute search across multiple repositories in parallel.
-        
+
         Args:
             repositories: Dictionary of repository name to RepositoryInfo
             query: Search query to execute
             timeout: Timeout for each repository search
-            
+
         Returns:
             MultiRepoSearchResult with results from all repositories
         """
         start_time = time.time()
         repository_results: dict[str, SearchResult] = {}
         failed_repositories: list[str] = []
-        
+
         # Sort repositories by priority
         sorted_repos = sorted(
             repositories.items(),
             key=lambda x: {"high": 0, "normal": 1, "low": 2}.get(x[1].priority, 1)
         )
-        
+
         # Execute searches in parallel
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit search tasks
@@ -357,7 +357,7 @@ class SearchCoordinator:
                 executor.submit(self._search_single_repository, repo_info, query, timeout): name
                 for name, repo_info in sorted_repos
             }
-            
+
             # Collect results
             for future in as_completed(future_to_repo):
                 repo_name = future_to_repo[future]
@@ -371,10 +371,10 @@ class SearchCoordinator:
                 except Exception as e:
                     failed_repositories.append(repo_name)
                     self.logger.error(f"Error searching repository '{repo_name}': {e}")
-        
+
         # Create multi-repo result
         search_time_ms = (time.time() - start_time) * 1000
-        
+
         return MultiRepoSearchResult(
             repository_results=repository_results,
             total_repositories=len(repositories),
@@ -382,7 +382,7 @@ class SearchCoordinator:
             failed_repositories=failed_repositories,
             search_time_ms=search_time_ms
         )
-    
+
     def _search_single_repository(
         self,
         repo_info: RepositoryInfo,
@@ -391,35 +391,37 @@ class SearchCoordinator:
     ) -> SearchResult | None:
         """
         Execute search in a single repository.
-        
+
         Args:
             repo_info: Repository information
             query: Search query
             timeout: Search timeout
-            
+
         Returns:
             SearchResult if successful, None otherwise
         """
         try:
+            # Import PySearch here to avoid circular imports
+            from ..core.api import PySearch
             # Create PySearch instance for this repository
             search_engine = PySearch(config=repo_info.config)
-            
+
             # Execute search with timeout
             result = search_engine.run(query)
-            
+
             # Add repository metadata to results
             for item in result.items:
                 if not hasattr(item, 'metadata'):
                     item.metadata = {}
                 item.metadata['repository'] = repo_info.name
                 item.metadata['repository_path'] = str(repo_info.path)
-            
+
             return result
-            
+
         except Exception as e:
             self.logger.error(f"Error searching repository '{repo_info.name}': {e}")
             return None
-    
+
     def aggregate_results(
         self,
         repository_results: dict[str, SearchResult],
@@ -427,11 +429,11 @@ class SearchCoordinator:
     ) -> SearchResult:
         """
         Aggregate results from multiple repositories into a single result.
-        
+
         Args:
             repository_results: Results from each repository
             max_results: Maximum number of results to include
-            
+
         Returns:
             Aggregated SearchResult
         """
@@ -439,14 +441,14 @@ class SearchCoordinator:
         total_files_scanned = 0
         total_files_matched = 0
         total_elapsed_ms = 0.0
-        
+
         # Collect all items
         for repo_name, result in repository_results.items():
             all_items.extend(result.items)
             total_files_scanned += result.stats.files_scanned
             total_files_matched += result.stats.files_matched
             total_elapsed_ms = max(total_elapsed_ms, result.stats.elapsed_ms)
-        
+
         # Sort by relevance (you might want to implement cross-repo scoring)
         all_items.sort(key=lambda item: (
             # Prioritize by repository priority if available
@@ -454,11 +456,11 @@ class SearchCoordinator:
             # Then by file name (simple heuristic)
             str(item.file)
         ))
-        
+
         # Limit results
         if len(all_items) > max_results:
             all_items = all_items[:max_results]
-        
+
         # Create aggregated stats
         from .types import SearchStats
         aggregated_stats = SearchStats(
@@ -468,7 +470,7 @@ class SearchCoordinator:
             elapsed_ms=total_elapsed_ms,
             indexed_files=total_files_scanned
         )
-        
+
         return SearchResult(items=all_items, stats=aggregated_stats)
 
 

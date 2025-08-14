@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.fuzzy import (
+from pysearch import PySearch
+from pysearch import SearchConfig
+from pysearch.search.fuzzy import (
     FuzzyAlgorithm,
     FuzzyMatch,
     calculate_similarity,
@@ -17,7 +17,7 @@ from pysearch.fuzzy import (
     metaphone,
     soundex,
 )
-from pysearch.types import OutputFormat
+from pysearch import OutputFormat
 
 
 def test_distance_algorithms():

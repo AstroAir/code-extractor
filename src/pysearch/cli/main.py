@@ -39,11 +39,11 @@ from pathlib import Path
 
 import click
 
-from .api import PySearch
-from .config import SearchConfig
-from .formatter import format_result, render_highlight_console
-from .metadata_filters import create_metadata_filters
-from .types import ASTFilters, Language, OutputFormat, Query
+from ..core.api import PySearch
+from ..core.config import SearchConfig
+from ..utils.formatter import format_result, render_highlight_console
+from ..utils.metadata_filters import create_metadata_filters
+from ..core.types import ASTFilters, Language, OutputFormat, Query
 
 
 @click.group()
@@ -200,7 +200,7 @@ def find_cmd(
     if debug:
         log_level = "DEBUG"
 
-    from pysearch.logging_config import LogFormat, LogLevel, configure_logging
+    from ..utils.logging_config import LogFormat, LogLevel, configure_logging
 
     try:
         configure_logging(
@@ -483,7 +483,7 @@ def bookmarks_cmd(
     elif add and pattern:
         # Add bookmark by running the search first
         result = engine.search(pattern)
-        from .types import OutputFormat, Query
+        from ..core.types import OutputFormat, Query
 
         query = Query(pattern=pattern, output=OutputFormat.TEXT)
         engine.add_bookmark(add, query, result)

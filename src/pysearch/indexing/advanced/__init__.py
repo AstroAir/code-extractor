@@ -13,4 +13,4 @@ capabilities while maintaining compatibility with the core system.
 """
 
 # Enhanced indexing exports will be added during reorganization
-__all__ = []
+__all__: list[str] = []

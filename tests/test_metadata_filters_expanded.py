@@ -18,14 +18,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from pysearch.metadata_filters import (
+from pysearch.utils.metadata_filters import (
     apply_metadata_filters,
     create_date_filter,
     create_metadata_filters,
     create_size_filter,
     get_file_author,
 )
-from pysearch.types import FileMetadata, Language, MetadataFilters
+from pysearch import FileMetadata, Language, MetadataFilters
 
 
 class TestGetFileAuthor:

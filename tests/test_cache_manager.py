@@ -3,8 +3,8 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from pysearch.cache_manager import CacheManager
-from pysearch.types import SearchItem, SearchResult, SearchStats
+from pysearch.indexing.cache_manager import CacheManager
+from pysearch import SearchItem, SearchResult, SearchStats
 
 
 def _dummy_result(tmp_path: Path) -> SearchResult:

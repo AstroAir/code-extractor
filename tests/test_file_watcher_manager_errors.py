@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.file_watcher import FileWatcher, WatchManager
+from pysearch.utils.file_watcher import FileWatcher, WatchManager
 
 
 def test_watch_manager_error_paths(tmp_path: Path) -> None:
@@ -47,7 +47,7 @@ def test_watch_manager_error_paths(tmp_path: Path) -> None:
 
 def test_file_watcher_is_available_fast_path(tmp_path: Path) -> None:
     # Test the is_available property fast path
-    from pysearch.config import SearchConfig
+    from pysearch import SearchConfig
     
     p = tmp_path / "test"
     p.mkdir()

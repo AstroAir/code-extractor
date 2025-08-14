@@ -99,7 +99,7 @@ class DependencyGraph:
     with support for various graph algorithms and analysis operations.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.nodes: set[str] = set()  # Module names
         self.edges: dict[str, list[DependencyEdge]] = defaultdict(list)
         self.reverse_edges: dict[str, list[DependencyEdge]] = defaultdict(list)
@@ -276,7 +276,7 @@ class DependencyAnalyzer:
     graph building, metrics calculation, and various analysis operations.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.graph = DependencyGraph()
         self.language_parsers = {
             Language.PYTHON: self._parse_python_imports,

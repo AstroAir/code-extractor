@@ -3,8 +3,8 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from pysearch.config import SearchConfig
-from pysearch.file_watcher import FileWatcher
+from pysearch import SearchConfig
+from pysearch.utils.file_watcher import FileWatcher
 
 
 def test_file_watcher_start_stop(tmp_path: Path) -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.file_watcher import WatchManager
+from pysearch.utils.file_watcher import WatchManager
 
 
 def test_watch_manager_add_remove(tmp_path: Path) -> None:

@@ -423,6 +423,7 @@ class PySearch:
             self.error_collector.add_error(e)
             # Continue with empty file list
             changed, _removed, total_seen = [], [], 0
+            _removed: list[str] = _removed
 
         paths = changed or list(self.indexer.iter_all_paths())
         self.logger.debug(f"Searching in {len(paths)} files")

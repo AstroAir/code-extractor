@@ -97,6 +97,8 @@ from .utils.metadata_filters import create_metadata_filters
 from .core.types import (
     ASTFilters,
     FileMetadata,
+    GraphRAGQuery,
+    GraphRAGResult,
     Language,
     MatchSpan,
     MetadataFilters,
@@ -109,16 +111,32 @@ from .core.types import (
 
 # Enhanced indexing functionality (optional)
 try:
-    from .indexing.enhanced.integration import (
+    from .indexing.advanced.integration import (
         EnhancedSearchEngine,
         EnhancedSearchResult,
         enhanced_search,
         ensure_indexed,
     )
-    from .indexing.enhanced.engine import EnhancedIndexingEngine
+    from .indexing.advanced.engine import EnhancedIndexingEngine
     ENHANCED_INDEXING_AVAILABLE = True
 except ImportError:
     ENHANCED_INDEXING_AVAILABLE = False
+
+# Storage functionality (optional)
+try:
+    from .storage import qdrant_client
+    QDRANT_AVAILABLE = True
+except ImportError:
+    QDRANT_AVAILABLE = False
+    qdrant_client = None  # type: ignore
+
+# Indexing functionality
+try:
+    from .indexing import indexer
+    INDEXER_AVAILABLE = True
+except ImportError:
+    INDEXER_AVAILABLE = False
+    indexer = None  # type: ignore
 
 # Package metadata
 __version__ = "0.1.0"
@@ -145,6 +163,8 @@ __all__ = [
     "Language",
     "FileMetadata",
     "MetadataFilters",
+    "GraphRAGQuery",
+    "GraphRAGResult",
     # Utility functions
     "detect_language",
     "get_supported_languages",
@@ -169,6 +189,10 @@ __all__ = [
     "__url__",
     # Enhanced indexing availability
     "ENHANCED_INDEXING_AVAILABLE",
+    "QDRANT_AVAILABLE",
+    "INDEXER_AVAILABLE",
+    "qdrant_client",
+    "indexer",
 ]
 
 # Add enhanced functionality to __all__ if available

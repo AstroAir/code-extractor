@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.scorer import (
+from pysearch import PySearch
+from pysearch import SearchConfig
+from pysearch.search.scorer import (
     RankingStrategy,
     ScoringWeights,
     _analyze_code_structure,
@@ -14,7 +14,7 @@ from pysearch.scorer import (
     cluster_results_by_similarity,
     sort_items,
 )
-from pysearch.types import OutputFormat, SearchItem
+from pysearch import OutputFormat, SearchItem
 
 
 def create_test_item(

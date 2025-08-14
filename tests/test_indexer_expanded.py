@@ -17,9 +17,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from pysearch.config import SearchConfig
-from pysearch.indexer import Indexer, IndexRecord, CACHE_FILE
-from pysearch.utils import file_meta, file_sha1
+from pysearch import SearchConfig
+from pysearch.indexing.indexer import Indexer, IndexRecord, CACHE_FILE
+from pysearch.utils.utils import file_meta, file_sha1
 
 
 class TestIndexerInitialization:

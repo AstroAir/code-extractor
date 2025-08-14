@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.cache_manager import CacheManager
-from pysearch.types import SearchItem, SearchResult, SearchStats
+from pysearch.indexing.cache_manager import CacheManager
+from pysearch import SearchItem, SearchResult, SearchStats
 
 
 def test_disk_cache_index_save_load(tmp_path: Path) -> None:

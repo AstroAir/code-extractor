@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.language_detection import (
+from pysearch.analysis.language_detection import (
     detect_language,
     detect_language_by_content,
     detect_language_by_extension,
@@ -10,7 +10,7 @@ from pysearch.language_detection import (
     detect_language_by_shebang,
     is_text_file,
 )
-from pysearch.types import Language
+from pysearch import Language
 
 
 def test_language_detection_by_extension_and_filename(tmp_path: Path) -> None:

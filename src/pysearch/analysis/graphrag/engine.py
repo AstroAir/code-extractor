@@ -21,15 +21,15 @@ Example:
         >>> from pysearch.graphrag_engine import GraphRAGEngine
         >>> from pysearch.config import SearchConfig
         >>> from pysearch.types import GraphRAGQuery
-        >>> 
+        >>>
         >>> # Initialize engine
         >>> config = SearchConfig(paths=["./src"])
         >>> engine = GraphRAGEngine(config)
         >>> await engine.initialize()
-        >>> 
+        >>>
         >>> # Build knowledge graph
         >>> await engine.build_knowledge_graph()
-        >>> 
+        >>>
         >>> # Query the graph
         >>> query = GraphRAGQuery(
         ...     pattern="database connection handling",
@@ -37,7 +37,7 @@ Example:
         ...     max_hops=2
         ... )
         >>> results = await engine.query_graph(query)
-        >>> 
+        >>>
         >>> # Process results
         >>> for entity in results.entities:
         ...     print(f"Found: {entity.name} ({entity.entity_type})")
@@ -54,15 +54,15 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from .config import SearchConfig
-from .graphrag import EntityExtractor, RelationshipMapper
-from .qdrant_client import QdrantVectorStore, QdrantConfig
-from .semantic_advanced import SemanticEmbedding
-from .types import (
+from ...core.config import SearchConfig
+from .core import EntityExtractor, RelationshipMapper
+from ...storage.qdrant_client import QdrantVectorStore, QdrantConfig
+from ...search.semantic_advanced import SemanticEmbedding
+from ...core.types import (
     CodeEntity, EntityRelationship, EntityType, GraphRAGQuery, GraphRAGResult,
     KnowledgeGraph, RelationType
 )
-from .utils import read_text_safely
+from ...utils.utils import read_text_safely
 
 logger = logging.getLogger(__name__)
 
@@ -70,11 +70,11 @@ logger = logging.getLogger(__name__)
 class KnowledgeGraphBuilder:
     """
     Builds and maintains knowledge graphs from code analysis.
-    
+
     This class coordinates the entity extraction and relationship mapping
     processes to build comprehensive knowledge graphs of codebases.
     """
-    
+
     def __init__(self, config: SearchConfig) -> None:
         self.config = config
         self.entity_extractor = EntityExtractor()
@@ -82,20 +82,20 @@ class KnowledgeGraphBuilder:
         self.semantic_embedding = SemanticEmbedding()
         self.knowledge_graph = KnowledgeGraph()
         self._cache_path = config.resolve_cache_dir() / "knowledge_graph.json"
-    
+
     async def build_graph(self, force_rebuild: bool = False) -> KnowledgeGraph:
         """Build the knowledge graph from the configured paths."""
         if not force_rebuild and await self._load_cached_graph():
             logger.info("Loaded knowledge graph from cache")
             return self.knowledge_graph
-        
+
         logger.info("Building knowledge graph from source code...")
         start_time = time.time()
-        
+
         # Extract entities from all files
         all_entities = []
         file_contents = {}
-        
+
         for path_str in self.config.paths:
             path = Path(path_str)
             if path.is_file():
@@ -105,32 +105,32 @@ class KnowledgeGraphBuilder:
             else:
                 entities = await self.entity_extractor.extract_from_directory(path, self.config)
                 all_entities.extend(entities)
-                
+
                 # Load file contents for relationship mapping
-                from .indexer import Indexer
+                from ...indexing.indexer import Indexer
                 indexer = Indexer(self.config)
                 changed_files, removed_files, total_files = indexer.scan()
                 for file_path in changed_files:
                     file_contents[file_path] = read_text_safely(file_path) or ""
-        
+
         logger.info(f"Extracted {len(all_entities)} entities")
-        
+
         # Generate embeddings for entities
         await self._generate_embeddings(all_entities)
-        
+
         # Map relationships between entities
         relationships = await self.relationship_mapper.map_relationships(all_entities, file_contents)
-        
+
         # Build the knowledge graph
         self.knowledge_graph = KnowledgeGraph()
         self.knowledge_graph.created_at = time.time()
-        
+
         for entity in all_entities:
             self.knowledge_graph.add_entity(entity)
-        
+
         for relationship in relationships:
             self.knowledge_graph.add_relationship(relationship)
-        
+
         # Update metadata
         self.knowledge_graph.metadata = {
             "total_entities": len(all_entities),
@@ -142,32 +142,32 @@ class KnowledgeGraphBuilder:
             "build_time_seconds": time.time() - start_time,
             "source_paths": self.config.paths
         }
-        
+
         # Cache the graph
         await self._cache_graph()
-        
+
         elapsed = time.time() - start_time
         logger.info(f"Built knowledge graph with {len(all_entities)} entities and {len(relationships)} relationships in {elapsed:.2f}s")
-        
+
         return self.knowledge_graph
-    
+
     async def _generate_embeddings(self, entities: List[CodeEntity]) -> None:
         """Generate vector embeddings for entities."""
         if not entities:
             return
-        
+
         # Prepare documents for embedding
         documents = []
         for entity in entities:
             # Create a text representation of the entity
             text_parts = [entity.name]
-            
+
             if entity.signature:
                 text_parts.append(entity.signature)
-            
+
             if entity.docstring:
                 text_parts.append(entity.docstring)
-            
+
             # Add context from properties
             if entity.properties:
                 for key, value in entity.properties.items():
@@ -175,14 +175,14 @@ class KnowledgeGraphBuilder:
                         text_parts.append(f"{key}: {value}")
                     elif isinstance(value, list):
                         text_parts.append(f"{key}: {', '.join(str(v) for v in value)}")
-            
+
             document = " ".join(text_parts)
             documents.append(document)
-        
+
         # Fit the embedding model if not already fitted
         if not self.semantic_embedding.is_fitted:
             self.semantic_embedding.fit(documents)
-        
+
         # Generate embeddings
         for entity, document in zip(entities, documents):
             embedding_vector = self.semantic_embedding.transform(document)
@@ -193,19 +193,19 @@ class KnowledgeGraphBuilder:
                 for dim, value in embedding_vector.items():
                     dense_vector[dim] = value
                 entity.embedding = dense_vector
-    
+
     async def _load_cached_graph(self) -> bool:
         """Load knowledge graph from cache if available."""
         if not self._cache_path.exists():
             return False
-        
+
         try:
             with open(self._cache_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
+
             # Reconstruct knowledge graph from JSON
             self.knowledge_graph = KnowledgeGraph()
-            
+
             # Load entities
             for entity_data in data.get('entities', []):
                 entity = CodeEntity(
@@ -225,7 +225,7 @@ class KnowledgeGraphBuilder:
                     access_modifier=entity_data.get('access_modifier')
                 )
                 self.knowledge_graph.add_entity(entity)
-            
+
             # Load relationships
             for rel_data in data.get('relationships', []):
                 relationship = EntityRelationship(
@@ -241,19 +241,19 @@ class KnowledgeGraphBuilder:
                     line_number=rel_data.get('line_number')
                 )
                 self.knowledge_graph.add_relationship(relationship)
-            
+
             # Load metadata
             self.knowledge_graph.metadata = data.get('metadata', {})
             self.knowledge_graph.version = data.get('version', '1.0')
             self.knowledge_graph.created_at = data.get('created_at')
             self.knowledge_graph.updated_at = data.get('updated_at')
-            
+
             return True
-            
+
         except Exception as e:
             logger.warning(f"Failed to load cached knowledge graph: {e}")
             return False
-    
+
     async def _cache_graph(self) -> None:
         """Cache the knowledge graph to disk."""
         try:
@@ -266,7 +266,7 @@ class KnowledgeGraphBuilder:
                 'entities': [],
                 'relationships': []
             }
-            
+
             # Serialize entities
             for entity in self.knowledge_graph.entities.values():
                 entity_data = {
@@ -286,7 +286,7 @@ class KnowledgeGraphBuilder:
                     'access_modifier': entity.access_modifier
                 }
                 data['entities'].append(entity_data)
-            
+
             # Serialize relationships
             for relationship in self.knowledge_graph.relationships:
                 rel_data = {
@@ -302,14 +302,14 @@ class KnowledgeGraphBuilder:
                     'line_number': relationship.line_number
                 }
                 data['relationships'].append(rel_data)
-            
+
             # Write to cache file
             self._cache_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self._cache_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2)
-            
+
             logger.debug(f"Cached knowledge graph to {self._cache_path}")
-            
+
         except Exception as e:
             logger.warning(f"Failed to cache knowledge graph: {e}")
 

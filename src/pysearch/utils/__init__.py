@@ -26,7 +26,7 @@ from .error_handling import (
 from .formatter import format_result, render_highlight_console
 from .logging_config import configure_logging, disable_logging, enable_debug_logging, get_logger
 from .metadata_filters import create_metadata_filters, apply_metadata_filters, get_file_author
-from .utils import create_file_metadata, read_text_safely
+from .utils import create_file_metadata, read_text_safely, matches_patterns
 
 __all__ = [
     # Error handling
@@ -53,4 +53,5 @@ __all__ = [
     # Utilities
     "create_file_metadata",
     "read_text_safely",
+    "matches_patterns",
 ]

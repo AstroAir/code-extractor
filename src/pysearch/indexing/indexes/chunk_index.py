@@ -14,34 +14,34 @@ import time
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from ..advanced_chunking import ChunkingEngine, ChunkingConfig, ChunkingStrategy
-from ..content_addressing import IndexTag, IndexingProgressUpdate, MarkCompleteCallback, PathAndCacheKey, RefreshIndexResults
-from ..enhanced_indexing_engine import EnhancedCodebaseIndex
-from ..language_detection import detect_language
-from ..logging_config import get_logger
-from ..utils import read_text_safely
+from ..advanced.chunking import ChunkingEngine, ChunkingConfig, ChunkingStrategy
+from ...analysis.content_addressing import IndexTag, IndexingProgressUpdate, MarkCompleteCallback, PathAndCacheKey, RefreshIndexResults
+from ..advanced.engine import EnhancedCodebaseIndex
+from ...analysis.language_detection import detect_language
+from ...utils.logging_config import get_logger
+from ...utils.utils import read_text_safely
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 
 class EnhancedChunkIndex(EnhancedCodebaseIndex):
     """
     Enhanced chunk index with intelligent code-aware chunking.
-    
+
     This index creates meaningful code chunks that respect language
     boundaries and provide optimal segments for embedding and analysis.
     """
-    
+
     artifact_id = "enhanced_chunks"
     relative_expected_time = 1.2
-    
-    def __init__(self, config):
+
+    def __init__(self, config: Any) -> None:
         self.config = config
         self.cache_dir = config.resolve_cache_dir()
         self.db_path = self.cache_dir / "chunks.db"
         self._connection: Optional[sqlite3.Connection] = None
         self._lock = asyncio.Lock()
-        
+
         # Initialize chunking engine
         chunking_config = ChunkingConfig(
             strategy=ChunkingStrategy.HYBRID,
@@ -52,7 +52,7 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
             quality_threshold=0.5,
         )
         self.chunking_engine = ChunkingEngine(chunking_config)
-    
+
     async def _get_connection(self) -> sqlite3.Connection:
         """Get database connection, creating tables if needed."""
         if self._connection is None:
@@ -65,11 +65,11 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
             self._connection.execute("PRAGMA busy_timeout=3000")
             await self._create_tables()
         return self._connection
-    
+
     async def _create_tables(self) -> None:
         """Create chunk tables."""
         conn = await self._get_connection()
-        
+
         # Enhanced chunks table
         conn.execute("""
             CREATE TABLE IF NOT EXISTS code_chunks (
@@ -93,7 +93,7 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
                 UNIQUE(chunk_id, content_hash)
             )
         """)
-        
+
         # Tags table for multi-branch support
         conn.execute("""
             CREATE TABLE IF NOT EXISTS chunk_tags (
@@ -105,27 +105,27 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
                 FOREIGN KEY (chunk_db_id) REFERENCES code_chunks (id)
             )
         """)
-        
+
         # Create indexes for performance
         conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_chunks_path_hash 
+            CREATE INDEX IF NOT EXISTS idx_chunks_path_hash
             ON code_chunks(path, content_hash)
         """)
         conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_chunks_chunk_id 
+            CREATE INDEX IF NOT EXISTS idx_chunks_chunk_id
             ON code_chunks(chunk_id)
         """)
         conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_chunks_entity 
+            CREATE INDEX IF NOT EXISTS idx_chunks_entity
             ON code_chunks(entity_name, entity_type)
         """)
         conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_chunk_tags_tag 
+            CREATE INDEX IF NOT EXISTS idx_chunk_tags_tag
             ON chunk_tags(tag)
         """)
-        
+
         conn.commit()
-    
+
     async def update(
         self,
         tag: IndexTag,
@@ -136,10 +136,10 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
         """Update the chunk index."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
-        
+
         total_operations = len(results.compute) + len(results.delete) + len(results.add_tag) + len(results.remove_tag)
         completed_operations = 0
-        
+
         # Process compute operations (new files)
         for item in results.compute:
             yield IndexingProgressUpdate(
@@ -147,12 +147,12 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
                 description=f"Chunking {Path(item.path).name}",
                 status="indexing"
             )
-            
+
             try:
                 # Read and chunk file
                 content = await read_text_safely(Path(item.path))
                 chunks = await self.chunking_engine.chunk_file(item.path, content)
-                
+
                 # Store chunks in database
                 current_time = time.time()
                 for chunk in chunks:
@@ -182,34 +182,34 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
                         json.dumps(chunk.metadata.__dict__ if chunk.metadata else {}),
                         current_time
                     ))
-                    
+
                     chunk_db_id = cursor.lastrowid
-                    
+
                     # Add tag association
                     conn.execute("""
                         INSERT OR REPLACE INTO chunk_tags (chunk_db_id, tag, created_at)
                         VALUES (?, ?, ?)
                     """, (chunk_db_id, tag_string, current_time))
-                
+
                 conn.commit()
                 await mark_complete([item], "compute")
                 completed_operations += 1
-                
+
             except Exception as e:
                 logger.error(f"Error chunking file {item.path}: {e}")
                 completed_operations += 1
-        
+
         # Process other operations (simplified)
         for item in results.add_tag + results.remove_tag + results.delete:
             completed_operations += 1
             await mark_complete([item], "processed")
-        
+
         yield IndexingProgressUpdate(
             progress=1.0,
             description="Chunk indexing complete",
             status="done"
         )
-    
+
     async def retrieve(
         self,
         query: str,
@@ -220,35 +220,35 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
         """Retrieve chunks matching the query."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
-        
+
         # Build search conditions
         where_conditions = ["ct.tag = ?"]
         params = [tag_string]
-        
+
         # Text search in content
         if query.strip():
             where_conditions.append("cc.content LIKE ?")
             params.append(f"%{query}%")
-        
+
         # Additional filters
         if "chunk_type" in kwargs:
             where_conditions.append("cc.chunk_type = ?")
             params.append(kwargs["chunk_type"])
-        
+
         if "language" in kwargs:
             where_conditions.append("cc.language = ?")
             params.append(kwargs["language"])
-        
+
         if "entity_type" in kwargs:
             where_conditions.append("cc.entity_type = ?")
             params.append(kwargs["entity_type"])
-        
+
         if "min_quality" in kwargs:
             where_conditions.append("cc.quality_score >= ?")
             params.append(kwargs["min_quality"])
-        
+
         where_clause = " AND ".join(where_conditions)
-        
+
         # Execute query
         cursor = conn.execute(f"""
             SELECT cc.* FROM code_chunks cc
@@ -257,7 +257,7 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
             ORDER BY cc.quality_score DESC, cc.complexity_score DESC
             LIMIT ?
         """, params + [limit])
-        
+
         results = []
         for row in cursor.fetchall():
             results.append({
@@ -277,9 +277,9 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
                 "overlap_with": json.loads(row[14]) if row[14] else [],
                 "metadata": json.loads(row[15]) if row[15] else {},
             })
-        
+
         return results
-    
+
     async def get_chunks_by_file(
         self,
         file_path: str,
@@ -288,14 +288,14 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
         """Get all chunks for a specific file."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
-        
+
         cursor = conn.execute("""
             SELECT cc.* FROM code_chunks cc
             JOIN chunk_tags ct ON cc.id = ct.chunk_db_id
             WHERE cc.path = ? AND ct.tag = ?
             ORDER BY cc.start_line
         """, (file_path, tag_string))
-        
+
         results = []
         for row in cursor.fetchall():
             results.append({
@@ -307,14 +307,14 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
                 "quality_score": row[12],
                 "content_preview": row[4][:100] + "..." if len(row[4]) > 100 else row[4],
             })
-        
+
         return results
-    
+
     async def get_statistics(self, tag: IndexTag) -> Dict[str, Any]:
         """Get statistics for this chunk index."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
-        
+
         # Total chunks
         cursor = conn.execute("""
             SELECT COUNT(*) FROM code_chunks cc
@@ -322,7 +322,7 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
             WHERE ct.tag = ?
         """, (tag_string,))
         total_chunks = cursor.fetchone()[0]
-        
+
         # Chunks by type
         cursor = conn.execute("""
             SELECT cc.chunk_type, COUNT(*) FROM code_chunks cc
@@ -331,7 +331,7 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
             GROUP BY cc.chunk_type
         """, (tag_string,))
         chunks_by_type = dict(cursor.fetchall())
-        
+
         # Chunks by language
         cursor = conn.execute("""
             SELECT cc.language, COUNT(*) FROM code_chunks cc
@@ -340,16 +340,16 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
             GROUP BY cc.language
         """, (tag_string,))
         chunks_by_language = dict(cursor.fetchall())
-        
+
         # Average scores
         cursor = conn.execute("""
-            SELECT AVG(cc.quality_score), AVG(cc.complexity_score) 
+            SELECT AVG(cc.quality_score), AVG(cc.complexity_score)
             FROM code_chunks cc
             JOIN chunk_tags ct ON cc.id = ct.chunk_db_id
             WHERE ct.tag = ?
         """, (tag_string,))
         avg_scores = cursor.fetchone()
-        
+
         return {
             "total_chunks": total_chunks,
             "chunks_by_type": chunks_by_type,

@@ -288,7 +288,7 @@ class DiskCache(CacheBackend):
                 if self.compression:
                     data = zlib.decompress(data)
 
-                entry = pickle.loads(data)
+                entry: CacheEntry = pickle.loads(data)
                 entry.touch()
 
                 # Update index

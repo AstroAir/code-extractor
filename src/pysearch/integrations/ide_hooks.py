@@ -7,7 +7,7 @@ IDE 集成占位：为 IDE/编辑器提供简易接口，后续可扩展为 LSP/
 from dataclasses import asdict
 from typing import Any
 
-from .api import PySearch
+from ..core.api import PySearch
 from .types import Query
 
 

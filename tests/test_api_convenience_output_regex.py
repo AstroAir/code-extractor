@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.types import OutputFormat
+from pysearch import PySearch
+from pysearch import SearchConfig
+from pysearch import OutputFormat
 
 
 def test_api_convenience_regex_and_output(tmp_path: Path) -> None:

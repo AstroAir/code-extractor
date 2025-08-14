@@ -293,7 +293,7 @@ vector_manager = VectorIndexManager(
 The system includes automatic recovery for common failures:
 
 ```python
-from pysearch.enhanced_error_handling import EnhancedErrorHandler
+from pysearch.utils.advanced_error_handling import EnhancedErrorHandler
 
 error_handler = EnhancedErrorHandler(config)
 

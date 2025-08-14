@@ -24,11 +24,11 @@ Example:
     Basic GraphRAG usage:
         >>> from pysearch.graphrag import GraphRAGEngine
         >>> from pysearch.config import SearchConfig
-        >>> 
+        >>>
         >>> config = SearchConfig(paths=["./src"])
         >>> engine = GraphRAGEngine(config)
         >>> await engine.build_knowledge_graph()
-        >>> 
+        >>>
         >>> # Query the knowledge graph
         >>> from pysearch.types import GraphRAGQuery
         >>> query = GraphRAGQuery(
@@ -57,16 +57,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import uuid4
 
-from .config import SearchConfig
-from .dependency_analysis import DependencyAnalyzer, DependencyGraph
-from .language_detection import detect_language
-from .qdrant_client import QdrantVectorStore, QdrantConfig
-from .semantic_advanced import SemanticEmbedding
-from .types import (
+from ...core.config import SearchConfig
+from ..dependency_analysis import DependencyAnalyzer, DependencyGraph
+from ..language_detection import detect_language
+from ...storage.qdrant_client import QdrantVectorStore, QdrantConfig
+from ...search.semantic_advanced import SemanticEmbedding
+from ...core.types import (
     CodeEntity, EntityRelationship, EntityType, GraphRAGQuery, GraphRAGResult,
     KnowledgeGraph, Language, RelationType
 )
-from .utils import read_text_safely
+from ...utils.utils import read_text_safely
 
 logger = logging.getLogger(__name__)
 
@@ -74,11 +74,11 @@ logger = logging.getLogger(__name__)
 class EntityExtractor:
     """
     Extracts code entities from source files across multiple programming languages.
-    
+
     This class analyzes source code to identify and extract various types of
     code entities such as functions, classes, variables, imports, etc.
     """
-    
+
     def __init__(self) -> None:
         self.language_extractors = {
             Language.PYTHON: self._extract_python_entities,
@@ -87,37 +87,37 @@ class EntityExtractor:
             Language.JAVA: self._extract_java_entities,
             Language.CSHARP: self._extract_csharp_entities,
         }
-    
+
     async def extract_from_file(self, file_path: Path) -> List[CodeEntity]:
         """Extract entities from a single file."""
         language = detect_language(file_path)
-        
+
         if language not in self.language_extractors:
             logger.debug(f"No entity extractor for language {language} in {file_path}")
             return []
-        
+
         try:
             content = read_text_safely(file_path)
             if not content:
                 return []
-            
+
             extractor = self.language_extractors[language]
             entities = await extractor(content, file_path, language)
-            
+
             logger.debug(f"Extracted {len(entities)} entities from {file_path}")
             return entities
-            
+
         except Exception as e:
             logger.error(f"Failed to extract entities from {file_path}: {e}")
             return []
-    
+
     async def extract_from_directory(
-        self, 
-        directory: Path, 
+        self,
+        directory: Path,
         config: SearchConfig
     ) -> List[CodeEntity]:
         """Extract entities from all files in a directory."""
-        from .indexer import Indexer
+        from ...indexing.indexer import Indexer
 
         indexer = Indexer(config)
         all_entities = []
@@ -127,27 +127,27 @@ class EntityExtractor:
         for file_path in changed_files:
             entities = await self.extract_from_file(file_path)
             all_entities.extend(entities)
-        
+
         logger.info(f"Extracted {len(all_entities)} entities from {directory}")
         return all_entities
-    
+
     async def _extract_python_entities(
-        self, 
-        content: str, 
-        file_path: Path, 
+        self,
+        content: str,
+        file_path: Path,
         language: Language
     ) -> List[CodeEntity]:
         """Extract entities from Python source code using AST."""
         entities = []
-        
+
         try:
             tree = ast.parse(content)
-            
+
             class EntityVisitor(ast.NodeVisitor):
                 def __init__(self) -> None:
                     self.entities: list[CodeEntity] = []
                     self.scope_stack: list[str] = ["global"]
-                
+
                 def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
                     entity = CodeEntity(
                         id=f"func_{node.name}_{node.lineno}_{uuid4().hex[:8]}",
@@ -168,12 +168,12 @@ class EntityExtractor:
                         }
                     )
                     self.entities.append(entity)
-                    
+
                     # Visit function body with updated scope
                     self.scope_stack.append(node.name)
                     self.generic_visit(node)
                     self.scope_stack.pop()
-                
+
                 def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
                     # Handle async functions similar to regular functions
                     entity = CodeEntity(
@@ -200,7 +200,7 @@ class EntityExtractor:
                     self.scope_stack.append(node.name)
                     self.generic_visit(node)
                     self.scope_stack.pop()
-                
+
                 def visit_ClassDef(self, node: ast.ClassDef) -> None:
                     entity = CodeEntity(
                         id=f"class_{node.name}_{node.lineno}_{uuid4().hex[:8]}",
@@ -220,12 +220,12 @@ class EntityExtractor:
                         }
                     )
                     self.entities.append(entity)
-                    
+
                     # Visit class body with updated scope
                     self.scope_stack.append(node.name)
                     self.generic_visit(node)
                     self.scope_stack.pop()
-                
+
                 def visit_Import(self, node: ast.Import) -> None:
                     for alias in node.names:
                         entity = CodeEntity(
@@ -244,7 +244,7 @@ class EntityExtractor:
                             }
                         )
                         self.entities.append(entity)
-                
+
                 def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
                     module = node.module or ""
                     for alias in node.names:
@@ -266,7 +266,7 @@ class EntityExtractor:
                             }
                         )
                         self.entities.append(entity)
-                
+
                 def visit_Assign(self, node: ast.Assign) -> None:
                     # Extract variable assignments
                     for target in node.targets:
@@ -286,7 +286,7 @@ class EntityExtractor:
                                 }
                             )
                             self.entities.append(entity)
-                
+
                 def _get_function_signature(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
                     """Extract function signature as string."""
                     args = []
@@ -295,13 +295,13 @@ class EntityExtractor:
                         if arg.annotation:
                             arg_str += f": {ast.unparse(arg.annotation)}"
                         args.append(arg_str)
-                    
+
                     sig = f"def {node.name}({', '.join(args)})"
                     if node.returns:
                         sig += f" -> {ast.unparse(node.returns)}"
                     sig += ":"
                     return sig
-                
+
                 def _get_decorator_name(self, decorator: ast.expr) -> str:
                     """Extract decorator name."""
                     if isinstance(decorator, ast.Name):
@@ -310,29 +310,29 @@ class EntityExtractor:
                         return ast.unparse(decorator)
                     else:
                         return ast.unparse(decorator)
-                
+
                 def _get_base_name(self, base: ast.expr) -> str:
                     """Extract base class name."""
                     if isinstance(base, ast.Name):
                         return base.id
                     else:
                         return ast.unparse(base)
-                
+
                 def _get_return_annotation(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> Optional[str]:
                     """Extract return type annotation."""
                     if node.returns:
                         return ast.unparse(node.returns)
                     return None
-            
+
             visitor = EntityVisitor()
             visitor.visit(tree)
             entities = visitor.entities
-            
+
         except SyntaxError as e:
             logger.warning(f"Syntax error in {file_path}: {e}")
         except Exception as e:
             logger.error(f"Error parsing Python file {file_path}: {e}")
-        
+
         return entities
 
     async def _extract_javascript_entities(

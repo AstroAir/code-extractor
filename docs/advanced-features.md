@@ -302,7 +302,7 @@ class CustomVectorDB(VectorDatabase):
 
 ### Error Recovery Strategies
 ```python
-from pysearch.enhanced_error_handling import RecoveryManager, ErrorCategory
+from pysearch.utils.advanced_error_handling import RecoveryManager, ErrorCategory
 
 recovery_manager = RecoveryManager(config)
 
@@ -388,7 +388,7 @@ engine = DistributedIndexingEngine(config, num_workers=8)
 **Network Errors**
 ```python
 # Configure retry settings
-from pysearch.enhanced_error_handling import RecoveryManager
+from pysearch.utils.advanced_error_handling import RecoveryManager
 recovery_manager = RecoveryManager(config)
 recovery_manager.circuit_breakers["embedding_api"].failure_threshold = 3
 ```

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.types import ASTFilters, OutputFormat, Query
+from pysearch import PySearch
+from pysearch import SearchConfig
+from pysearch import ASTFilters, OutputFormat, Query
 
 
 def test_api_ast_decorators_and_json_output(tmp_path: Path) -> None:

@@ -13,33 +13,33 @@ import time
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from ..content_addressing import IndexTag, IndexingProgressUpdate, MarkCompleteCallback, PathAndCacheKey, RefreshIndexResults
-from ..enhanced_indexing_engine import EnhancedCodebaseIndex
-from ..language_detection import detect_language
-from ..logging_config import get_logger
-from ..utils import read_text_safely
+from ...analysis.content_addressing import IndexTag, IndexingProgressUpdate, MarkCompleteCallback, PathAndCacheKey, RefreshIndexResults
+from ..advanced.engine import EnhancedCodebaseIndex
+from ...analysis.language_detection import detect_language
+from ...utils.logging_config import get_logger
+from ...utils.utils import read_text_safely
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 
 class EnhancedFullTextIndex(EnhancedCodebaseIndex):
     """
     Enhanced full-text search index using SQLite FTS5.
-    
+
     This index provides fast full-text search across all code content
     with improved ranking, filtering, and language-aware tokenization.
     """
-    
+
     artifact_id = "enhanced_full_text"
     relative_expected_time = 1.0
-    
-    def __init__(self, config):
+
+    def __init__(self, config: Any) -> None:
         self.config = config
         self.cache_dir = config.resolve_cache_dir()
         self.db_path = self.cache_dir / "full_text.db"
         self._connection: Optional[sqlite3.Connection] = None
         self._lock = asyncio.Lock()
-    
+
     async def _get_connection(self) -> sqlite3.Connection:
         """Get database connection, creating tables if needed."""
         if self._connection is None:
@@ -52,11 +52,11 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
             self._connection.execute("PRAGMA busy_timeout=3000")
             await self._create_tables()
         return self._connection
-    
+
     async def _create_tables(self) -> None:
         """Create full-text search tables."""
         conn = await self._get_connection()
-        
+
         # FTS5 virtual table for content search
         conn.execute("""
             CREATE VIRTUAL TABLE IF NOT EXISTS fts_content USING fts5(
@@ -67,7 +67,7 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
                 tokenize='trigram'
             )
         """)
-        
+
         # Metadata table for additional information
         conn.execute("""
             CREATE TABLE IF NOT EXISTS fts_metadata (
@@ -81,7 +81,7 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
                 UNIQUE(path, content_hash)
             )
         """)
-        
+
         # Tags table for multi-branch support
         conn.execute("""
             CREATE TABLE IF NOT EXISTS fts_tags (
@@ -93,19 +93,19 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
                 FOREIGN KEY (metadata_id) REFERENCES fts_metadata (id)
             )
         """)
-        
+
         # Create indexes
         conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_fts_metadata_path_hash 
+            CREATE INDEX IF NOT EXISTS idx_fts_metadata_path_hash
             ON fts_metadata(path, content_hash)
         """)
         conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_fts_tags_tag 
+            CREATE INDEX IF NOT EXISTS idx_fts_tags_tag
             ON fts_tags(tag)
         """)
-        
+
         conn.commit()
-    
+
     async def update(
         self,
         tag: IndexTag,
@@ -116,10 +116,10 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
         """Update the full-text search index."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
-        
+
         total_operations = len(results.compute) + len(results.delete) + len(results.add_tag) + len(results.remove_tag)
         completed_operations = 0
-        
+
         # Process compute operations (new files)
         for item in results.compute:
             yield IndexingProgressUpdate(
@@ -127,59 +127,59 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
                 description=f"Indexing content of {Path(item.path).name}",
                 status="indexing"
             )
-            
+
             try:
                 # Read file content
                 content = await read_text_safely(Path(item.path))
-                
+
                 # Detect language and file type
                 language = detect_language(Path(item.path), content)
                 file_type = Path(item.path).suffix.lower()
-                
+
                 # Insert into FTS table
                 conn.execute("""
                     INSERT OR REPLACE INTO fts_content (path, content, language, file_type)
                     VALUES (?, ?, ?, ?)
                 """, (item.path, content, language.value, file_type))
-                
+
                 # Insert metadata
                 line_count = len(content.split('\n'))
                 file_size = len(content.encode('utf-8'))
                 current_time = time.time()
-                
+
                 cursor = conn.execute("""
-                    INSERT OR REPLACE INTO fts_metadata 
+                    INSERT OR REPLACE INTO fts_metadata
                     (path, content_hash, language, file_size, line_count, created_at)
                     VALUES (?, ?, ?, ?, ?, ?)
                 """, (item.path, item.cache_key, language.value, file_size, line_count, current_time))
-                
+
                 metadata_id = cursor.lastrowid
-                
+
                 # Add tag association
                 conn.execute("""
                     INSERT OR REPLACE INTO fts_tags (metadata_id, tag, created_at)
                     VALUES (?, ?, ?)
                 """, (metadata_id, tag_string, current_time))
-                
+
                 conn.commit()
                 await mark_complete([item], "compute")
                 completed_operations += 1
-                
+
             except Exception as e:
                 logger.error(f"Error processing file {item.path}: {e}")
                 completed_operations += 1
-        
+
         # Process other operations (simplified for brevity)
         for item in results.add_tag + results.remove_tag + results.delete:
             completed_operations += 1
             await mark_complete([item], "processed")
-        
+
         yield IndexingProgressUpdate(
             progress=1.0,
             description="Full-text indexing complete",
             status="done"
         )
-    
+
     async def retrieve(
         self,
         query: str,
@@ -190,31 +190,31 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
         """Retrieve files matching the full-text query."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
-        
+
         # Build FTS5 query
         fts_query = self._build_fts_query(query)
-        
+
         # Build filters
         where_conditions = ["ft.tag = ?"]
         params = [tag_string]
-        
+
         if "language" in kwargs:
             where_conditions.append("fm.language = ?")
             params.append(kwargs["language"])
-        
+
         if "file_type" in kwargs:
             where_conditions.append("fc.file_type = ?")
             params.append(kwargs["file_type"])
-        
+
         if "min_size" in kwargs:
             where_conditions.append("fm.file_size >= ?")
             params.append(kwargs["min_size"])
-        
+
         where_clause = " AND ".join(where_conditions)
-        
+
         # Execute search
         cursor = conn.execute(f"""
-            SELECT 
+            SELECT
                 fc.path,
                 fc.content,
                 fc.language,
@@ -229,7 +229,7 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
             ORDER BY rank
             LIMIT ?
         """, [fts_query] + params + [limit])
-        
+
         results = []
         for row in cursor.fetchall():
             results.append({
@@ -241,28 +241,28 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
                 "line_count": row[5],
                 "rank": row[6],
             })
-        
+
         return results
-    
+
     def _build_fts_query(self, query: str) -> str:
         """Build FTS5 query from user query."""
         # Clean and prepare query for FTS5
         terms = query.split()
-        
+
         # Handle special characters and build FTS5 query
         fts_terms = []
         for term in terms:
             # Escape special FTS5 characters
             escaped_term = term.replace('"', '""')
-            
+
             # Add as phrase if contains spaces, otherwise as term
             if ' ' in escaped_term:
                 fts_terms.append(f'"{escaped_term}"')
             else:
                 fts_terms.append(escaped_term)
-        
+
         return " AND ".join(fts_terms)
-    
+
     async def search_in_file(
         self,
         file_path: str,
@@ -273,7 +273,7 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
         """Search for query within a specific file with context."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
-        
+
         # Get file content
         cursor = conn.execute("""
             SELECT fc.content FROM fts_content fc
@@ -281,26 +281,26 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
             JOIN fts_tags ft ON fm.id = ft.metadata_id
             WHERE fc.path = ? AND ft.tag = ?
         """, (file_path, tag_string))
-        
+
         row = cursor.fetchone()
         if not row:
             return []
-        
+
         content = row[0]
         lines = content.split('\n')
-        
+
         # Find matching lines
         matches = []
         query_lower = query.lower()
-        
+
         for i, line in enumerate(lines):
             if query_lower in line.lower():
                 # Get context lines
                 start_line = max(0, i - context_lines)
                 end_line = min(len(lines), i + context_lines + 1)
-                
+
                 context_content = '\n'.join(lines[start_line:end_line])
-                
+
                 matches.append({
                     "line_number": i + 1,
                     "line_content": line,
@@ -308,14 +308,14 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
                     "start_line": start_line + 1,
                     "end_line": end_line,
                 })
-        
+
         return matches
-    
+
     async def get_statistics(self, tag: IndexTag) -> Dict[str, Any]:
         """Get statistics for this full-text index."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
-        
+
         # Total files
         cursor = conn.execute("""
             SELECT COUNT(*) FROM fts_metadata fm
@@ -323,7 +323,7 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
             WHERE ft.tag = ?
         """, (tag_string,))
         total_files = cursor.fetchone()[0]
-        
+
         # Files by language
         cursor = conn.execute("""
             SELECT fm.language, COUNT(*) FROM fts_metadata fm
@@ -332,7 +332,7 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
             GROUP BY fm.language
         """, (tag_string,))
         files_by_language = dict(cursor.fetchall())
-        
+
         # Total size and lines
         cursor = conn.execute("""
             SELECT SUM(fm.file_size), SUM(fm.line_count) FROM fts_metadata fm
@@ -340,7 +340,7 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
             WHERE ft.tag = ?
         """, (tag_string,))
         totals = cursor.fetchone()
-        
+
         return {
             "total_files": total_files,
             "files_by_language": files_by_language,

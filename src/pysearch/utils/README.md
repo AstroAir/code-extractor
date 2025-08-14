@@ -16,7 +16,8 @@ The utils module contains utility functions and helper classes used throughout t
 - `formatter.py` - Output formatting and syntax highlighting
 - `metadata_filters.py` - Metadata filtering and processing
 - `file_watcher.py` - File system monitoring and change detection
-- `error_handling.py` - Error handling and reporting
+- `error_handling.py` - Basic error handling and reporting
+- `advanced_error_handling.py` - Advanced error handling with recovery strategies
 - `logging_config.py` - Logging configuration and management
 - `performance_monitoring.py` - Performance metrics and monitoring
 - `utils.py` - General utility functions
@@ -26,7 +27,7 @@ The utils module contains utility functions and helper classes used throughout t
 1. **Formatting**: Rich console output, JSON formatting, syntax highlighting
 2. **Filtering**: Metadata-based filtering, pattern matching
 3. **Monitoring**: File system changes, performance metrics
-4. **Error Management**: Error collection, reporting, and recovery
+4. **Error Management**: Error collection, reporting, recovery strategies, and circuit breakers
 
 ## Usage
 

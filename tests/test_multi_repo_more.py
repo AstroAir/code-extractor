@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.config import SearchConfig
-from pysearch.multi_repo import MultiRepoSearchResult, RepositoryManager
-from pysearch.types import SearchResult, SearchStats
+from pysearch import SearchConfig
+from pysearch.integrations.multi_repo import MultiRepoSearchResult, RepositoryManager
+from pysearch import SearchResult, SearchStats
 
 
 def test_multi_repo_aggregation_and_health(tmp_path: Path) -> None:

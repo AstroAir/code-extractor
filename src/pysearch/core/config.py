@@ -44,7 +44,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from .types import Language, OutputFormat
 
@@ -188,7 +188,7 @@ class SearchConfig:
 
         return patterns
 
-    def get_qdrant_config(self):
+    def get_qdrant_config(self) -> Any:
         """Get Qdrant configuration object from search config."""
         if not self.qdrant_enabled:
             return None
@@ -206,7 +206,7 @@ class SearchConfig:
             batch_size=self.qdrant_batch_size
         )
 
-    def get_graphrag_query_defaults(self):
+    def get_graphrag_query_defaults(self) -> dict[str, Any]:
         """Get default GraphRAG query parameters."""
         return {
             "max_hops": self.graphrag_max_hops,

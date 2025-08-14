@@ -12,7 +12,7 @@ from __future__ import annotations
 import warnings
 
 # Import everything from the new module
-from .indexer_metadata import (
+from .metadata import (
     EntityMetadata,
     FileMetadata,
     IndexQuery,

@@ -14,11 +14,11 @@ from typing import Generator
 
 import pytest
 
-from pysearch.config import SearchConfig
-from pysearch.indexer_metadata import (
+from pysearch import SearchConfig
+from pysearch.indexing.metadata import (
     MetadataIndexer, EntityMetadata, FileMetadata, IndexQuery, IndexStats, MetadataIndex
 )
-from pysearch.types import EntityType, Language
+from pysearch import EntityType, Language
 
 
 @pytest.fixture
@@ -410,7 +410,7 @@ from pathlib import Path
         """Test entity text creation for embeddings."""
         indexer = MetadataIndexer(config)
 
-        from pysearch.types import CodeEntity
+        from pysearch import CodeEntity
         entity = CodeEntity(
             id="test_entity",
             name="test_function",

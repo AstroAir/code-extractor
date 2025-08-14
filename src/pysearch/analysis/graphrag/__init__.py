@@ -12,4 +12,4 @@ to provide intelligent code search and understanding capabilities.
 """
 
 # GraphRAG exports will be added during reorganization
-__all__ = []
+__all__: list[str] = []

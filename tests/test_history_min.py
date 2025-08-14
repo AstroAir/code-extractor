@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.config import SearchConfig
-from pysearch.history import SearchHistory
-from pysearch.types import Query, SearchItem, SearchResult, SearchStats
+from pysearch import SearchConfig
+from pysearch.core.history import SearchHistory
+from pysearch import Query, SearchItem, SearchResult, SearchStats
 
 
 def _result_for(path: Path) -> SearchResult:

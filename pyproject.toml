@@ -140,13 +140,14 @@ package-data = { pysearch = ["py.typed"] }
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --cov=pysearch --cov-config=pyproject.toml --cov-report=term-missing:skip-covered --cov-report=xml:coverage.xml"
+addopts = "-ra -q"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "benchmark: marks tests as benchmarks"
+    "benchmark: marks tests as benchmarks",
+    "asyncio: marks tests as async tests"
 ]
 
 [tool.coverage.run]

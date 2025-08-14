@@ -11,8 +11,9 @@ The CLI module makes pysearch accessible from the command line
 with a rich set of options and user-friendly interface.
 """
 
-from .main import main
+from .main import main, cli
 
 __all__ = [
     "main",
+    "cli",
 ]
