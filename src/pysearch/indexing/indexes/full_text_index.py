@@ -117,7 +117,8 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
         conn = await self._get_connection()
         tag_string = tag.to_string()
 
-        total_operations = len(results.compute) + len(results.delete) + len(results.add_tag) + len(results.remove_tag)
+        total_operations = len(results.compute) + len(results.delete) + \
+            len(results.add_tag) + len(results.remove_tag)
         completed_operations = 0
 
         # Process compute operations (new files)
@@ -130,7 +131,9 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
 
             try:
                 # Read file content
-                content = await read_text_safely(Path(item.path))
+                content = read_text_safely(Path(item.path))
+                if not content:
+                    continue
 
                 # Detect language and file type
                 language = detect_language(Path(item.path), content)
@@ -162,7 +165,7 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
                 """, (metadata_id, tag_string, current_time))
 
                 conn.commit()
-                await mark_complete([item], "compute")
+                mark_complete([item], "compute")
                 completed_operations += 1
 
             except Exception as e:
@@ -172,7 +175,7 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
         # Process other operations (simplified for brevity)
         for item in results.add_tag + results.remove_tag + results.delete:
             completed_operations += 1
-            await mark_complete([item], "processed")
+            mark_complete([item], "processed")
 
         yield IndexingProgressUpdate(
             progress=1.0,

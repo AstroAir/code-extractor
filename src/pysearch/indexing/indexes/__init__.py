@@ -22,7 +22,7 @@ from .chunk_index import EnhancedChunkIndex
 
 __all__ = [
     "EnhancedCodeSnippetsIndex",
-    "EnhancedFullTextIndex", 
+    "EnhancedFullTextIndex",
     "EnhancedChunkIndex",
 ]
 
@@ -33,9 +33,9 @@ try:
 except ImportError:
     pass
 
-# Dependency index is optional
-try:
-    from .dependency_index import EnhancedDependencyIndex
-    __all__.append("EnhancedDependencyIndex")
-except ImportError:
-    pass
+# Dependency index is optional - not implemented yet
+# try:
+#     from .dependency_index import EnhancedDependencyIndex
+#     __all__.append("EnhancedDependencyIndex")
+# except ImportError:
+#     pass

@@ -55,7 +55,7 @@ logger = get_logger()
 class ChunkingStrategy(str, Enum):
     """Available chunking strategies."""
     BASIC = "basic"           # Simple line-based chunking
-    STRUCTURAL = "structural" # AST/tree-sitter based chunking
+    STRUCTURAL = "structural"  # AST/tree-sitter based chunking
     SEMANTIC = "semantic"     # Semantic similarity based chunking
     HYBRID = "hybrid"         # Combination of multiple strategies
 
@@ -108,7 +108,10 @@ class ChunkingStrategyBase(ABC):
         file_path: str = "",
     ) -> AsyncGenerator[EnhancedCodeChunk, None]:
         """Chunk content according to this strategy."""
-        pass
+        # This is an abstract async generator method
+        # Subclasses should implement this as an async generator using yield
+        if False:  # pragma: no cover
+            yield
 
     def calculate_chunk_quality(self, chunk: EnhancedCodeChunk) -> float:
         """Calculate quality score for a chunk."""
@@ -163,7 +166,8 @@ class StructuralChunker(ChunkingStrategyBase):
                     dependencies=chunk.dependencies,
                     chunk_id=f"{file_path}:{chunk.start_line}:{chunk.end_line}",
                 )
-                enhanced_chunk.quality_score = self.calculate_chunk_quality(enhanced_chunk)
+                enhanced_chunk.quality_score = self.calculate_chunk_quality(
+                    enhanced_chunk)
                 yield enhanced_chunk
         else:
             # Fallback to basic structural chunking
@@ -184,11 +188,14 @@ class StructuralChunker(ChunkingStrategyBase):
 
         # Language-specific patterns for boundaries
         if language == Language.PYTHON:
-            boundary_patterns = [r'^\s*def\s+', r'^\s*class\s+', r'^\s*async\s+def\s+']
+            boundary_patterns = [r'^\s*def\s+',
+                                 r'^\s*class\s+', r'^\s*async\s+def\s+']
         elif language in [Language.JAVASCRIPT, Language.TYPESCRIPT]:
-            boundary_patterns = [r'^\s*function\s+', r'^\s*class\s+', r'^\s*const\s+\w+\s*=\s*\(']
+            boundary_patterns = [r'^\s*function\s+',
+                                 r'^\s*class\s+', r'^\s*const\s+\w+\s*=\s*\(']
         elif language == Language.JAVA:
-            boundary_patterns = [r'^\s*public\s+', r'^\s*private\s+', r'^\s*protected\s+']
+            boundary_patterns = [r'^\s*public\s+',
+                                 r'^\s*private\s+', r'^\s*protected\s+']
         else:
             boundary_patterns = [r'^\s*\w+.*{', r'^\s*}']
 
@@ -196,11 +203,12 @@ class StructuralChunker(ChunkingStrategyBase):
             line_size = len(line) + 1
 
             # Check if this line starts a new boundary
-            is_boundary = any(re.match(pattern, line) for pattern in boundary_patterns)
+            is_boundary = any(re.match(pattern, line)
+                              for pattern in boundary_patterns)
 
             if (current_size + line_size > self.config.max_chunk_size and
                 current_chunk and
-                (is_boundary or not self.config.respect_boundaries)):
+                    (is_boundary or not self.config.respect_boundaries)):
 
                 # Yield current chunk
                 chunk_content = '\n'.join(current_chunk)
@@ -473,7 +481,10 @@ class ChunkingEngine:
         if content is None:
             try:
                 from ...utils.utils import read_text_safely
-                content = await read_text_safely(Path(file_path))
+                content = read_text_safely(Path(file_path))
+                if content is None:
+                    logger.error(f"Could not read file {file_path}")
+                    return []
             except Exception as e:
                 logger.error(f"Error reading file {file_path}: {e}")
                 return []
@@ -614,9 +625,11 @@ class ChunkingEngine:
         for result in results:
             if isinstance(result, Exception):
                 logger.error(f"Error chunking file: {result}")
-            else:
+            elif isinstance(result, tuple) and len(result) == 2:
                 file_path, chunks = result
                 file_chunks[file_path] = chunks
+            else:
+                logger.warning(f"Unexpected result format: {result}")
 
         return file_chunks
 
@@ -626,11 +639,13 @@ class ChunkingEngine:
             return {"total_chunks": 0}
 
         total_size = sum(len(chunk.content) for chunk in chunks)
-        avg_quality = sum(chunk.quality_score for chunk in chunks) / len(chunks)
+        avg_quality = sum(
+            chunk.quality_score for chunk in chunks) / len(chunks)
 
         chunk_types: dict[str, int] = {}
         for chunk in chunks:
-            chunk_types[chunk.chunk_type] = chunk_types.get(chunk.chunk_type, 0) + 1
+            chunk_types[chunk.chunk_type] = chunk_types.get(
+                chunk.chunk_type, 0) + 1
 
         return {
             "total_chunks": len(chunks),

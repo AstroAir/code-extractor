@@ -229,7 +229,8 @@ class LanceDBProvider(VectorDatabase):
         self.db = None
 
         if not LANCEDB_AVAILABLE:
-            raise RuntimeError("LanceDB not available. Install with: pip install lancedb")
+            raise RuntimeError(
+                "LanceDB not available. Install with: pip install lancedb")
 
     async def _get_db(self) -> Any:
         """Get or create database connection."""
@@ -387,7 +388,8 @@ class VectorIndexManager:
         if embedding_config.provider == "openai":
             self.embedding_provider = OpenAIEmbeddingProvider(embedding_config)
         else:
-            raise ValueError(f"Unsupported embedding provider: {embedding_config.provider}")
+            raise ValueError(
+                f"Unsupported embedding provider: {embedding_config.provider}")
 
         # Initialize vector database
         if provider == "lancedb" and LANCEDB_AVAILABLE:
@@ -404,7 +406,8 @@ class VectorIndexManager:
         if not chunks:
             return
 
-        logger.info(f"Indexing {len(chunks)} chunks in collection {collection_name}")
+        logger.info(
+            f"Indexing {len(chunks)} chunks in collection {collection_name}")
 
         # Create collection if it doesn't exist
         if not await self.vector_db.collection_exists(collection_name):
@@ -535,7 +538,8 @@ class VectorIndexManager:
                     table = await db.open_table(collection_name)
                     # LanceDB optimization operations
                     await table.optimize()
-                    logger.info(f"Optimized LanceDB collection: {collection_name}")
+                    logger.info(
+                        f"Optimized LanceDB collection: {collection_name}")
         except Exception as e:
             logger.error(f"Error optimizing collection {collection_name}: {e}")
 
@@ -591,7 +595,8 @@ class MultiProviderVectorManager:
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 provider_name = list(self.providers.keys())[i]
-                logger.error(f"Error indexing with provider {provider_name}: {result}")
+                logger.error(
+                    f"Error indexing with provider {provider_name}: {result}")
 
     async def search_best_provider(
         self,
@@ -608,7 +613,8 @@ class MultiProviderVectorManager:
                     query, collection_name, limit, filters
                 )
             except Exception as e:
-                logger.warning(f"Primary provider {self.primary_provider} failed: {e}")
+                logger.warning(
+                    f"Primary provider {self.primary_provider} failed: {e}")
 
         # Try other providers
         for name, provider in self.providers.items():

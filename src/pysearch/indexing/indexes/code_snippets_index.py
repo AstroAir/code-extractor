@@ -137,7 +137,9 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
 
             try:
                 # Read file content
-                content = await read_text_safely(Path(item.path))
+                content = read_text_safely(Path(item.path))
+                if not content:
+                    continue
 
                 # Detect language
                 from ...analysis.language_detection import detect_language
@@ -170,13 +172,13 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
                         entity.entity_type.value,
                         entity.signature,
                         entity.docstring,
-                        entity.content,
+                        entity.signature or "",  # Use signature as content fallback
                         language.value,
                         entity.start_line,
                         entity.end_line,
-                        entity.complexity_score,
+                        0.0,  # Default complexity score
                         quality_score,
-                        json.dumps(entity.dependencies),
+                        json.dumps([]),  # Default empty dependencies
                         json.dumps(entity.properties),
                         current_time
                     ))
@@ -190,7 +192,7 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
                     """, (snippet_id, tag_string, current_time))
 
                 conn.commit()
-                await mark_complete([item], "compute")
+                mark_complete([item], "compute")
 
             except Exception as e:
                 logger.error(f"Error processing file {item.path}: {e}")
@@ -216,7 +218,7 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
                     """, (snippet_id, tag_string, current_time))
 
                 conn.commit()
-                await mark_complete([item], "add_tag")
+                mark_complete([item], "add_tag")
 
             except Exception as e:
                 logger.error(f"Error adding tag for {item.path}: {e}")
@@ -241,7 +243,7 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
                     """, (snippet_id, tag_string))
 
                 conn.commit()
-                await mark_complete([item], "remove_tag")
+                mark_complete([item], "remove_tag")
 
             except Exception as e:
                 logger.error(f"Error removing tag for {item.path}: {e}")
@@ -259,11 +261,13 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
 
                 # Delete snippets and their tags
                 for snippet_id in snippet_ids:
-                    conn.execute("DELETE FROM snippet_tags WHERE snippet_id = ?", (snippet_id,))
-                    conn.execute("DELETE FROM code_snippets WHERE id = ?", (snippet_id,))
+                    conn.execute(
+                        "DELETE FROM snippet_tags WHERE snippet_id = ?", (snippet_id,))
+                    conn.execute(
+                        "DELETE FROM code_snippets WHERE id = ?", (snippet_id,))
 
                 conn.commit()
-                await mark_complete([item], "delete")
+                mark_complete([item], "delete")
 
             except Exception as e:
                 logger.error(f"Error deleting snippets for {item.path}: {e}")
@@ -297,7 +301,8 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
             """)
             params.extend([f"%{term}%", f"%{term}%", f"%{term}%"])
 
-        where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+        where_clause = " AND ".join(
+            where_conditions) if where_conditions else "1=1"
 
         # Additional filters from kwargs
         if "entity_type" in kwargs:
@@ -359,10 +364,11 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
         if entity.signature:
             quality += 0.2
 
-        # Content quality
-        content_lines = len(entity.content.split('\n'))
-        if 5 <= content_lines <= 50:  # Reasonable size
-            quality += 0.2
+        # Content quality (use signature as proxy for content)
+        if entity.signature:
+            content_lines = len(entity.signature.split('\n'))
+            if 1 <= content_lines <= 10:  # Reasonable signature size
+                quality += 0.2
 
         return min(1.0, quality)
 
@@ -502,7 +508,7 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
 
         # Build query
         where_conditions = ["st.tag = ?"]
-        params = [tag_string]
+        params: list[Any] = [tag_string]
 
         # Text search
         if query.strip():
@@ -510,7 +516,8 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
                 (cs.name LIKE ? OR cs.signature LIKE ? OR cs.docstring LIKE ? OR cs.content LIKE ?)
             """)
             query_pattern = f"%{query}%"
-            params.extend([query_pattern, query_pattern, query_pattern, query_pattern])
+            params.extend([query_pattern, query_pattern,
+                          query_pattern, query_pattern])
 
         # Entity type filter
         if entity_types:

@@ -53,7 +53,8 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
         # Initialize vector database
         embedding_config = EmbeddingConfig(
             provider=getattr(config, 'embedding_provider', 'openai'),
-            model_name=getattr(config, 'embedding_model', 'text-embedding-ada-002'),
+            model_name=getattr(config, 'embedding_model',
+                               'text-embedding-ada-002'),
             batch_size=getattr(config, 'embedding_batch_size', 100),
             api_key=getattr(config, 'openai_api_key', None),
         )
@@ -75,7 +76,8 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
         collection_name = self.vector_manager.get_collection_name(tag)
 
         # Process compute operations (new files)
-        total_operations = len(results.compute) + len(results.delete) + len(results.add_tag) + len(results.remove_tag)
+        total_operations = len(results.compute) + len(results.delete) + \
+            len(results.add_tag) + len(results.remove_tag)
         completed_operations = 0
 
         for item in results.compute:
@@ -87,14 +89,16 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
 
             try:
                 # Read and chunk file
-                content = await read_text_safely(Path(item.path))
+                content = read_text_safely(Path(item.path))
+                if not content:
+                    continue
                 chunks = await self.chunking_engine.chunk_file(item.path, content)
 
                 if chunks:
                     # Index chunks in vector database
                     await self.vector_manager.index_chunks(chunks, collection_name)
 
-                await mark_complete([item], "compute")
+                mark_complete([item], "compute")
                 completed_operations += 1
 
             except Exception as e:
@@ -115,7 +119,7 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
                 # This is a simplified implementation - in practice, we'd
                 # retrieve from global cache and add to this collection
 
-                await mark_complete([item], "add_tag")
+                mark_complete([item], "add_tag")
                 completed_operations += 1
 
             except Exception as e:
@@ -136,7 +140,7 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
                 chunk_ids = [f"{item.path}:{item.cache_key}"]  # Simplified
                 await self.vector_manager.delete_chunks(chunk_ids, collection_name)
 
-                await mark_complete([item], "remove_tag")
+                mark_complete([item], "remove_tag")
                 completed_operations += 1
 
             except Exception as e:
@@ -156,7 +160,7 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
                 chunk_ids = [f"{item.path}:{item.cache_key}"]  # Simplified
                 await self.vector_manager.delete_chunks(chunk_ids, collection_name)
 
-                await mark_complete([item], "delete")
+                mark_complete([item], "delete")
                 completed_operations += 1
 
             except Exception as e:
@@ -325,12 +329,15 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
 
             # Quality boost
             quality_score = result.get("quality_score", 0.0)
-            enhanced_score += quality_score * boost_factors.get("quality_score", 0.0)
+            enhanced_score += quality_score * \
+                boost_factors.get("quality_score", 0.0)
 
             # Complexity boost (moderate complexity preferred)
             complexity_score = result.get("complexity_score", 0.0)
-            complexity_boost = 1.0 - abs(complexity_score - 0.5) * 2  # Peak at 0.5
-            enhanced_score += complexity_boost * boost_factors.get("complexity_score", 0.0)
+            complexity_boost = 1.0 - \
+                abs(complexity_score - 0.5) * 2  # Peak at 0.5
+            enhanced_score += complexity_boost * \
+                boost_factors.get("complexity_score", 0.0)
 
             # Exact match boost
             if query.lower() in result.get("content", "").lower():

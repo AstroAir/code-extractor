@@ -157,7 +157,8 @@ def find_text_regex_matches(text: str, pattern: str, use_regex: bool) -> list[Te
             start_abs, end_abs = m.span()
             li, col_start = _offset_to_line_col(line_starts, start_abs)
             col_end = col_start + (end_abs - start_abs)
-            matches.append(TextMatch(line_index=li, start_col=col_start, end_col=col_end))
+            matches.append(
+                TextMatch(line_index=li, start_col=col_start, end_col=col_end))
     else:
         # simple substring search line by line
         lines = split_lines_keepends(text)
@@ -167,7 +168,8 @@ def find_text_regex_matches(text: str, pattern: str, use_regex: bool) -> list[Te
                 j = line.find(pattern, start)
                 if j == -1:
                     break
-                matches.append(TextMatch(line_index=i, start_col=j, end_col=j + len(pattern)))
+                matches.append(
+                    TextMatch(line_index=i, start_col=j, end_col=j + len(pattern)))
                 # Ensure we always advance position to prevent infinite loops
                 start = j + max(1, len(pattern))
     return matches
@@ -181,7 +183,8 @@ def group_matches_into_blocks(matches: list[TextMatch]) -> list[tuple[int, int, 
     """
     if not matches:
         return []
-    matches_sorted = sorted(matches, key=lambda m: (m.line_index, m.start_col, m.end_col))
+    matches_sorted = sorted(matches, key=lambda m: (
+        m.line_index, m.start_col, m.end_col))
 
     grouped: list[list[TextMatch]] = []
     bucket: list[TextMatch] = [matches_sorted[0]]
@@ -364,11 +367,13 @@ def search_in_file(
 
     if query.filters and ast_blocks:
         # 仅保留与 AST 块相交的文本匹配组
-        grouped = [g for g in grouped if any(in_any_block(li) for li, _ in g[2])]
+        grouped = [g for g in grouped if any(
+            in_any_block(li) for li, _ in g[2])]
 
     # Build items from grouped matches
     for start_l, end_l, spans_struct in grouped:
-        ctx_s, ctx_e, slice_lines = extract_context(lines, start_l, end_l, window=query.context)
+        ctx_s, ctx_e, slice_lines = extract_context(
+            lines, start_l, end_l, window=query.context)
         # Rebase spans to context slice line indexes
         spans_rebased: list[tuple[int, tuple[int, int]]] = []
         for li, (a, b) in spans_struct:
@@ -387,7 +392,8 @@ def search_in_file(
     # If only AST blocks, return their context windows as items
     if not tms and ast_blocks:
         for s, e in ast_blocks:
-            ctx_s, ctx_e, slice_lines = extract_context(lines, s, e, window=query.context)
+            ctx_s, ctx_e, slice_lines = extract_context(
+                lines, s, e, window=query.context)
             items.append(
                 SearchItem(
                     file=path,

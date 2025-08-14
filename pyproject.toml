@@ -181,11 +181,7 @@ check_untyped_defs = true
 no_implicit_optional = true
 pretty = true
 files = [
-  "src/pysearch/utils.py",
-  "src/pysearch/graphrag.py",
-  "src/pysearch/graphrag_engine.py",
-  "src/pysearch/qdrant_client.py",
-  "src/pysearch/indexer_metadata.py",
+  "src/pysearch/",
   "mcp/servers/",
   "mcp/shared/",
 ]
@@ -210,7 +206,21 @@ module = [
   "transformers.*",
   "torch.*",
   "sklearn.*",
-  "faiss.*"
+  "faiss.*",
+  "tree_sitter.*",
+  "tree_sitter_python.*",
+  "tree_sitter_javascript.*",
+  "tree_sitter_typescript.*",
+  "tree_sitter_java.*",
+  "tree_sitter_c.*",
+  "tree_sitter_cpp.*",
+  "tree_sitter_go.*",
+  "tree_sitter_rust.*",
+  "lancedb.*",
+  "pwd.*",
+  "psutil.*",
+  "aiohttp.*",
+  "pysearch.*"
 ]
 ignore_missing_imports = true
 

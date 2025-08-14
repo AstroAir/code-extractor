@@ -233,12 +233,18 @@ class MetadataIndex:
         """)
 
         # Create indexes for efficient querying
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_language ON files (language)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_mtime ON files (mtime)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_size ON files (size)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_entities_type ON entities (entity_type)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_entities_name ON entities (name)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_entities_file ON entities (file_path)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_language ON files (language)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_mtime ON files (mtime)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_size ON files (size)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_entities_type ON entities (entity_type)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_entities_name ON entities (name)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_entities_file ON entities (file_path)")
 
         self._connection.commit()
 
@@ -281,7 +287,8 @@ class MetadataIndex:
             metadata.file_path, metadata.start_line, metadata.end_line,
             metadata.signature, metadata.docstring, metadata.language,
             metadata.scope, metadata.complexity_score,
-            json.dumps(metadata.semantic_embedding) if metadata.semantic_embedding else None,
+            json.dumps(
+                metadata.semantic_embedding) if metadata.semantic_embedding else None,
             json.dumps(metadata.properties), metadata.last_updated
         ))
         self._connection.commit()
@@ -298,7 +305,8 @@ class MetadataIndex:
         params: list[Any] = []
 
         if query.languages:
-            conditions.append(f"language IN ({','.join(['?'] * len(query.languages))})")
+            conditions.append(
+                f"language IN ({','.join(['?'] * len(query.languages))})")
             params.extend(query.languages)
 
         if query.min_size is not None:
@@ -354,7 +362,8 @@ class MetadataIndex:
                 semantic_summary=row['semantic_summary'],
                 imports=json.loads(row['imports']) if row['imports'] else [],
                 exports=json.loads(row['exports']) if row['exports'] else [],
-                dependencies=json.loads(row['dependencies']) if row['dependencies'] else [],
+                dependencies=json.loads(
+                    row['dependencies']) if row['dependencies'] else [],
                 last_indexed=row['last_indexed'],
                 access_count=row['access_count'],
                 last_accessed=row['last_accessed']
@@ -375,7 +384,8 @@ class MetadataIndex:
         params: list[Any] = []
 
         if query.entity_types:
-            conditions.append(f"entity_type IN ({','.join(['?'] * len(query.entity_types))})")
+            conditions.append(
+                f"entity_type IN ({','.join(['?'] * len(query.entity_types))})")
             params.extend(query.entity_types)
 
         if query.entity_names:
@@ -386,7 +396,8 @@ class MetadataIndex:
             conditions.append(f"({' OR '.join(name_conditions)})")
 
         if query.languages:
-            conditions.append(f"language IN ({','.join(['?'] * len(query.languages))})")
+            conditions.append(
+                f"language IN ({','.join(['?'] * len(query.languages))})")
             params.extend(query.languages)
 
         if query.has_docstring is not None:
@@ -432,8 +443,10 @@ class MetadataIndex:
                 language=row['language'],
                 scope=row['scope'],
                 complexity_score=row['complexity_score'],
-                semantic_embedding=json.loads(row['semantic_embedding']) if row['semantic_embedding'] else None,
-                properties=json.loads(row['properties']) if row['properties'] else {},
+                semantic_embedding=json.loads(
+                    row['semantic_embedding']) if row['semantic_embedding'] else None,
+                properties=json.loads(
+                    row['properties']) if row['properties'] else {},
                 last_updated=row['last_updated']
             )
             entities.append(metadata)
@@ -448,7 +461,8 @@ class MetadataIndex:
         cursor = self._connection.cursor()
 
         # File statistics
-        cursor.execute("SELECT COUNT(*), AVG(size), AVG(entity_count) FROM files")
+        cursor.execute(
+            "SELECT COUNT(*), AVG(size), AVG(entity_count) FROM files")
         file_stats = cursor.fetchone()
         total_files = file_stats[0] if file_stats[0] else 0
         avg_file_size = file_stats[1] if file_stats[1] else 0.0
@@ -460,15 +474,18 @@ class MetadataIndex:
         total_entities = entity_result[0] if entity_result else 0
 
         # Language distribution
-        cursor.execute("SELECT language, COUNT(*) FROM files GROUP BY language")
+        cursor.execute(
+            "SELECT language, COUNT(*) FROM files GROUP BY language")
         languages = dict(cursor.fetchall())
 
         # Entity type distribution
-        cursor.execute("SELECT entity_type, COUNT(*) FROM entities GROUP BY entity_type")
+        cursor.execute(
+            "SELECT entity_type, COUNT(*) FROM entities GROUP BY entity_type")
         entity_types = dict(cursor.fetchall())
 
         # Database size
-        cursor.execute("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
+        cursor.execute(
+            "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
         db_result = cursor.fetchone()
         db_size = db_result[0] if db_result else 0
         index_size_mb = db_size / (1024 * 1024)
@@ -535,7 +552,8 @@ class MetadataIndexer:
             all_changed, all_removed, total = self.base_indexer.scan()
             changed_files = all_changed
 
-        logger.info(f"Processing {len(changed_files)} files for metadata indexing")
+        logger.info(
+            f"Processing {len(changed_files)} files for metadata indexing")
 
         # Prepare semantic embedding if needed
         if include_semantic and changed_files:
@@ -561,7 +579,8 @@ class MetadataIndexer:
         stats.build_duration = build_duration
         stats.last_build_time = time.time()
 
-        logger.info(f"Enhanced index built in {build_duration:.2f}s: {stats.total_files} files, {stats.total_entities} entities")
+        logger.info(
+            f"Enhanced index built in {build_duration:.2f}s: {stats.total_files} files, {stats.total_entities} entities")
         return stats
 
     async def _index_file(self, file_path: Path, include_semantic: bool = True) -> None:
@@ -579,7 +598,8 @@ class MetadataIndexer:
             line_count = len(lines)
 
             # Calculate complexity score (simple metric)
-            complexity_score = self._calculate_file_complexity(content, language)
+            complexity_score = self._calculate_file_complexity(
+                content, language)
 
             # Extract entities
             entities = await self.entity_extractor.extract_from_file(file_path)
@@ -597,7 +617,8 @@ class MetadataIndexer:
                         summary_parts.append(entity.docstring)
 
                 if summary_parts:
-                    summary_text = ' '.join(summary_parts)[:500]  # Limit length
+                    summary_text = ' '.join(summary_parts)[
+                        :500]  # Limit length
                     semantic_summary = summary_text
 
             # Extract imports and dependencies (simplified)
@@ -609,7 +630,8 @@ class MetadataIndexer:
                 file_path=str(file_path),
                 size=stat.st_size,
                 mtime=stat.st_mtime,
-                language=language.value if hasattr(language, 'value') else str(language),
+                language=language.value if hasattr(
+                    language, 'value') else str(language),
                 line_count=line_count,
                 entity_count=len(entities),
                 complexity_score=complexity_score,
@@ -624,16 +646,19 @@ class MetadataIndexer:
 
             # Process entities
             for entity in entities:
-                entity_complexity = self._calculate_entity_complexity(entity, content)
+                entity_complexity = self._calculate_entity_complexity(
+                    entity, content)
 
                 # Generate semantic embedding if requested
                 semantic_embedding = None
                 if include_semantic and self.semantic_embedding.is_fitted:
                     entity_text = self._create_entity_text(entity)
-                    embedding_vector = self.semantic_embedding.transform(entity_text)
+                    embedding_vector = self.semantic_embedding.transform(
+                        entity_text)
                     if embedding_vector:
                         # Convert sparse to dense
-                        max_dim = max(embedding_vector.keys()) + 1 if embedding_vector else 0
+                        max_dim = max(embedding_vector.keys()) + \
+                            1 if embedding_vector else 0
                         dense_vector = [0.0] * max_dim
                         for dim, value in embedding_vector.items():
                             dense_vector[dim] = value
@@ -649,7 +674,8 @@ class MetadataIndexer:
                     end_line=entity.end_line,
                     signature=entity.signature,
                     docstring=entity.docstring,
-                    language=entity.language.value if hasattr(entity.language, 'value') else str(entity.language),
+                    language=entity.language.value if hasattr(
+                        entity.language, 'value') else str(entity.language),
                     scope=entity.scope,
                     complexity_score=entity_complexity,
                     semantic_embedding=semantic_embedding,
@@ -735,7 +761,8 @@ class MetadataIndexer:
 
         if language == Language.PYTHON:
             # Look for common library usage patterns
-            common_libs = ['requests', 'numpy', 'pandas', 'flask', 'django', 'fastapi']
+            common_libs = ['requests', 'numpy',
+                           'pandas', 'flask', 'django', 'fastapi']
             for lib in common_libs:
                 if lib in content:
                     dependencies.append(lib)

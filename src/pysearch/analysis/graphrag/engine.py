@@ -111,7 +111,8 @@ class KnowledgeGraphBuilder:
                 indexer = Indexer(self.config)
                 changed_files, removed_files, total_files = indexer.scan()
                 for file_path in changed_files:
-                    file_contents[file_path] = read_text_safely(file_path) or ""
+                    file_contents[file_path] = read_text_safely(
+                        file_path) or ""
 
         logger.info(f"Extracted {len(all_entities)} entities")
 
@@ -136,7 +137,8 @@ class KnowledgeGraphBuilder:
             "total_entities": len(all_entities),
             "total_relationships": len(relationships),
             "entity_types": {
-                entity_type.value: len(self.knowledge_graph.get_entities_by_type(entity_type))
+                entity_type.value: len(
+                    self.knowledge_graph.get_entities_by_type(entity_type))
                 for entity_type in EntityType
             },
             "build_time_seconds": time.time() - start_time,
@@ -147,7 +149,8 @@ class KnowledgeGraphBuilder:
         await self._cache_graph()
 
         elapsed = time.time() - start_time
-        logger.info(f"Built knowledge graph with {len(all_entities)} entities and {len(relationships)} relationships in {elapsed:.2f}s")
+        logger.info(
+            f"Built knowledge graph with {len(all_entities)} entities and {len(relationships)} relationships in {elapsed:.2f}s")
 
         return self.knowledge_graph
 
@@ -174,7 +177,8 @@ class KnowledgeGraphBuilder:
                     if isinstance(value, str):
                         text_parts.append(f"{key}: {value}")
                     elif isinstance(value, list):
-                        text_parts.append(f"{key}: {', '.join(str(v) for v in value)}")
+                        text_parts.append(
+                            f"{key}: {', '.join(str(v) for v in value)}")
 
             document = " ".join(text_parts)
             documents.append(document)
@@ -188,7 +192,8 @@ class KnowledgeGraphBuilder:
             embedding_vector = self.semantic_embedding.transform(document)
             # Convert sparse vector to dense list
             if embedding_vector:
-                max_dim = max(embedding_vector.keys()) + 1 if embedding_vector else 0
+                max_dim = max(embedding_vector.keys()) + \
+                    1 if embedding_vector else 0
                 dense_vector = [0.0] * max_dim
                 for dim, value in embedding_vector.items():
                     dense_vector[dim] = value
@@ -237,7 +242,8 @@ class KnowledgeGraphBuilder:
                     confidence=rel_data.get('confidence', 1.0),
                     weight=rel_data.get('weight', 1.0),
                     context=rel_data.get('context'),
-                    file_path=Path(rel_data['file_path']) if rel_data.get('file_path') else None,
+                    file_path=Path(rel_data['file_path']) if rel_data.get(
+                        'file_path') else None,
                     line_number=rel_data.get('line_number')
                 )
                 self.knowledge_graph.add_relationship(relationship)
@@ -437,7 +443,8 @@ class GraphRAGEngine:
             logger.warning("No entities with embeddings found")
             return
 
-        vectors = [entity.embedding for entity in entities_with_embeddings if entity.embedding is not None]
+        vectors = [
+            entity.embedding for entity in entities_with_embeddings if entity.embedding is not None]
         metadata = []
         ids = []
 
@@ -475,7 +482,8 @@ class GraphRAGEngine:
             return [], {}
 
         # Generate query vector
-        query_vector = self.graph_builder.semantic_embedding.transform(query.pattern)
+        query_vector = self.graph_builder.semantic_embedding.transform(
+            query.pattern)
         if not query_vector:
             return [], {}
 
@@ -488,7 +496,8 @@ class GraphRAGEngine:
         # Build filter conditions
         filter_conditions = {}
         if query.entity_types:
-            filter_conditions["entity_type"] = [et.value for et in query.entity_types]
+            filter_conditions["entity_type"] = [
+                et.value for et in query.entity_types]
 
         # Search similar vectors
         try:
@@ -598,7 +607,7 @@ class GraphRAGEngine:
 
         for relationship in knowledge_graph.relationships:
             if (relationship.source_entity_id in entity_ids or
-                relationship.target_entity_id in entity_ids):
+                    relationship.target_entity_id in entity_ids):
 
                 if relationship.confidence >= query.min_confidence:
                     if not query.relation_types or relationship.relation_type in query.relation_types:
@@ -637,7 +646,8 @@ class GraphRAGEngine:
             return {}
 
         # Get related entities
-        related = knowledge_graph.get_related_entities(entity_id, max_hops=context_hops)
+        related = knowledge_graph.get_related_entities(
+            entity_id, max_hops=context_hops)
 
         context: Dict[str, Any] = {
             "entity": {

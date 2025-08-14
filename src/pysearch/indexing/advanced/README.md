@@ -5,6 +5,7 @@ This directory contains advanced indexing functionality that extends the basic i
 ## Overview
 
 The advanced indexing system provides:
+
 - **Enhanced indexing engine** with advanced algorithms and optimizations
 - **Seamless integration** with the main search system
 - **Advanced code-aware chunking** strategies for better content organization
@@ -14,17 +15,20 @@ The advanced indexing system provides:
 ## Components
 
 ### Core Engine (`engine.py`)
+
 - `EnhancedCodebaseIndex`: Abstract base class for all advanced index types
 - `IndexCoordinator`: Coordinates multiple index types for unified search
 - `EnhancedIndexingEngine`: Main indexing engine with tag-based management
 - `IndexLock`: Prevents concurrent indexing operations
 
 ### Integration (`integration.py`)
+
 - `EnhancedSearchEngine`: Main search engine integrating all advanced features
 - `SearchResultEnhancer`: Enhances search results with additional metadata
 - `IndexingOrchestrator`: Orchestrates indexing operations across repositories
 
 ### Advanced Chunking (`chunking.py`)
+
 - `ChunkingEngine`: Main chunking coordination engine
 - `StructuralChunker`: Structure-aware chunking using AST/tree-sitter
 - `SemanticChunker`: Semantic-aware chunking for better content organization
@@ -33,16 +37,19 @@ The advanced indexing system provides:
 ## Features
 
 ### Content-Addressed Caching
+
 - SHA256-based content addressing for efficient incremental updates
 - Global cache for cross-branch content sharing
 - Smart diffing with compute/delete/addTag/removeTag operations
 
 ### Tag-Based Index Management
+
 - Three-part tag system: directory + branch + artifact
 - Multi-branch support without reindexing
 - Granular index management and cleanup
 
 ### Multi-Index Architecture
+
 - Code Snippets Index: Tree-sitter based entity extraction
 - Full-Text Search Index: SQLite FTS5 with trigram tokenization
 - Chunk Index: Intelligent code-aware chunking
@@ -51,6 +58,7 @@ The advanced indexing system provides:
 ## Usage
 
 ### Basic Enhanced Indexing
+
 ```python
 from pysearch.indexing.advanced.engine import EnhancedIndexingEngine
 from pysearch.core.config import SearchConfig
@@ -61,6 +69,7 @@ await engine.refresh_index()
 ```
 
 ### Advanced Search
+
 ```python
 from pysearch.indexing.advanced.integration import EnhancedSearchEngine
 
@@ -69,6 +78,7 @@ results = await engine.search("database connection", limit=10)
 ```
 
 ### Custom Chunking
+
 ```python
 from pysearch.indexing.advanced.chunking import ChunkingEngine, ChunkingConfig
 
@@ -89,6 +99,7 @@ The advanced indexing system follows a modular architecture:
 ## Performance
 
 The system is designed for high performance with:
+
 - Parallel processing capabilities
 - Incremental updates to minimize reindexing
 - Content addressing for efficient caching

@@ -272,7 +272,8 @@ def detect_language(path: Path, content: str | None = None) -> Language:
                 return shebang_lang
 
             # For ambiguous extensions, use content detection
-            if path.suffix.lower() in [".h", ".m"]:  # Could be C/C++/Objective-C/MATLAB
+            # Could be C/C++/Objective-C/MATLAB
+            if path.suffix.lower() in [".h", ".m"]:
                 content_lang = detect_language_by_content(
                     content, {Language.C, Language.CPP, Language.MATLAB}
                 )

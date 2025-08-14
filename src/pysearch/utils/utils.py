@@ -317,7 +317,7 @@ def extract_context(
     s = max(1, start - window)
     e = min(n, end + window)
     # convert to 0-based slice
-    return s, e, lines[s - 1 : e]
+    return s, e, lines[s - 1: e]
 
 
 def split_lines_keepends(text: str) -> list[str]:

@@ -43,7 +43,7 @@ import time
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 from ..indexing.cache_manager import CacheManager
 from .config import SearchConfig
@@ -52,7 +52,7 @@ from ..indexing.metadata import MetadataIndexer, IndexQuery
 from ..utils.error_handling import ErrorCollector, create_error_report, handle_file_error
 from ..utils.file_watcher import FileEvent, WatchManager
 from ..analysis.graphrag.engine import GraphRAGEngine
-from .history import SearchHistory
+from .history import SearchHistory, SearchHistoryEntry
 from ..indexing.indexer import Indexer
 from ..utils.logging_config import SearchLogger, get_logger
 from ..search.matchers import search_in_file
@@ -171,7 +171,8 @@ class PySearch:
 
         try:
             if not self._graphrag_engine:
-                self._graphrag_engine = GraphRAGEngine(self.cfg, self.qdrant_config)
+                self._graphrag_engine = GraphRAGEngine(
+                    self.cfg, self.qdrant_config)
 
             await self._graphrag_engine.initialize()
             # Set the vector store reference from the GraphRAG engine
@@ -228,7 +229,8 @@ class PySearch:
             await self.initialize_enhanced_indexing()
             if self._enhanced_indexer:
                 stats = await self._enhanced_indexer.build_index(include_semantic, force_rebuild)
-                self.logger.info(f"Enhanced index built: {stats.total_files} files, {stats.total_entities} entities")
+                self.logger.info(
+                    f"Enhanced index built: {stats.total_files} files, {stats.total_entities} entities")
                 return True
         except Exception as e:
             self.logger.error(f"Failed to build enhanced index: {e}")
@@ -246,7 +248,8 @@ class PySearch:
             await self.initialize_graphrag()
             if self._graphrag_engine:
                 result = await self._graphrag_engine.query_graph(query)
-                self.logger.debug(f"GraphRAG search found {len(result.entities)} entities")
+                self.logger.debug(
+                    f"GraphRAG search found {len(result.entities)} entities")
                 return result
         except Exception as e:
             self.logger.error(f"GraphRAG search failed: {e}")
@@ -264,7 +267,8 @@ class PySearch:
             await self.initialize_enhanced_indexing()
             if self._enhanced_indexer:
                 results = await self._enhanced_indexer.query_index(query)
-                self.logger.debug(f"Enhanced index search found {len(results.get('files', []))} files")
+                self.logger.debug(
+                    f"Enhanced index search found {len(results.get('files', []))} files")
                 return results
         except Exception as e:
             self.logger.error(f"Enhanced index search failed: {e}")
@@ -323,15 +327,18 @@ class PySearch:
 
                 # Cache miss or outdated - read file
                 try:
-                    file_content = read_text_safely(path, max_bytes=self.cfg.max_file_bytes)
+                    file_content = read_text_safely(
+                        path, max_bytes=self.cfg.max_file_bytes)
                     if file_content is not None:
-                        self._file_content_cache[path] = (current_mtime, file_content)
+                        self._file_content_cache[path] = (
+                            current_mtime, file_content)
                         return file_content
                     else:
                         self.logger.debug(f"Could not read file: {path}")
                         return ""
                 except Exception as e:
-                    handle_file_error(path, "read", e, self.error_collector, self.logger)
+                    handle_file_error(
+                        path, "read", e, self.error_collector, self.logger)
                     return ""
                     # Limit cache size
                     if len(self._file_content_cache) > 1000:
@@ -398,7 +405,8 @@ class PySearch:
             cache_key = self._generate_cache_key(query)
             cached_result = self.cache_manager.get(cache_key)
             if cached_result:
-                self.logger.debug(f"Using cached result for query: {query.pattern}")
+                self.logger.debug(
+                    f"Using cached result for query: {query.pattern}")
                 return cached_result
 
         # Fallback to old cache system
@@ -422,8 +430,9 @@ class PySearch:
             self.logger.error(f"Error during indexing: {e}")
             self.error_collector.add_error(e)
             # Continue with empty file list
-            changed, _removed, total_seen = [], [], 0
-            _removed: list[str] = _removed
+            changed = []
+            _removed: list[str] = []
+            total_seen = 0
 
         paths = changed or list(self.indexer.iter_all_paths())
         self.logger.debug(f"Searching in {len(paths)} files")
@@ -439,7 +448,8 @@ class PySearch:
         # Sort results by relevance with configurable strategy
         try:
             # Use hybrid ranking by default, could be configurable
-            items = sort_items(items, self.cfg, query.pattern, RankingStrategy.HYBRID)
+            items = sort_items(items, self.cfg, query.pattern,
+                               RankingStrategy.HYBRID)
             # Remove overlapping results for cleaner output
             items = deduplicate_overlapping_results(items)
         except Exception as e:
@@ -520,7 +530,8 @@ class PySearch:
                 with ProcessPoolExecutor(max_workers=workers) as executor:
                     # Batch files to reduce overhead
                     batch_size = max(1, num_files // (workers * 4))
-                    batches = [paths[i : i + batch_size] for i in range(0, len(paths), batch_size)]
+                    batches = [paths[i: i + batch_size]
+                               for i in range(0, len(paths), batch_size)]
 
                     futures = {
                         executor.submit(_search_file_batch, batch, query): batch
@@ -558,12 +569,14 @@ class PySearch:
         if query.use_ast or query.use_regex:
             workers = min(cpu_count * 2, self.cfg.workers or cpu_count * 2)
         else:
-            workers = min(cpu_count * 4, self.cfg.workers or cpu_count * 4)  # I/O bound
+            # I/O bound
+            workers = min(cpu_count * 4, self.cfg.workers or cpu_count * 4)
 
         workers = min(workers, len(paths))  # Don't over-provision
 
         with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {executor.submit(self._search_file, p, query): p for p in paths}
+            futures = {executor.submit(
+                self._search_file, p, query): p for p in paths}
 
             for future in as_completed(futures):
                 try:
@@ -660,7 +673,7 @@ class PySearch:
         Returns:
             Dictionary containing results from all enabled search methods
         """
-        results = {
+        results: dict[str, Any] = {
             "traditional": None,
             "graphrag": None,
             "enhanced_index": None,
@@ -748,7 +761,8 @@ class PySearch:
                 index_results = await self.enhanced_index_search(index_query)
                 if index_results:
                     results["enhanced_index"] = index_results
-                    results["metadata"]["methods_used"].append("enhanced_index")
+                    results["metadata"]["methods_used"].append(
+                        "enhanced_index")
             except Exception as e:
                 self.logger.error(f"Enhanced index search failed: {e}")
 
@@ -816,7 +830,8 @@ class PySearch:
         # Get files to search
         try:
             changed, removed, total_seen = self.indexer.scan()
-            self.logger.debug(f"Indexer scan: {len(changed)} changed, {len(removed)} removed, {total_seen} total")
+            self.logger.debug(
+                f"Indexer scan: {len(changed)} changed, {len(removed)} removed, {total_seen} total")
         except Exception as e:
             self.error_collector.add_error(e)
             # Continue with empty file list
@@ -871,7 +886,8 @@ class PySearch:
                 files_processed += 1
 
             except Exception as e:
-                handle_file_error(path, "semantic search", e, self.error_collector)
+                handle_file_error(path, "semantic search",
+                                  e, self.error_collector)
                 continue
 
         # Convert semantic matches to SearchItems
@@ -964,7 +980,8 @@ class PySearch:
         start_time = time.time()
 
         # Perform dependency analysis
-        graph = self.dependency_analyzer.analyze_directory(directory, recursive)
+        graph = self.dependency_analyzer.analyze_directory(
+            directory, recursive)
 
         elapsed_ms = (time.time() - start_time) * 1000
         self.logger.info(
@@ -1121,7 +1138,8 @@ class PySearch:
                 )
 
                 if not success:
-                    self.logger.error(f"Failed to create watcher for path: {path}")
+                    self.logger.error(
+                        f"Failed to create watcher for path: {path}")
                     return False
 
             # Start all watchers
@@ -1131,7 +1149,8 @@ class PySearch:
                 self.logger.info(f"Auto-watch enabled for {started} paths")
                 return True
             else:
-                self.logger.error(f"Only {started}/{len(self.cfg.paths)} watchers started")
+                self.logger.error(
+                    f"Only {started}/{len(self.cfg.paths)} watchers started")
                 self.watch_manager.stop_all()
                 return False
 
@@ -1448,7 +1467,8 @@ class PySearch:
             return True
 
         try:
-            self.multi_repo_engine = MultiRepoSearchEngine(max_workers=max_workers)
+            self.multi_repo_engine = MultiRepoSearchEngine(
+                max_workers=max_workers)
             self._multi_repo_enabled = True
             self.logger.info("Multi-repository search enabled")
             return True
@@ -1791,7 +1811,8 @@ class PySearch:
         else:
             fuzzy_algo = FuzzyAlgorithm.SOUNDEX
 
-        fuzzy_regex = fuzzy_pattern(pattern, 0, fuzzy_algo)  # Distance 0 for phonetic
+        # Distance 0 for phonetic
+        fuzzy_regex = fuzzy_pattern(pattern, 0, fuzzy_algo)
         return self.search(fuzzy_regex, regex=True, **kwargs)
 
     def semantic_search(self, concept: str, **kwargs: Any) -> SearchResult:
@@ -1824,7 +1845,7 @@ class PySearch:
         """Get search history entries."""
         return self.history.get_history(limit)
 
-    def get_bookmarks(self) -> dict[str, Any]:
+    def get_bookmarks(self) -> dict[str, SearchHistoryEntry]:
         """Get all bookmarks."""
         return self.history.get_bookmarks()
 
@@ -2006,7 +2027,8 @@ class PySearch:
         # Re-sort with specified strategy
         try:
             _all_files = {item.file for item in result.items}
-            sorted_items = sort_items(result.items, self.cfg, pattern, strategy)
+            sorted_items = sort_items(
+                result.items, self.cfg, pattern, strategy)
 
             # Cluster results if requested
             if cluster_results:
@@ -2081,7 +2103,8 @@ class PySearch:
             elif any(char in pattern for char in ["_", "-", "."]):
                 analysis["query_type"] = "identifier"
                 analysis["recommended_strategy"] = "hybrid"
-                analysis["suggestions"].append("Identifiers work well with hybrid ranking")
+                analysis["suggestions"].append(
+                    "Identifiers work well with hybrid ranking")
             else:
                 analysis["query_type"] = "simple"
                 analysis["recommended_strategy"] = "popularity"
@@ -2095,15 +2118,18 @@ class PySearch:
                 analysis["file_spread"] = unique_files
 
                 if unique_files > 10:
-                    analysis["suggestions"].append("Many files found - consider clustering results")
+                    analysis["suggestions"].append(
+                        "Many files found - consider clustering results")
 
                 # Calculate result diversity
                 if len(results.items) > 1:
                     clusters = cluster_results_by_similarity(results.items)
-                    analysis["result_diversity"] = len(clusters) / len(results.items)
+                    analysis["result_diversity"] = len(
+                        clusters) / len(results.items)
 
                     if analysis["result_diversity"] < 0.3:
-                        analysis["suggestions"].append("Low diversity - results are very similar")
+                        analysis["suggestions"].append(
+                            "Low diversity - results are very similar")
                     elif analysis["result_diversity"] > 0.8:
                         analysis["suggestions"].append(
                             "High diversity - results are quite different"

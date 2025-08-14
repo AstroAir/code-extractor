@@ -60,7 +60,8 @@ def cli() -> None:
     "--language",
     "languages",
     multiple=True,
-    type=click.Choice([lang.value for lang in Language if lang != Language.UNKNOWN]),
+    type=click.Choice(
+        [lang.value for lang in Language if lang != Language.UNKNOWN]),
     help="限制搜索的编程语言",
 )
 @click.option("--pattern", required=True, help="文本/正则模式")
@@ -70,7 +71,8 @@ def cli() -> None:
 @click.option(
     "--fuzzy-algorithm",
     type=click.Choice(
-        ["levenshtein", "damerau_levenshtein", "jaro_winkler", "soundex", "metaphone"]
+        ["levenshtein", "damerau_levenshtein",
+            "jaro_winkler", "soundex", "metaphone"]
     ),
     help="模糊搜索算法",
 )
@@ -133,7 +135,8 @@ def cli() -> None:
 # Ranking and result organization options
 @click.option(
     "--ranking",
-    type=click.Choice(["relevance", "frequency", "recency", "popularity", "hybrid"]),
+    type=click.Choice(
+        ["relevance", "frequency", "recency", "popularity", "hybrid"]),
     default="hybrid",
     help="结果排序策略",
 )
@@ -187,7 +190,8 @@ def find_cmd(
 
     cfg = SearchConfig(
         paths=list(paths) or ["."],
-        include=list(include) if include else None,  # Use None to trigger auto-detection
+        # Use None to trigger auto-detection
+        include=list(include) if include else None,
         exclude=list(exclude) if exclude else None,
         languages=language_set,
         context=context,
@@ -342,9 +346,11 @@ def find_cmd(
         click.echo("RANKING ANALYSIS", err=True)
         click.echo("=" * 50, err=True)
         click.echo(f"Query type: {analysis['query_type']}", err=True)
-        click.echo(f"Recommended strategy: {analysis['recommended_strategy']}", err=True)
+        click.echo(
+            f"Recommended strategy: {analysis['recommended_strategy']}", err=True)
         click.echo(f"File spread: {analysis['file_spread']} files", err=True)
-        click.echo(f"Result diversity: {analysis['result_diversity']:.2f}", err=True)
+        click.echo(
+            f"Result diversity: {analysis['result_diversity']:.2f}", err=True)
         if analysis["suggestions"]:
             click.echo("Suggestions:", err=True)
             for suggestion in analysis["suggestions"]:
@@ -372,8 +378,10 @@ def history_cmd(
         click.echo(f"Total searches: {stats['total_searches']}")
         click.echo(f"Successful searches: {stats['successful_searches']}")
         click.echo(f"Success rate: {stats['success_rate']:.1%}")
-        click.echo(f"Average success score: {stats['average_success_score']:.2f}")
-        click.echo(f"Average search time: {stats['average_search_time']:.1f}ms")
+        click.echo(
+            f"Average success score: {stats['average_success_score']:.2f}")
+        click.echo(
+            f"Average search time: {stats['average_search_time']:.1f}ms")
         click.echo(f"Sessions: {stats['session_count']}")
 
         if stats["most_common_categories"]:
@@ -398,12 +406,14 @@ def history_cmd(
         click.echo("Recent Search Sessions")
         click.echo("=" * 40)
         for session in session_list:
-            start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(session.start_time))
+            start_time = time.strftime(
+                "%Y-%m-%d %H:%M:%S", time.localtime(session.start_time))
             duration = "ongoing"
             if session.end_time:
                 duration = f"{(session.end_time - session.start_time) / 60:.1f} min"
 
-            click.echo(f"Session {session.session_id[:8]}: {start_time} ({duration})")
+            click.echo(
+                f"Session {session.session_id[:8]}: {start_time} ({duration})")
             click.echo(
                 f"  Searches: {session.total_searches} (success: {session.successful_searches})"
             )
@@ -431,12 +441,16 @@ def history_cmd(
         if pattern and pattern.lower() not in entry.query_pattern.lower():
             continue
 
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(entry.timestamp))
-        category_str = f"[{entry.category.value}]" if hasattr(entry, "category") else ""
+        timestamp = time.strftime(
+            "%Y-%m-%d %H:%M:%S", time.localtime(entry.timestamp))
+        category_str = f"[{entry.category.value}]" if hasattr(
+            entry, "category") else ""
         rating_str = (
-            f"★{entry.user_rating}" if hasattr(entry, "user_rating") and entry.user_rating else ""
+            f"★{entry.user_rating}" if hasattr(
+                entry, "user_rating") and entry.user_rating else ""
         )
-        tags_str = f"#{','.join(entry.tags)}" if hasattr(entry, "tags") and entry.tags else ""
+        tags_str = f"#{','.join(entry.tags)}" if hasattr(
+            entry, "tags") and entry.tags else ""
 
         click.echo(
             f"{timestamp} {category_str} - '{entry.query_pattern}' "
@@ -476,7 +490,8 @@ def bookmarks_cmd(
             return
 
         for name, folder_obj in folders.items():
-            bookmark_count = len(folder_obj.bookmarks) if folder_obj.bookmarks else 0
+            bookmark_count = len(
+                folder_obj.bookmarks) if folder_obj.bookmarks else 0
             click.echo(f"{name}: {bookmark_count} bookmarks")
             if folder_obj.description:
                 click.echo(f"  Description: {folder_obj.description}")
@@ -515,12 +530,12 @@ def bookmarks_cmd(
             )
     else:
         # List all bookmarks
-        bookmarks = engine.get_bookmarks()
-        if not bookmarks:
+        all_bookmarks = engine.get_bookmarks()
+        if not all_bookmarks or not isinstance(all_bookmarks, dict):
             click.echo("No bookmarks found.")
             return
 
-        for name, entry in bookmarks.items():
+        for name, entry in all_bookmarks.items():
             click.echo(
                 f"{name}: '{entry.query_pattern}' "
                 f"({entry.files_matched} files, {entry.items_count} items)"

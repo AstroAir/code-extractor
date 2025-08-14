@@ -583,12 +583,14 @@ class KnowledgeGraph:
         for relationship in self.relationships:
             if relationship.source_entity_id == entity_id:
                 if relation_types is None or relationship.relation_type in relation_types:
-                    target_entity = self.entities.get(relationship.target_entity_id)
+                    target_entity = self.entities.get(
+                        relationship.target_entity_id)
                     if target_entity:
                         related.append((target_entity, relationship))
             elif relationship.target_entity_id == entity_id:
                 if relation_types is None or relationship.relation_type in relation_types:
-                    source_entity = self.entities.get(relationship.source_entity_id)
+                    source_entity = self.entities.get(
+                        relationship.source_entity_id)
                     if source_entity:
                         related.append((source_entity, relationship))
 

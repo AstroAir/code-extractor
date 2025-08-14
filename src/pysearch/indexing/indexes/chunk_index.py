@@ -137,7 +137,8 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
         conn = await self._get_connection()
         tag_string = tag.to_string()
 
-        total_operations = len(results.compute) + len(results.delete) + len(results.add_tag) + len(results.remove_tag)
+        total_operations = len(results.compute) + len(results.delete) + \
+            len(results.add_tag) + len(results.remove_tag)
         completed_operations = 0
 
         # Process compute operations (new files)
@@ -150,7 +151,9 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
 
             try:
                 # Read and chunk file
-                content = await read_text_safely(Path(item.path))
+                content = read_text_safely(Path(item.path))
+                if not content:
+                    continue
                 chunks = await self.chunking_engine.chunk_file(item.path, content)
 
                 # Store chunks in database
@@ -179,7 +182,8 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
                         chunk.quality_score,
                         json.dumps(chunk.dependencies),
                         json.dumps(chunk.overlap_with),
-                        json.dumps(chunk.metadata.__dict__ if chunk.metadata else {}),
+                        json.dumps(
+                            chunk.metadata.__dict__ if chunk.metadata else {}),
                         current_time
                     ))
 
@@ -192,7 +196,7 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
                     """, (chunk_db_id, tag_string, current_time))
 
                 conn.commit()
-                await mark_complete([item], "compute")
+                mark_complete([item], "compute")
                 completed_operations += 1
 
             except Exception as e:
@@ -202,7 +206,7 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
         # Process other operations (simplified)
         for item in results.add_tag + results.remove_tag + results.delete:
             completed_operations += 1
-            await mark_complete([item], "processed")
+            mark_complete([item], "processed")
 
         yield IndexingProgressUpdate(
             progress=1.0,

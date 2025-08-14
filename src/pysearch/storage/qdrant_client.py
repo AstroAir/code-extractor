@@ -61,11 +61,15 @@ except ImportError:  # pragma: no cover - fallback when qdrant not installed
     QDRANT_AVAILABLE = False
     np = None  # type: ignore
 
-    class ResponseHandlingException(Exception):
+    class _FallbackResponseHandlingException(Exception):
         pass
 
-    class UnexpectedResponse(Exception):
+    class _FallbackUnexpectedResponse(Exception):
         pass
+
+    # Assign fallback classes to the expected names
+    ResponseHandlingException = _FallbackResponseHandlingException  # type: ignore
+    UnexpectedResponse = _FallbackUnexpectedResponse  # type: ignore
 
     # Lightweight stubs to satisfy type checkers; runtime prevented before use
     class QdrantClient:  # type: ignore
@@ -173,8 +177,9 @@ class QdrantVectorStore:
             )
 
             # Test connection
-            if self.client:
-                await self._retry_operation(lambda: self.client.get_collections())
+            if self.client is not None:
+                client = self.client  # Store in local variable for type checker
+                await self._retry_operation(lambda: client.get_collections())
 
             # Create default collection if it doesn't exist
             await self.create_collection(
@@ -289,9 +294,9 @@ class QdrantVectorStore:
             all_ids: List[str] = []
 
             for i in range(0, len(vectors), batch_size):
-                batch_vectors = vectors[i : i + batch_size]
-                batch_metadata = metadata[i : i + batch_size]
-                batch_ids = ids[i : i + batch_size]
+                batch_vectors = vectors[i: i + batch_size]
+                batch_metadata = metadata[i: i + batch_size]
+                batch_ids = ids[i: i + batch_size]
 
                 assert models is not None
                 points = [
@@ -409,7 +414,8 @@ class QdrantVectorStore:
                 lambda: client.delete(
                     collection_name=collection_name,
                     points_selector=models.PointIdsList(
-                        points=vector_ids
+                        # Convert to satisfy type checker
+                        points=list(vector_ids)
                     ),
                 )
             )
@@ -418,7 +424,8 @@ class QdrantVectorStore:
             )
 
         except Exception as e:  # pragma: no cover
-            logger.error(f"Failed to delete vectors from {collection_name}: {e}")
+            logger.error(
+                f"Failed to delete vectors from {collection_name}: {e}")
             raise SearchError(f"Vector deletion failed: {e}")
 
     async def update_vector_metadata(
@@ -522,7 +529,7 @@ def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
         norm2 = sum(b * b for b in vec2) ** 0.5
         if norm1 == 0 or norm2 == 0:
             return 0.0
-        return dot_product / (norm1 * norm2)
+        return float(dot_product / (norm1 * norm2))
 
     v1 = np.array(vec1)
     v2 = np.array(vec2)

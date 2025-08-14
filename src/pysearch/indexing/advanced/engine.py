@@ -59,7 +59,7 @@ from ...analysis.content_addressing import (
 )
 from ...utils.error_handling import ErrorCollector
 from ...utils.logging_config import get_logger
-from ...utils.utils import iter_files
+from ...utils.utils import iter_files, file_meta, read_text_safely
 
 logger = get_logger()
 
@@ -104,7 +104,9 @@ class EnhancedCodebaseIndex(ABC):
         Yields:
             Progress updates during the indexing operation
         """
-        pass
+        # This is an abstract async generator method
+        if False:  # pragma: no cover
+            yield
 
     @abstractmethod
     async def retrieve(
@@ -173,8 +175,10 @@ class IndexLock:
                 else:
                     # Check if existing lock is stale
                     try:
-                        lock_data = eval(self.lock_file.read_text())
-                        if time.time() - lock_data["timestamp"] > 600:  # 10 minutes
+                        existing_lock_data: dict[str, Any] = eval(
+                            self.lock_file.read_text())
+                        timestamp = float(existing_lock_data["timestamp"])
+                        if time.time() - timestamp > 600:  # 10 minutes
                             logger.warning("Removing stale indexing lock")
                             self.lock_file.unlink()
                             continue
@@ -286,7 +290,8 @@ class IndexCoordinator:
 
         try:
             # Calculate total expected time for progress tracking
-            total_expected_time = sum(idx.relative_expected_time for idx in self.indexes)
+            total_expected_time = sum(
+                idx.relative_expected_time for idx in self.indexes)
             completed_time = 0.0
 
             for index in self.indexes:
@@ -311,21 +316,26 @@ class IndexCoordinator:
                     )
 
                     # Create mark_complete callback for this index
-                    async def mark_complete_wrapper(
+                    def mark_complete_wrapper(
                         items: List[PathAndCacheKey],
                         result_type: str,
                     ) -> None:
-                        await indexer.mark_complete(items, result_type, index_tag)
+                        # Schedule async operations to run in the background
+                        async def _async_mark_complete() -> None:
+                            await indexer.mark_complete(items, result_type, index_tag)
 
-                        # Update global cache
-                        for item in items:
-                            if result_type == "compute":
-                                # Store in global cache (implementation depends on index type)
-                                pass
-                            elif result_type == "delete":
-                                await self.global_cache.remove_tag(
-                                    item.cache_key, index.artifact_id, index_tag
-                                )
+                            # Update global cache
+                            for item in items:
+                                if result_type == "compute":
+                                    # Store in global cache (implementation depends on index type)
+                                    pass
+                                elif result_type == "delete":
+                                    await self.global_cache.remove_tag(
+                                        item.cache_key, index.artifact_id, index_tag
+                                    )
+
+                        # Create task but don't await it (fire and forget)
+                        asyncio.create_task(_async_mark_complete())
 
                     # Update this index
                     index_progress = 0.0
@@ -350,8 +360,10 @@ class IndexCoordinator:
                     completed_time += index.relative_expected_time
 
                 except Exception as e:
-                    logger.error(f"Error updating index {index.artifact_id}: {e}")
-                    self.error_collector.add_error(index.artifact_id, str(e))
+                    logger.error(
+                        f"Error updating index {index.artifact_id}: {e}")
+                    self.error_collector.add_error(
+                        e, file_path=Path(index.artifact_id))
 
                     # Continue with other indexes
                     completed_time += index.relative_expected_time
@@ -367,7 +379,8 @@ class IndexCoordinator:
                 progress=1.0,
                 description="Indexing complete",
                 status="done",
-                warnings=self.error_collector.get_all_errors() if self.error_collector.has_errors() else None
+                warnings=[str(
+                    error) for error in self.error_collector.errors] if self.error_collector.errors else None
             )
 
         finally:
@@ -509,7 +522,7 @@ class EnhancedIndexingEngine:
                         }
                         file_count += 1
                 except Exception as e:
-                    self.error_collector.add_error(str(file_path), str(e))
+                    self.error_collector.add_error(e, file_path=file_path)
 
             yield IndexingProgressUpdate(
                 progress=0.2,
@@ -525,8 +538,9 @@ class EnhancedIndexingEngine:
             )
 
             # Read file function
-            async def read_file(path: str) -> str:
-                return await read_text_safely(Path(path))
+            def read_file(path: str) -> str:
+                result = read_text_safely(Path(path))
+                return result if result is not None else ""
 
             # Refresh all indexes
             progress_offset = 0.2
@@ -554,7 +568,8 @@ class EnhancedIndexingEngine:
                         return
 
                 # Scale progress to account for file discovery
-                scaled_progress = progress_offset + (update.progress * progress_scale)
+                scaled_progress = progress_offset + \
+                    (update.progress * progress_scale)
 
                 yield IndexingProgressUpdate(
                     progress=scaled_progress,
@@ -604,8 +619,9 @@ class EnhancedIndexingEngine:
             )
 
             # Read file function
-            async def read_file(path: str) -> str:
-                return await read_text_safely(Path(path))
+            def read_file(path: str) -> str:
+                result = read_text_safely(Path(path))
+                return result if result is not None else ""
 
             # Refresh all indexes for this file
             async for update in self.coordinator.refresh_all_indexes(
@@ -616,7 +632,7 @@ class EnhancedIndexingEngine:
 
         except Exception as e:
             logger.error(f"Error refreshing file {file_path}: {e}")
-            self.error_collector.add_error(file_path, str(e))
+            self.error_collector.add_error(e, file_path=Path(file_path))
 
     def pause(self) -> None:
         """Pause indexing operations."""
@@ -646,10 +662,10 @@ class EnhancedIndexingEngine:
     async def get_index_stats(self) -> Dict[str, Any]:
         """Get statistics for all indexes."""
         stats = {
-            "total_indexes": len(self.indexes),
-            "index_types": [idx.artifact_id for idx in self.indexes],
+            "total_indexes": len(self.coordinator.indexes),
+            "index_types": [idx.artifact_id for idx in self.coordinator.indexes],
             "cache_dir": str(self.config.resolve_cache_dir()),
-            "errors": self.error_collector.get_all_errors(),
+            "errors": [str(error) for error in self.error_collector.errors],
         }
 
         # Add global cache stats

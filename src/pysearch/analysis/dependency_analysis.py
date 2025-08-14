@@ -253,9 +253,11 @@ class CircularDependencyDetector:
         for dependency in self.graph.get_dependencies(node):
             if dependency not in self.index:
                 self._strongconnect(dependency)
-                self.lowlinks[node] = min(self.lowlinks[node], self.lowlinks[dependency])
+                self.lowlinks[node] = min(
+                    self.lowlinks[node], self.lowlinks[dependency])
             elif dependency in self.on_stack:
-                self.lowlinks[node] = min(self.lowlinks[node], self.index[dependency])
+                self.lowlinks[node] = min(
+                    self.lowlinks[node], self.index[dependency])
 
         if self.lowlinks[node] == self.index[node]:
             scc = []
@@ -397,7 +399,8 @@ class DependencyAnalyzer:
             line = line.strip()
 
             # import module [as alias]
-            import_match = re.match(r'import\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*(?:as\s+([a-zA-Z_][a-zA-Z0-9_]*))?', line)
+            import_match = re.match(
+                r'import\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*(?:as\s+([a-zA-Z_][a-zA-Z0-9_]*))?', line)
             if import_match:
                 module, alias = import_match.groups()
                 import_node = ImportNode(
@@ -410,7 +413,8 @@ class DependencyAnalyzer:
                 imports.append(import_node)
 
             # from module import name [as alias]
-            from_match = re.match(r'from\s+(\.*)([a-zA-Z_][a-zA-Z0-9_.]*)\s+import\s+([a-zA-Z_][a-zA-Z0-9_.*]*)\s*(?:as\s+([a-zA-Z_][a-zA-Z0-9_]*))?', line)
+            from_match = re.match(
+                r'from\s+(\.*)([a-zA-Z_][a-zA-Z0-9_.]*)\s+import\s+([a-zA-Z_][a-zA-Z0-9_.*]*)\s*(?:as\s+([a-zA-Z_][a-zA-Z0-9_]*))?', line)
             if from_match:
                 dots, module, name, alias = from_match.groups()
                 is_relative = bool(dots)
@@ -436,7 +440,8 @@ class DependencyAnalyzer:
             line = line.strip()
 
             # import name from 'module'
-            import_match = re.match(r'import\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s+from\s+["\']([^"\']+)["\']', line)
+            import_match = re.match(
+                r'import\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s+from\s+["\']([^"\']+)["\']', line)
             if import_match:
                 name, module = import_match.groups()
                 import_node = ImportNode(
@@ -449,7 +454,8 @@ class DependencyAnalyzer:
                 imports.append(import_node)
 
             # import { name } from 'module'
-            destructure_match = re.match(r'import\s+\{\s*([^}]+)\s*\}\s+from\s+["\']([^"\']+)["\']', line)
+            destructure_match = re.match(
+                r'import\s+\{\s*([^}]+)\s*\}\s+from\s+["\']([^"\']+)["\']', line)
             if destructure_match:
                 names, module = destructure_match.groups()
                 for name in names.split(','):
@@ -470,7 +476,8 @@ class DependencyAnalyzer:
                     imports.append(import_node)
 
             # require('module')
-            require_match = re.match(r'(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*require\s*\(\s*["\']([^"\']+)["\']\s*\)', line)
+            require_match = re.match(
+                r'(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*require\s*\(\s*["\']([^"\']+)["\']\s*\)', line)
             if require_match:
                 name, module = require_match.groups()
                 import_node = ImportNode(
@@ -493,7 +500,8 @@ class DependencyAnalyzer:
             line = line.strip()
 
             # import package.Class;
-            import_match = re.match(r'import\s+(?:static\s+)?([a-zA-Z_][a-zA-Z0-9_.]*)\s*;', line)
+            import_match = re.match(
+                r'import\s+(?:static\s+)?([a-zA-Z_][a-zA-Z0-9_.]*)\s*;', line)
             if import_match:
                 module = import_match.group(1)
                 is_static = 'static' in line
@@ -516,7 +524,8 @@ class DependencyAnalyzer:
             line = line.strip()
 
             # using Namespace;
-            using_match = re.match(r'using\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*;', line)
+            using_match = re.match(
+                r'using\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*;', line)
             if using_match:
                 namespace = using_match.group(1)
                 import_node = ImportNode(
@@ -561,7 +570,8 @@ class DependencyAnalyzer:
                     continue
 
                 # "package" or alias "package"
-                import_match = re.match(r'(?:([a-zA-Z_][a-zA-Z0-9_]*)\s+)?"([^"]+)"', line)
+                import_match = re.match(
+                    r'(?:([a-zA-Z_][a-zA-Z0-9_]*)\s+)?"([^"]+)"', line)
                 if import_match:
                     alias, package = import_match.groups()
                     import_node = ImportNode(
@@ -593,7 +603,8 @@ class DependencyAnalyzer:
             try:
                 content = read_text_safely(file_path)
                 if content:
-                    package_match = re.search(r'package\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*;', content)
+                    package_match = re.search(
+                        r'package\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*;', content)
                     if package_match:
                         package = package_match.group(1)
                         class_name = file_path.stem
@@ -617,10 +628,12 @@ class DependencyAnalyzer:
 
         # Basic counts
         metrics.total_modules = len(self.graph.nodes)
-        metrics.total_dependencies = sum(len(edges) for edges in self.graph.edges.values())
+        metrics.total_dependencies = sum(len(edges)
+                                         for edges in self.graph.edges.values())
 
         if metrics.total_modules > 0:
-            metrics.average_dependencies_per_module = metrics.total_dependencies / metrics.total_modules
+            metrics.average_dependencies_per_module = metrics.total_dependencies / \
+                metrics.total_modules
 
         # Circular dependencies
         detector = CircularDependencyDetector(self.graph)
@@ -699,7 +712,8 @@ class DependencyAnalyzer:
 
         for module in self.graph.nodes:
             afferent_coupling[module] = len(self.graph.get_dependents(module))
-            efferent_coupling[module] = len(self.graph.get_dependencies(module))
+            efferent_coupling[module] = len(
+                self.graph.get_dependencies(module))
 
         # Instability (I) = Ce / (Ca + Ce)
         # Ranges from 0 (stable) to 1 (unstable)
@@ -713,9 +727,12 @@ class DependencyAnalyzer:
                 instability[module] = 0.0
 
         # Average metrics
-        metrics['average_afferent_coupling'] = sum(afferent_coupling.values()) / len(afferent_coupling)
-        metrics['average_efferent_coupling'] = sum(efferent_coupling.values()) / len(efferent_coupling)
-        metrics['average_instability'] = sum(instability.values()) / len(instability)
+        metrics['average_afferent_coupling'] = sum(
+            afferent_coupling.values()) / len(afferent_coupling)
+        metrics['average_efferent_coupling'] = sum(
+            efferent_coupling.values()) / len(efferent_coupling)
+        metrics['average_instability'] = sum(
+            instability.values()) / len(instability)
 
         # Find most/least stable modules
         if instability:
@@ -747,11 +764,13 @@ class DependencyAnalyzer:
         # Transitive dependents (all modules that could be affected)
         transitive_dependents = set()
         for dependent in direct_dependents:
-            transitive_dependents.update(self.graph.get_transitive_dependencies(dependent))
+            transitive_dependents.update(
+                self.graph.get_transitive_dependencies(dependent))
 
         # Dependencies that would need to be considered
         direct_dependencies = self.graph.get_dependencies(module)
-        transitive_dependencies = self.graph.get_transitive_dependencies(module)
+        transitive_dependencies = self.graph.get_transitive_dependencies(
+            module)
 
         return {
             "module": module,
@@ -801,14 +820,15 @@ class DependencyAnalyzer:
         # Suggest splitting highly coupled modules
         for module in metrics.highly_coupled_modules:
             dependencies = self.graph.get_dependencies(module)
-            suggestions.append({
+            suggestion: dict[str, Any] = {
                 "type": "reduce_coupling",
                 "priority": "medium",
                 "module": module,
                 "dependency_count": len(dependencies),
                 "description": f"Consider splitting {module} (has {len(dependencies)} dependencies)",
                 "rationale": "High coupling makes modules harder to maintain and test"
-            })
+            }
+            suggestions.append(suggestion)
 
         # Suggest removing dead modules
         for module in metrics.dead_modules:

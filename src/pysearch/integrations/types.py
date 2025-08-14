@@ -25,7 +25,7 @@ from .multi_repo import MultiRepoSearchResult, RepositoryInfo
 __all__ = [
     # Core types
     "ASTFilters",
-    "FileMetadata", 
+    "FileMetadata",
     "Language",
     "MatchSpan",
     "MetadataFilters",

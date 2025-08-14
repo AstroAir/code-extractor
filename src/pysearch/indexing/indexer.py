@@ -85,7 +85,8 @@ class Indexer:
                 return
             if self.cache_path.exists():
                 try:
-                    data = json.loads(self.cache_path.read_text(encoding="utf-8"))
+                    data = json.loads(
+                        self.cache_path.read_text(encoding="utf-8"))
                     files = data.get("files", {})
                     self._index = {
                         k: IndexRecord(
@@ -139,7 +140,8 @@ class Indexer:
         """
         self.load()
         seen: set[str] = set()  # Track files encountered during this scan
-        changed: list[Path] = []  # Files that have been modified since last scan
+        # Files that have been modified since last scan
+        changed: list[Path] = []
         total = 0  # Total number of files processed
 
         # Iterate through all files matching the configured patterns
@@ -152,7 +154,8 @@ class Indexer:
             language_filter=self.cfg.languages,
         ):
             total += 1
-            rel = self._rel(p)  # Convert to relative path for consistent indexing
+            # Convert to relative path for consistent indexing
+            rel = self._rel(p)
             seen.add(rel)
 
             # Read minimal metadata (stat), compute sha1 only when necessary
@@ -188,9 +191,11 @@ class Indexer:
             else:
                 # Strict mode: when size or mtime changes, or when sha1 is missing, compute sha1 and compare
                 # This provides exact change detection but is more expensive
-                needs_sha1_check = size_changed or mtime_changed or (rec and rec.sha1 is None)
+                needs_sha1_check = size_changed or mtime_changed or (
+                    rec and rec.sha1 is None)
                 if needs_sha1_check:
-                    current_sha1 = file_sha1(p)  # Expensive operation - read entire file
+                    # Expensive operation - read entire file
+                    current_sha1 = file_sha1(p)
                     if (not rec) or (rec.sha1 != current_sha1):
                         # Content actually changed or first time computing hash - update index and mark as changed
                         self._index[rel] = IndexRecord(
@@ -279,6 +284,7 @@ class Indexer:
                 # Limit hot cache size
                 if len(self._hot_cache) > self._hot_cache_max_size:
                     # Remove least recently accessed items
-                    sorted_hot = sorted(self._hot_cache.items(), key=lambda x: x[1].last_accessed)
+                    sorted_hot = sorted(
+                        self._hot_cache.items(), key=lambda x: x[1].last_accessed)
                     for k, _ in sorted_hot[:20]:  # Remove oldest 20
                         del self._hot_cache[k]

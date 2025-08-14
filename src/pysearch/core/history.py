@@ -172,9 +172,11 @@ class SearchHistory:
         # Load history
         if self.history_file.exists():
             try:
-                data = json.loads(self.history_file.read_text(encoding="utf-8"))
+                data = json.loads(
+                    self.history_file.read_text(encoding="utf-8"))
                 entries = data.get("entries", [])
-                for entry_data in entries[-self.max_entries :]:  # Keep only recent entries
+                # Keep only recent entries
+                for entry_data in entries[-self.max_entries:]:
                     # Handle legacy entries without new fields
                     if "category" not in entry_data:
                         entry_data["category"] = SearchCategory.GENERAL.value
@@ -191,7 +193,8 @@ class SearchHistory:
         # Load bookmarks
         if self.bookmarks_file.exists():
             try:
-                data = json.loads(self.bookmarks_file.read_text(encoding="utf-8"))
+                data = json.loads(
+                    self.bookmarks_file.read_text(encoding="utf-8"))
                 bookmarks = data.get("bookmarks", {})
                 for name, entry_data in bookmarks.items():
                     # Handle legacy entries
@@ -210,13 +213,16 @@ class SearchHistory:
         # Load sessions
         if self.sessions_file.exists():
             try:
-                data = json.loads(self.sessions_file.read_text(encoding="utf-8"))
+                data = json.loads(
+                    self.sessions_file.read_text(encoding="utf-8"))
                 sessions = data.get("sessions", {})
                 for session_id, session_data in sessions.items():
                     if "primary_paths" in session_data and session_data["primary_paths"]:
-                        session_data["primary_paths"] = set(session_data["primary_paths"])
+                        session_data["primary_paths"] = set(
+                            session_data["primary_paths"])
                     if "primary_languages" in session_data and session_data["primary_languages"]:
-                        session_data["primary_languages"] = set(session_data["primary_languages"])
+                        session_data["primary_languages"] = set(
+                            session_data["primary_languages"])
 
                     session = SearchSession(**session_data)
                     self._sessions[session_id] = session
@@ -226,11 +232,13 @@ class SearchHistory:
         # Load bookmark folders
         if self.folders_file.exists():
             try:
-                data = json.loads(self.folders_file.read_text(encoding="utf-8"))
+                data = json.loads(
+                    self.folders_file.read_text(encoding="utf-8"))
                 folders = data.get("folders", {})
                 for folder_name, folder_data in folders.items():
                     if "bookmarks" in folder_data and folder_data["bookmarks"]:
-                        folder_data["bookmarks"] = set(folder_data["bookmarks"])
+                        folder_data["bookmarks"] = set(
+                            folder_data["bookmarks"])
 
                     folder = BookmarkFolder(**folder_data)
                     self._folders[folder_name] = folder
@@ -257,7 +265,8 @@ class SearchHistory:
         languages = self._extract_languages_from_results(result)
 
         # Extract paths
-        paths = [str(item.file.parent) for item in result.items[:10]]  # Top 10 paths
+        paths = [str(item.file.parent)
+                 for item in result.items[:10]]  # Top 10 paths
 
         entry = SearchHistoryEntry(
             timestamp=current_time,
@@ -296,8 +305,10 @@ class SearchHistory:
                 self._current_session.end_time = self._last_search_time
 
             # Create new session
-            session_id = hashlib.md5(f"{current_time}".encode()).hexdigest()[:8]
-            self._current_session = SearchSession(session_id=session_id, start_time=current_time)
+            session_id = hashlib.md5(
+                f"{current_time}".encode()).hexdigest()[:8]
+            self._current_session = SearchSession(
+                session_id=session_id, start_time=current_time)
             self._sessions[session_id] = self._current_session
 
         return self._current_session
@@ -433,7 +444,8 @@ class SearchHistory:
                 "entries": [asdict(entry) for entry in self._history],
             }
             tmp_file = self.history_file.with_suffix(".tmp")
-            tmp_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            tmp_file.write_text(json.dumps(
+                data, ensure_ascii=False), encoding="utf-8")
             tmp_file.replace(self.history_file)
         except Exception:
             pass
@@ -447,7 +459,8 @@ class SearchHistory:
                 "bookmarks": {name: asdict(entry) for name, entry in self._bookmarks.items()},
             }
             tmp_file = self.bookmarks_file.with_suffix(".tmp")
-            tmp_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            tmp_file.write_text(json.dumps(
+                data, ensure_ascii=False), encoding="utf-8")
             tmp_file.replace(self.bookmarks_file)
         except Exception:
             pass
@@ -460,14 +473,18 @@ class SearchHistory:
             for session_id, session in self._sessions.items():
                 session_dict = asdict(session)
                 if session_dict.get("primary_paths"):
-                    session_dict["primary_paths"] = list(session_dict["primary_paths"])
+                    session_dict["primary_paths"] = list(
+                        session_dict["primary_paths"])
                 if session_dict.get("primary_languages"):
-                    session_dict["primary_languages"] = list(session_dict["primary_languages"])
+                    session_dict["primary_languages"] = list(
+                        session_dict["primary_languages"])
                 sessions_data[session_id] = session_dict
 
-            data = {"version": 1, "last_updated": time.time(), "sessions": sessions_data}
+            data = {"version": 1, "last_updated": time.time(),
+                    "sessions": sessions_data}
             tmp_file = self.sessions_file.with_suffix(".tmp")
-            tmp_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            tmp_file.write_text(json.dumps(
+                data, ensure_ascii=False), encoding="utf-8")
             tmp_file.replace(self.sessions_file)
         except Exception:
             pass
@@ -483,9 +500,11 @@ class SearchHistory:
                     folder_dict["bookmarks"] = list(folder_dict["bookmarks"])
                 folders_data[folder_name] = folder_dict
 
-            data = {"version": 1, "last_updated": time.time(), "folders": folders_data}
+            data = {"version": 1, "last_updated": time.time(),
+                    "folders": folders_data}
             tmp_file = self.folders_file.with_suffix(".tmp")
-            tmp_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            tmp_file.write_text(json.dumps(
+                data, ensure_ascii=False), encoding="utf-8")
             tmp_file.replace(self.folders_file)
         except Exception:
             pass
@@ -540,7 +559,8 @@ class SearchHistory:
             pattern = entry.query_pattern
             pattern_counts[pattern] = pattern_counts.get(pattern, 0) + 1
 
-        sorted_patterns = sorted(pattern_counts.items(), key=lambda x: x[1], reverse=True)
+        sorted_patterns = sorted(
+            pattern_counts.items(), key=lambda x: x[1], reverse=True)
         return sorted_patterns[:limit]
 
     def get_recent_patterns(self, days: int = 7, limit: int = 20) -> list[str]:
@@ -571,7 +591,8 @@ class SearchHistory:
     def get_sessions(self, limit: int | None = None) -> list[SearchSession]:
         """Get search sessions, most recent first."""
         self.load()
-        sessions = sorted(self._sessions.values(), key=lambda s: s.start_time, reverse=True)
+        sessions = sorted(self._sessions.values(),
+                          key=lambda s: s.start_time, reverse=True)
         return sessions[:limit] if limit else sessions
 
     def get_session_by_id(self, session_id: str) -> SearchSession | None:
@@ -593,7 +614,8 @@ class SearchHistory:
         if name in self._folders:
             return False
 
-        self._folders[name] = BookmarkFolder(name=name, description=description)
+        self._folders[name] = BookmarkFolder(
+            name=name, description=description)
         self.save_folders()
         return True
 
@@ -656,7 +678,8 @@ class SearchHistory:
         self.load()
         cutoff_time = time.time() - (days * 24 * 60 * 60)
 
-        recent_entries = [entry for entry in self._history if entry.timestamp >= cutoff_time]
+        recent_entries = [
+            entry for entry in self._history if entry.timestamp >= cutoff_time]
 
         if not recent_entries:
             return {
@@ -672,11 +695,13 @@ class SearchHistory:
 
         # Calculate statistics
         total_searches = len(recent_entries)
-        successful_searches = sum(1 for entry in recent_entries if entry.items_count > 0)
+        successful_searches = sum(
+            1 for entry in recent_entries if entry.items_count > 0)
         average_success_score = (
             sum(entry.success_score for entry in recent_entries) / total_searches
         )
-        average_search_time = sum(entry.elapsed_ms for entry in recent_entries) / total_searches
+        average_search_time = sum(
+            entry.elapsed_ms for entry in recent_entries) / total_searches
 
         # Category analysis
         category_counts: dict[str, int] = defaultdict(int)
@@ -692,7 +717,8 @@ class SearchHistory:
             if entry.languages:
                 for lang in entry.languages:
                     language_counts[lang] += 1
-        most_used_languages = sorted(language_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        most_used_languages = sorted(
+            language_counts.items(), key=lambda x: x[1], reverse=True)[:5]
 
         # Search frequency by day
         search_frequency: dict[str, int] = defaultdict(int)
@@ -701,7 +727,8 @@ class SearchHistory:
             search_frequency[day] += 1
 
         # Session count
-        recent_sessions = [s for s in self._sessions.values() if s.start_time >= cutoff_time]
+        recent_sessions = [
+            s for s in self._sessions.values() if s.start_time >= cutoff_time]
 
         return {
             "total_searches": total_searches,

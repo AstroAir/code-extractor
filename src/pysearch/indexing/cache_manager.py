@@ -193,7 +193,7 @@ class MemoryCache(CacheBackend):
 
             # Check memory limits
             if (self._current_size_bytes + entry.size_bytes > self.max_memory_bytes or
-                len(self._cache) >= self.max_size):
+                    len(self._cache) >= self.max_size):
                 self._evict_entries()
 
             # Add new entry
@@ -608,7 +608,8 @@ class CacheManager:
             Number of cache entries invalidated
         """
         with self._dependency_lock:
-            dependent_keys = self._file_dependencies.get(file_path, set()).copy()
+            dependent_keys = self._file_dependencies.get(
+                file_path, set()).copy()
 
         invalidated = 0
         for key in dependent_keys:
@@ -619,7 +620,8 @@ class CacheManager:
             with self._stats_lock:
                 self.stats.invalidations += invalidated
 
-            self.logger.debug(f"Invalidated {invalidated} cache entries for file: {file_path}")
+            self.logger.debug(
+                f"Invalidated {invalidated} cache entries for file: {file_path}")
 
         return invalidated
 
@@ -649,7 +651,8 @@ class CacheManager:
             with self._stats_lock:
                 self.stats.invalidations += invalidated
 
-            self.logger.debug(f"Invalidated {invalidated} cache entries matching pattern: {pattern}")
+            self.logger.debug(
+                f"Invalidated {invalidated} cache entries matching pattern: {pattern}")
 
         return invalidated
 
@@ -780,7 +783,8 @@ class CacheManager:
                 except Exception as e:
                     self.logger.error(f"Error in cleanup thread: {e}")
 
-        self._cleanup_thread = threading.Thread(target=cleanup_worker, daemon=True)
+        self._cleanup_thread = threading.Thread(
+            target=cleanup_worker, daemon=True)
         self._cleanup_thread.start()
 
     def shutdown(self) -> None:

@@ -141,7 +141,8 @@ class ErrorCollector:
                 stack_trace = ''.join(stack_trace_lines)
 
             # Calculate impact score
-            impact_score = self._calculate_impact_score(severity, category, context)
+            impact_score = self._calculate_impact_score(
+                severity, category, context)
 
             # Create error object
             error = IndexingError(
@@ -159,7 +160,8 @@ class ErrorCollector:
             self.errors.append(error)
 
             # Update counts
-            self.error_counts[category] = self.error_counts.get(category, 0) + 1
+            self.error_counts[category] = self.error_counts.get(
+                category, 0) + 1
 
             # Update trends
             current_hour = int(time.time() // 3600)
@@ -285,7 +287,8 @@ class ErrorCollector:
         # Count by severity
         severity_counts: dict[str, int] = {}
         for error in self.errors:
-            severity_counts[error.severity.value] = severity_counts.get(error.severity.value, 0) + 1
+            severity_counts[error.severity.value] = severity_counts.get(
+                error.severity.value, 0) + 1
 
         # Count by category
         category_counts = dict(self.error_counts)
@@ -349,7 +352,7 @@ class CircuitBreaker:
         self.state = "closed"  # "closed", "open", "half_open"
         self._lock = asyncio.Lock()
 
-    async def call(self, func: Callable, *args, **kwargs) -> Any:
+    async def call(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         """Execute function with circuit breaker protection."""
         async with self._lock:
             # Check circuit state
@@ -372,7 +375,8 @@ class CircuitBreaker:
                     if self.success_count >= self.success_threshold:
                         self.state = "closed"
                         self.failure_count = 0
-                        logger.info("Circuit breaker closed - service recovered")
+                        logger.info(
+                            "Circuit breaker closed - service recovered")
 
                 return result
 
@@ -383,7 +387,8 @@ class CircuitBreaker:
 
                 if self.failure_count >= self.failure_threshold:
                     self.state = "open"
-                    logger.warning(f"Circuit breaker opened due to {self.failure_count} failures")
+                    logger.warning(
+                        f"Circuit breaker opened due to {self.failure_count} failures")
 
                 raise
 
@@ -448,8 +453,9 @@ class RecoveryManager:
             return False
 
         try:
-            logger.info(f"Attempting recovery for {error.error_id} (attempt {attempts + 1})")
-            success = await strategy(error, context)
+            logger.info(
+                f"Attempting recovery for {error.error_id} (attempt {attempts + 1})")
+            success: bool = await strategy(error, context)
 
             if success:
                 error.recovery_attempted = True
@@ -494,7 +500,8 @@ class RecoveryManager:
             for encoding in encodings:
                 try:
                     Path(file_path).read_text(encoding=encoding)
-                    logger.info(f"File {file_path} readable with encoding {encoding}")
+                    logger.info(
+                        f"File {file_path} readable with encoding {encoding}")
                     return True
                 except UnicodeDecodeError:
                     continue
@@ -547,10 +554,12 @@ class RecoveryManager:
         if "batch_size" in context:
             new_batch_size = max(1, context["batch_size"] // 2)
             context["batch_size"] = new_batch_size
-            logger.info(f"Reduced batch size to {new_batch_size} for memory recovery")
+            logger.info(
+                f"Reduced batch size to {new_batch_size} for memory recovery")
             return True
 
-        logger.warning("Cannot recover from memory error - no batch size to reduce")
+        logger.warning(
+            "Cannot recover from memory error - no batch size to reduce")
         return False
 
     async def _recover_timeout(
@@ -585,7 +594,8 @@ class RecoveryManager:
     ) -> bool:
         """Recover from dependency errors."""
         # Try to install missing dependencies or use fallbacks
-        logger.info(f"Using fallback for missing dependency in {error.context}")
+        logger.info(
+            f"Using fallback for missing dependency in {error.context}")
         return True
 
     def get_circuit_breaker(self, service_name: str) -> CircuitBreaker:
@@ -728,8 +738,10 @@ class EnhancedErrorHandler:
             status = "healthy"
         else:
             # Calculate health score based on error frequency and severity
-            critical_errors = len([e for e in recent_errors if e.severity == ErrorSeverity.CRITICAL])
-            error_errors = len([e for e in recent_errors if e.severity == ErrorSeverity.ERROR])
+            critical_errors = len(
+                [e for e in recent_errors if e.severity == ErrorSeverity.CRITICAL])
+            error_errors = len(
+                [e for e in recent_errors if e.severity == ErrorSeverity.ERROR])
 
             if critical_errors > 0:
                 health_score = 0.0
@@ -758,19 +770,23 @@ class EnhancedErrorHandler:
         # Analyze error patterns
         category_counts: dict[ErrorCategory, int] = {}
         for error in recent_errors:
-            category_counts[error.category] = category_counts.get(error.category, 0) + 1
+            category_counts[error.category] = category_counts.get(
+                error.category, 0) + 1
 
         # Generate recommendations
         if category_counts.get(ErrorCategory.MEMORY, 0) > 5:
-            recommendations.append("Consider reducing batch sizes or increasing available memory")
+            recommendations.append(
+                "Consider reducing batch sizes or increasing available memory")
 
         if category_counts.get(ErrorCategory.NETWORK, 0) > 3:
-            recommendations.append("Check network connectivity and API rate limits")
+            recommendations.append(
+                "Check network connectivity and API rate limits")
 
         if category_counts.get(ErrorCategory.FILE_ACCESS, 0) > 10:
             recommendations.append("Review file permissions and disk space")
 
         if category_counts.get(ErrorCategory.PARSING, 0) > 20:
-            recommendations.append("Consider updating language parsers or excluding problematic files")
+            recommendations.append(
+                "Consider updating language parsers or excluding problematic files")
 
         return recommendations

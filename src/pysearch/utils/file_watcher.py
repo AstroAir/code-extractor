@@ -57,15 +57,16 @@ try:
 except ImportError:
     WATCHDOG_AVAILABLE = False
     # Fallback classes for when watchdog is not available
-    class FileSystemEvent:
+
+    class _FallbackFileSystemEvent:
         def __init__(self, src_path: str):
             self.src_path = src_path
             self.is_directory = False
 
-    class FileSystemEventHandler:
+    class _FallbackFileSystemEventHandler:
         pass
 
-    class Observer:
+    class _FallbackObserver:
         def __init__(self) -> None:
             pass
 
@@ -80,6 +81,11 @@ except ImportError:
 
         def join(self) -> None:
             pass
+
+    # Assign fallback classes to the expected names
+    FileSystemEvent = _FallbackFileSystemEvent  # type: ignore
+    FileSystemEventHandler = _FallbackFileSystemEventHandler  # type: ignore
+    Observer = _FallbackObserver  # type: ignore
 
 from ..core.config import SearchConfig
 from ..indexing.indexer import Indexer
@@ -224,13 +230,13 @@ class ChangeProcessor:
                     created_files.append(event.path)
 
             # Update indexer
-            if created_files or modified_files:
-                # For created/modified files, trigger a rescan
-                self.indexer.invalidate_paths(created_files + modified_files)
-
-            if deleted_files:
-                # For deleted files, remove from index
-                self.indexer.remove_paths(deleted_files)
+            if created_files or modified_files or deleted_files:
+                # Trigger a rescan to update the index
+                # The indexer's scan() method will detect changes and removals automatically
+                try:
+                    self.indexer.scan()
+                except Exception as e:
+                    self.logger.error(f"Error updating indexer: {e}")
 
             self.logger.info(
                 f"Index updated: {len(created_files)} created, "
@@ -341,7 +347,7 @@ class PySearchEventHandler(FileSystemEventHandler):
     def on_created(self, event: FileSystemEvent) -> None:
         """Handle file/directory creation events."""
         file_event = self._create_file_event(
-            event.src_path,
+            str(event.src_path),
             EventType.CREATED,
             event.is_directory
         )
@@ -351,7 +357,7 @@ class PySearchEventHandler(FileSystemEventHandler):
     def on_modified(self, event: FileSystemEvent) -> None:
         """Handle file/directory modification events."""
         file_event = self._create_file_event(
-            event.src_path,
+            str(event.src_path),
             EventType.MODIFIED,
             event.is_directory
         )
@@ -361,7 +367,7 @@ class PySearchEventHandler(FileSystemEventHandler):
     def on_deleted(self, event: FileSystemEvent) -> None:
         """Handle file/directory deletion events."""
         file_event = self._create_file_event(
-            event.src_path,
+            str(event.src_path),
             EventType.DELETED,
             event.is_directory
         )
@@ -373,10 +379,10 @@ class PySearchEventHandler(FileSystemEventHandler):
         # Handle move as delete + create
         if hasattr(event, 'dest_path'):
             file_event = self._create_file_event(
-                event.dest_path,
+                str(event.dest_path),
                 EventType.MOVED,
                 event.is_directory,
-                event.src_path
+                str(event.src_path)
             )
             if file_event:
                 self._process_event(file_event)
@@ -453,7 +459,7 @@ class FileWatcher:
 
         # State management
         self._is_watching = False
-        self._watch_handle = None
+        self._watch_handle: Any = None  # ObservedWatch when watching
         self._start_time: float | None = None
 
     @property
@@ -482,6 +488,11 @@ class FileWatcher:
             return True
 
         try:
+            # Check if observer is available
+            if self._observer is None or self._event_handler is None:
+                self.logger.error("Observer or event handler not initialized")
+                return False
+
             # Schedule the watch
             self._watch_handle = self._observer.schedule(
                 self._event_handler,
@@ -494,7 +505,8 @@ class FileWatcher:
             self._is_watching = True
             self._start_time = time.time()
 
-            self.logger.info(f"Started watching: {self.path} (recursive={self.recursive})")
+            self.logger.info(
+                f"Started watching: {self.path} (recursive={self.recursive})")
             return True
 
         except Exception as e:

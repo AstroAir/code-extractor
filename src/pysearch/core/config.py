@@ -56,19 +56,22 @@ class RankStrategy(str, Enum):
 @dataclass(slots=True)
 class SearchConfig:
     # Scope
-    paths: list[str] = field(default_factory=lambda: ["."], metadata={"help": "Root search paths."})
+    paths: list[str] = field(default_factory=lambda: ["."], metadata={
+                             "help": "Root search paths."})
     include: list[str] | None = None  # None = auto-detect based on languages
     exclude: list[str] | None = None  # None = use defaults
 
     # Language filtering
-    languages: set[Language] | None = None  # None = auto-detect all supported languages
+    # None = auto-detect all supported languages
+    languages: set[Language] | None = None
     file_size_limit: int = 2_000_000  # 2MB default limit
 
     # Behavior
     context: int = 2
     output_format: OutputFormat = OutputFormat.TEXT
     follow_symlinks: bool = False
-    max_file_bytes: int = 2_000_000  # 2MB safeguard (kept for backward compatibility)
+    # 2MB safeguard (kept for backward compatibility)
+    max_file_bytes: int = 2_000_000
 
     # Content toggles
     enable_docstrings: bool = True
@@ -80,8 +83,10 @@ class SearchConfig:
     workers: int = 0  # 0 = auto(cpu_count)
     cache_dir: Path | None = None  # default: .pysearch-cache under first path
     # New toggles
-    strict_hash_check: bool = False  # if True, compute sha1 on scan for exact change detection
-    dir_prune_exclude: bool = True  # if True, prune excluded directories during traversal
+    # if True, compute sha1 on scan for exact change detection
+    strict_hash_check: bool = False
+    # if True, prune excluded directories during traversal
+    dir_prune_exclude: bool = True
 
     # Ranking
     rank_strategy: RankStrategy = RankStrategy.DEFAULT
@@ -127,7 +132,8 @@ class SearchConfig:
     qdrant_batch_size: int = 100
 
     def resolve_cache_dir(self) -> Path:
-        base = Path(self.paths[0]).resolve() if self.paths else Path(".").resolve()
+        base = Path(self.paths[0]).resolve(
+        ) if self.paths else Path(".").resolve()
         return self.cache_dir or (base / ".pysearch-cache")
 
     def get_include_patterns(self) -> list[str]:
@@ -183,7 +189,8 @@ class SearchConfig:
                 patterns.append(f"**/*{ext}")
 
         # Add special filename patterns
-        special_files = ["**/Dockerfile", "**/Makefile", "**/Rakefile", "**/Gemfile"]
+        special_files = ["**/Dockerfile",
+                         "**/Makefile", "**/Rakefile", "**/Gemfile"]
         patterns.extend(special_files)
 
         return patterns
@@ -231,14 +238,16 @@ class SearchConfig:
             issues.append("GraphRAG requires enhanced indexing to be enabled")
 
         if self.enable_graphrag and not self.qdrant_enabled:
-            issues.append("GraphRAG works best with Qdrant vector database enabled")
+            issues.append(
+                "GraphRAG works best with Qdrant vector database enabled")
 
         if self.qdrant_enabled:
             if self.qdrant_vector_size <= 0:
                 issues.append("Qdrant vector size must be positive")
 
             if self.qdrant_distance_metric not in ["Cosine", "Dot", "Euclid"]:
-                issues.append("Qdrant distance metric must be one of: Cosine, Dot, Euclid")
+                issues.append(
+                    "Qdrant distance metric must be one of: Cosine, Dot, Euclid")
 
             if self.qdrant_batch_size <= 0:
                 issues.append("Qdrant batch size must be positive")
@@ -247,10 +256,12 @@ class SearchConfig:
             issues.append("GraphRAG max hops must be at least 1")
 
         if not (0.0 <= self.graphrag_min_confidence <= 1.0):
-            issues.append("GraphRAG min confidence must be between 0.0 and 1.0")
+            issues.append(
+                "GraphRAG min confidence must be between 0.0 and 1.0")
 
         if not (0.0 <= self.graphrag_semantic_threshold <= 1.0):
-            issues.append("GraphRAG semantic threshold must be between 0.0 and 1.0")
+            issues.append(
+                "GraphRAG semantic threshold must be between 0.0 and 1.0")
 
         return issues
 

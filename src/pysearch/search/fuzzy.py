@@ -146,7 +146,8 @@ def jaro_winkler_similarity(s1: str, s2: str) -> float:
         k += 1
 
     # Calculate Jaro similarity
-    jaro = (matches / len1 + matches / len2 + (matches - transpositions / 2) / matches) / 3
+    jaro = (matches / len1 + matches / len2 +
+            (matches - transpositions / 2) / matches) / 3
 
     # Calculate common prefix length (up to 4 characters)
     prefix_len = 0
@@ -368,7 +369,8 @@ def fuzzy_pattern(
 
             # Allow insertions between characters
             if i < len(fuzzy_chars) - 1:
-                pattern_parts.append("[a-zA-Z0-9_]{0,2}")  # Up to 2 extra chars
+                # Up to 2 extra chars
+                pattern_parts.append("[a-zA-Z0-9_]{0,2}")
 
         return "".join(pattern_parts)
 
@@ -483,7 +485,8 @@ def fuzzy_match(
             if algorithm == FuzzyAlgorithm.LEVENSHTEIN:
                 distance = levenshtein_distance(word_lower, pattern_lower)
             else:
-                distance = damerau_levenshtein_distance(word_lower, pattern_lower)
+                distance = damerau_levenshtein_distance(
+                    word_lower, pattern_lower)
 
             if distance > max_distance:
                 continue
@@ -587,7 +590,8 @@ def suggest_corrections(
     word_lower = word.lower()
 
     for dict_word in dictionary:
-        similarity = calculate_similarity(word_lower, dict_word.lower(), algorithm)
+        similarity = calculate_similarity(
+            word_lower, dict_word.lower(), algorithm)
         if similarity > 0.3:  # Minimum threshold for suggestions
             suggestions.append((dict_word, similarity))
 

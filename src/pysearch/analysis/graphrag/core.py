@@ -93,7 +93,8 @@ class EntityExtractor:
         language = detect_language(file_path)
 
         if language not in self.language_extractors:
-            logger.debug(f"No entity extractor for language {language} in {file_path}")
+            logger.debug(
+                f"No entity extractor for language {language} in {file_path}")
             return []
 
         try:
@@ -104,7 +105,8 @@ class EntityExtractor:
             extractor = self.language_extractors[language]
             entities = await extractor(content, file_path, language)
 
-            logger.debug(f"Extracted {len(entities)} entities from {file_path}")
+            logger.debug(
+                f"Extracted {len(entities)} entities from {file_path}")
             return entities
 
         except Exception as e:
@@ -346,7 +348,8 @@ class EntityExtractor:
         lines = content.split('\n')
 
         # Function declarations
-        func_pattern = re.compile(r'^\s*(async\s+)?function\s+(\w+)\s*\([^)]*\)', re.MULTILINE)
+        func_pattern = re.compile(
+            r'^\s*(async\s+)?function\s+(\w+)\s*\([^)]*\)', re.MULTILINE)
         for match in func_pattern.finditer(content):
             line_num = content[:match.start()].count('\n') + 1
             entity = CodeEntity(
@@ -365,7 +368,8 @@ class EntityExtractor:
             entities.append(entity)
 
         # Class declarations
-        class_pattern = re.compile(r'^\s*class\s+(\w+)(?:\s+extends\s+(\w+))?\s*{', re.MULTILINE)
+        class_pattern = re.compile(
+            r'^\s*class\s+(\w+)(?:\s+extends\s+(\w+))?\s*{', re.MULTILINE)
         for match in class_pattern.finditer(content):
             line_num = content[:match.start()].count('\n') + 1
             entity = CodeEntity(
@@ -383,7 +387,8 @@ class EntityExtractor:
             entities.append(entity)
 
         # Import statements
-        import_pattern = re.compile(r'^\s*import\s+(?:{([^}]+)}|\*\s+as\s+(\w+)|(\w+))\s+from\s+[\'"]([^\'"]+)[\'"]', re.MULTILINE)
+        import_pattern = re.compile(
+            r'^\s*import\s+(?:{([^}]+)}|\*\s+as\s+(\w+)|(\w+))\s+from\s+[\'"]([^\'"]+)[\'"]', re.MULTILINE)
         for match in import_pattern.finditer(content):
             line_num = content[:match.start()].count('\n') + 1
             if match.group(1):  # Named imports
@@ -554,7 +559,8 @@ class RelationshipMapper:
         relationships.extend(await self._map_import_relationships(entities))
         relationships.extend(await self._map_containment_relationships(entities))
 
-        logger.info(f"Mapped {len(relationships)} relationships between entities")
+        logger.info(
+            f"Mapped {len(relationships)} relationships between entities")
         return relationships
 
     async def _map_inheritance_relationships(
@@ -638,7 +644,8 @@ class RelationshipMapper:
                 for func_name, target_entity in function_entities.items():
                     if func_name != entity.name and func_name in function_body:
                         # Simple pattern matching for function calls
-                        call_pattern = re.compile(rf'\b{re.escape(func_name)}\s*\(')
+                        call_pattern = re.compile(
+                            rf'\b{re.escape(func_name)}\s*\(')
                         if call_pattern.search(function_body):
                             relationship = EntityRelationship(
                                 id=f"call_{entity.id}_{target_entity.id}",
@@ -666,8 +673,10 @@ class RelationshipMapper:
             entities_by_file[entity.file_path].append(entity)
 
         for file_path, file_entities in entities_by_file.items():
-            import_entities = [e for e in file_entities if e.entity_type == EntityType.IMPORT]
-            other_entities = [e for e in file_entities if e.entity_type != EntityType.IMPORT]
+            import_entities = [
+                e for e in file_entities if e.entity_type == EntityType.IMPORT]
+            other_entities = [
+                e for e in file_entities if e.entity_type != EntityType.IMPORT]
 
             # Map imports to usage within the same file
             for import_entity in import_entities:
@@ -711,13 +720,13 @@ class RelationshipMapper:
 
                         # Stop if we've moved past this class
                         if (other_entity.entity_type == EntityType.CLASS and
-                            other_entity.start_line > entity.end_line):
+                                other_entity.start_line > entity.end_line):
                             break
 
                         # Check if the other entity is contained within this class
                         if (other_entity.start_line > entity.start_line and
                             other_entity.end_line <= entity.end_line and
-                            other_entity.entity_type in [EntityType.METHOD, EntityType.FUNCTION]):
+                                other_entity.entity_type in [EntityType.METHOD, EntityType.FUNCTION]):
 
                             relationship = EntityRelationship(
                                 id=f"contain_{entity.id}_{other_entity.id}",

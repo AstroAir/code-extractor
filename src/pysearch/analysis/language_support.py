@@ -67,7 +67,8 @@ try:
     TREE_SITTER_AVAILABLE = True
 except ImportError:
     TREE_SITTER_AVAILABLE = False
-    logger.warning("Tree-sitter libraries not available. Install with: pip install tree-sitter tree-sitter-python tree-sitter-javascript ...")
+    logger.warning(
+        "Tree-sitter libraries not available. Install with: pip install tree-sitter tree-sitter-python tree-sitter-javascript ...")
 
 
 @dataclass
@@ -109,7 +110,9 @@ class LanguageProcessor(ABC):
         max_chunk_size: int,
     ) -> AsyncGenerator[CodeChunk, None]:
         """Language-aware code chunking."""
-        pass
+        # This is an abstract async generator method
+        if False:  # pragma: no cover
+            yield
 
     @abstractmethod
     def extract_entities(self, content: str) -> List[CodeEntity]:
@@ -157,11 +160,14 @@ class TreeSitterProcessor(LanguageProcessor):
 
             if self.language in language_map:
                 self.parser = tree_sitter.Parser()
-                self.parser.set_language(language_map[self.language])
+                if self.parser is not None:
+                    self.parser.set_language(language_map[self.language])
             else:
-                logger.warning(f"Tree-sitter not available for {self.language}")
+                logger.warning(
+                    f"Tree-sitter not available for {self.language}")
         except Exception as e:
-            logger.error(f"Error initializing tree-sitter parser for {self.language}: {e}")
+            logger.error(
+                f"Error initializing tree-sitter parser for {self.language}: {e}")
 
     async def chunk_code(
         self,
@@ -280,9 +286,9 @@ class TreeSitterProcessor(LanguageProcessor):
             if len(entity_content) <= max_chunk_size:
                 # Entity fits in one chunk
                 entity_type = EntityType.FUNCTION if capture_name == "function" else \
-                             EntityType.CLASS if capture_name == "class" else \
-                             EntityType.IMPORT if capture_name == "import" else \
-                             EntityType.UNKNOWN
+                    EntityType.CLASS if capture_name == "class" else \
+                    EntityType.IMPORT if capture_name == "import" else \
+                    EntityType.UNKNOWN_ENTITY
 
                 yield CodeChunk(
                     content=entity_content,
@@ -422,7 +428,8 @@ class TreeSitterProcessor(LanguageProcessor):
             if self.language == Language.PYTHON:
                 entities.extend(self._extract_python_entities(content, tree))
             elif self.language in [Language.JAVASCRIPT, Language.TYPESCRIPT]:
-                entities.extend(self._extract_javascript_entities(content, tree))
+                entities.extend(
+                    self._extract_javascript_entities(content, tree))
             # Add other languages as needed
 
             return entities
@@ -459,18 +466,18 @@ class TreeSitterProcessor(LanguageProcessor):
                 if name_node:
                     entity_name = name_node.text.decode('utf-8')
                     entity_type = EntityType.FUNCTION if capture_name == "function" else \
-                                 EntityType.CLASS if capture_name == "class" else \
-                                 EntityType.VARIABLE
+                        EntityType.CLASS if capture_name == "class" else \
+                        EntityType.VARIABLE
 
                     entity_content = '\n'.join(lines[start_line-1:end_line])
 
                     entities.append(CodeEntity(
+                        id=f"{entity_name}_{start_line}_{end_line}",
                         name=entity_name,
                         entity_type=entity_type,
-                        file_path="",  # Will be set by caller
+                        file_path=Path(""),  # Will be set by caller
                         start_line=start_line,
                         end_line=end_line,
-                        content=entity_content,
                         language=self.language,
                         signature=self._extract_signature(node, lines),
                         docstring=self._extract_docstring(node, lines),
@@ -489,7 +496,7 @@ class TreeSitterProcessor(LanguageProcessor):
             # For functions, get the definition line
             start_line = node.start_point[0]
             if start_line < len(lines):
-                signature_line = lines[start_line].strip()
+                signature_line: str = lines[start_line].strip()
                 # Remove body for functions
                 if ':' in signature_line:
                     signature_line = signature_line.split(':')[0] + ':'
@@ -508,7 +515,9 @@ class TreeSitterProcessor(LanguageProcessor):
                         if stmt.type == "expression_statement":
                             for expr_child in stmt.children:
                                 if expr_child.type == "string":
-                                    return expr_child.text.decode('utf-8').strip('"\'')
+                                    docstring_text: str = expr_child.text.decode(
+                                        'utf-8').strip('"\'')
+                                    return docstring_text
         except Exception:
             pass
         return None
@@ -525,12 +534,14 @@ class TreeSitterProcessor(LanguageProcessor):
             if self.language == Language.PYTHON:
                 dependencies.extend(self._analyze_python_dependencies(tree))
             elif self.language in [Language.JAVASCRIPT, Language.TYPESCRIPT]:
-                dependencies.extend(self._analyze_javascript_dependencies(tree))
+                dependencies.extend(
+                    self._analyze_javascript_dependencies(tree))
             # Add other languages as needed
 
             return dependencies
         except Exception as e:
-            logger.error(f"Error analyzing dependencies for {self.language}: {e}")
+            logger.error(
+                f"Error analyzing dependencies for {self.language}: {e}")
             return self._analyze_dependencies_regex(content)
 
     def _analyze_python_dependencies(self, tree: Any) -> List[str]:
@@ -596,7 +607,8 @@ class TreeSitterProcessor(LanguageProcessor):
 
             # Language-specific complexity factors
             if self.language == Language.PYTHON:
-                complexity_nodes = self._count_python_complexity_nodes(tree.root_node)
+                complexity_nodes = self._count_python_complexity_nodes(
+                    tree.root_node)
             else:
                 complexity_nodes = 0
 
@@ -617,7 +629,8 @@ class TreeSitterProcessor(LanguageProcessor):
         non_empty_lines = [line for line in lines if line.strip()]
 
         # Simple heuristic based on line count and control structures
-        control_keywords = ['if', 'for', 'while', 'try', 'except', 'with', 'def', 'class']
+        control_keywords = ['if', 'for', 'while',
+                            'try', 'except', 'with', 'def', 'class']
         control_count = sum(
             1 for line in non_empty_lines
             for keyword in control_keywords
@@ -667,7 +680,8 @@ class LanguageRegistry:
         ]
 
         for language in tree_sitter_languages:
-            self.processors[language] = TreeSitterProcessor(language, default_config)
+            self.processors[language] = TreeSitterProcessor(
+                language, default_config)
 
         # Other languages would use regex-based processors
         # (implementation would be added here)

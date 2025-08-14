@@ -85,14 +85,16 @@ def score_item(
         # Basic density: matches per line in the result block
         # Higher density indicates more relevant content
         density = text_hits / block_length
-        density_score = min(2.0, density) * weights.match_density  # Cap at 2.0 to prevent dominance
+        # Cap at 2.0 to prevent dominance
+        density_score = min(2.0, density) * weights.match_density
 
         # Distribution bonus: prefer evenly distributed matches over clustered ones
         # This helps identify code blocks where the pattern appears throughout
         if len(item.match_spans) > 1:
             # MatchSpan is (line_index, (start_col, end_col))
             # Extract column positions to analyze horizontal distribution
-            span_positions = [span[1][0] for span in item.match_spans]  # start_col positions
+            span_positions = [span[1][0]
+                              for span in item.match_spans]  # start_col positions
             span_range = max(span_positions) - min(span_positions)
             if span_range > 0:
                 # Normalize by line length to get distribution ratio
@@ -101,13 +103,16 @@ def score_item(
                 density_score += distribution_bonus
 
     # Code structure analysis
-    structure_bonus = _analyze_code_structure(item, query_text) * weights.code_structure
+    structure_bonus = _analyze_code_structure(
+        item, query_text) * weights.code_structure
 
     # Enhanced file type scoring with language detection
-    file_type_score = _calculate_file_type_score(item.file) * weights.file_type_bonus
+    file_type_score = _calculate_file_type_score(
+        item.file) * weights.file_type_bonus
 
     # Position scoring with context awareness
-    position_score = _calculate_position_score(item, block_length) * weights.position_bonus
+    position_score = _calculate_position_score(
+        item, block_length) * weights.position_bonus
 
     # Enhanced semantic similarity
     # Use lightweight semantic analysis to find conceptually related content
@@ -116,13 +121,15 @@ def score_item(
     if query_text and item.lines:
         content = "\n".join(item.lines)
         semantic_score = (
-            semantic_similarity_score(content, query_text) * weights.semantic_similarity
+            semantic_similarity_score(
+                content, query_text) * weights.semantic_similarity
         )
 
     # File popularity and importance
     # Boost scores for files that appear frequently in search results
     # or have characteristics indicating importance (e.g., main files, configs)
-    popularity_score = _calculate_popularity_score(item.file, all_files) * weights.file_popularity
+    popularity_score = _calculate_popularity_score(
+        item.file, all_files) * weights.file_popularity
 
     # Directory depth penalty (prefer files closer to root)
     # Files deeper in the directory structure are often less important
@@ -175,7 +182,8 @@ def _analyze_code_structure(item: SearchItem, query_text: str) -> float:
 
     # Variable/constant definition bonus
     if re.search(
-        r"^\s*\w*" + re.escape(query_text) + r"\w*\s*[=:]", content, re.MULTILINE | re.IGNORECASE
+        r"^\s*\w*" + re.escape(query_text) +
+        r"\w*\s*[=:]", content, re.MULTILINE | re.IGNORECASE
     ):
         structure_bonus += 0.3
 
@@ -340,7 +348,8 @@ def _sort_by_relevance(
         score = score_item(item, cfg, query_text, all_files)
         scored_items.append((score, item))
 
-    scored_items.sort(key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
+    scored_items.sort(
+        key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
     return [item for _, item in scored_items]
 
 
@@ -356,7 +365,8 @@ def _sort_by_frequency(
         combined_score = frequency_score * 2.0 + relevance_score * 0.5
         scored_items.append((combined_score, item))
 
-    scored_items.sort(key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
+    scored_items.sort(
+        key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
     return [item for _, item in scored_items]
 
 
@@ -377,7 +387,8 @@ def _sort_by_recency(
         combined_score = recency_score * 0.3 + relevance_score * 0.7
         scored_items.append((combined_score, item))
 
-    scored_items.sort(key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
+    scored_items.sort(
+        key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
     return [item for _, item in scored_items]
 
 
@@ -395,7 +406,8 @@ def _sort_by_popularity(
         combined_score = popularity_score * 0.6 + relevance_score * 0.4
         scored_items.append((combined_score, item))
 
-    scored_items.sort(key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
+    scored_items.sort(
+        key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
     return [item for _, item in scored_items]
 
 
@@ -450,7 +462,8 @@ def _sort_hybrid(
     scored_items.sort(
         key=lambda x: (
             -x[0],  # Score (descending)
-            -_calculate_popularity_score(x[1].file, all_files),  # File importance (descending)
+            # File importance (descending)
+            -_calculate_popularity_score(x[1].file, all_files),
             x[1].file.as_posix(),  # File path (ascending)
             x[1].start_line,  # Line number (ascending)
         )
@@ -481,7 +494,7 @@ def cluster_results_by_similarity(
         used_items.add(i)
 
         # Find similar items
-        for j, other_item in enumerate(items[i + 1 :], i + 1):
+        for j, other_item in enumerate(items[i + 1:], i + 1):
             if j in used_items:
                 continue
 

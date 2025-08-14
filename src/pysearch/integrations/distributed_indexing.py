@@ -94,11 +94,11 @@ class WorkerStats:
 class WorkQueue:
     """
     Thread-safe work queue for distributed indexing.
-    
+
     Manages work items with priority scheduling, dependency tracking,
     and progress monitoring across multiple workers.
     """
-    
+
     def __init__(self, max_size: int = 10000):
         self.max_size = max_size
         self._queue = queue.PriorityQueue(maxsize=max_size)
@@ -106,7 +106,7 @@ class WorkQueue:
         self._completed: Dict[str, WorkItem] = {}
         self._failed: Dict[str, WorkItem] = {}
         self._lock = asyncio.Lock()
-    
+
     async def add_work_item(self, item: WorkItem) -> bool:
         """Add a work item to the queue."""
         async with self._lock:
@@ -114,18 +114,20 @@ class WorkQueue:
                 # Check dependencies
                 for dep_id in item.dependencies:
                     if dep_id not in self._completed:
-                        logger.debug(f"Work item {item.item_id} waiting for dependency {dep_id}")
+                        logger.debug(
+                            f"Work item {item.item_id} waiting for dependency {dep_id}")
                         return False
-                
+
                 # Add to queue (priority queue uses negative priority for max-heap behavior)
                 self._queue.put((-item.priority, item.created_at, item))
                 self._pending[item.item_id] = item
                 return True
-                
+
             except queue.Full:
-                logger.warning(f"Work queue full, cannot add item {item.item_id}")
+                logger.warning(
+                    f"Work queue full, cannot add item {item.item_id}")
                 return False
-    
+
     async def get_work_item(self, timeout: float = 1.0) -> Optional[WorkItem]:
         """Get the next work item from the queue."""
         try:
@@ -137,7 +139,7 @@ class WorkQueue:
             return None
         except queue.Empty:
             return None
-    
+
     async def complete_work_item(self, item_id: str, result: Any = None) -> None:
         """Mark a work item as completed."""
         async with self._lock:
@@ -145,10 +147,10 @@ class WorkQueue:
                 item = self._pending.pop(item_id)
                 item.completed_at = time.time()
                 self._completed[item_id] = item
-                
+
                 # Check if any pending items can now be processed
                 await self._check_dependencies()
-    
+
     async def fail_work_item(self, item_id: str, error: str) -> None:
         """Mark a work item as failed."""
         async with self._lock:
@@ -156,12 +158,12 @@ class WorkQueue:
                 item = self._pending.pop(item_id)
                 item.error = error
                 self._failed[item_id] = item
-    
+
     async def _check_dependencies(self) -> None:
         """Check if any pending items can be processed due to completed dependencies."""
         # This would implement dependency resolution logic
         pass
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get work queue statistics."""
         return {
@@ -175,11 +177,11 @@ class WorkQueue:
 class IndexingWorker:
     """
     Worker process for distributed indexing operations.
-    
+
     Each worker handles specific types of indexing work and reports
     progress back to the coordinator.
     """
-    
+
     def __init__(
         self,
         worker_id: str,
@@ -189,63 +191,66 @@ class IndexingWorker:
         self.worker_id = worker_id
         self.config = config
         self.work_types = work_types
-        self.stats = WorkerStats(worker_id=worker_id, process_id=mp.current_process().pid)
+        self.stats = WorkerStats(
+            worker_id=worker_id, process_id=mp.current_process().pid)
         self.running = False
-        
+
         # Initialize indexing engine for this worker
         self.indexing_engine = EnhancedIndexingEngine(config)
-    
+
     async def start(self, work_queue: WorkQueue) -> None:
         """Start the worker process."""
         self.running = True
         logger.info(f"Worker {self.worker_id} started")
-        
+
         await self.indexing_engine.initialize()
-        
+
         while self.running:
             try:
                 # Get work item
                 item = await work_queue.get_work_item(timeout=1.0)
-                
+
                 if item is None:
                     # No work available, update heartbeat and continue
                     self.stats.last_heartbeat = time.time()
                     await asyncio.sleep(0.1)
                     continue
-                
+
                 # Check if we can handle this work type
                 if item.item_type not in self.work_types:
-                    logger.warning(f"Worker {self.worker_id} cannot handle {item.item_type}")
+                    logger.warning(
+                        f"Worker {self.worker_id} cannot handle {item.item_type}")
                     await work_queue.fail_work_item(item.item_id, "Unsupported work type")
                     continue
-                
+
                 # Process work item
                 self.stats.current_item = item.item_id
                 start_time = time.time()
-                
+
                 try:
                     await self._process_work_item(item)
                     await work_queue.complete_work_item(item.item_id)
                     self.stats.items_processed += 1
-                    
+
                 except Exception as e:
-                    logger.error(f"Worker {self.worker_id} failed to process {item.item_id}: {e}")
+                    logger.error(
+                        f"Worker {self.worker_id} failed to process {item.item_id}: {e}")
                     await work_queue.fail_work_item(item.item_id, str(e))
                     self.stats.items_failed += 1
-                
+
                 finally:
                     processing_time = time.time() - start_time
                     self.stats.total_processing_time += processing_time
                     self.stats.current_item = None
                     self.stats.last_heartbeat = time.time()
-                    
+
                     # Update resource usage
                     await self._update_resource_usage()
-                
+
             except Exception as e:
                 logger.error(f"Worker {self.worker_id} error: {e}")
                 await asyncio.sleep(1.0)
-    
+
     async def _process_work_item(self, item: WorkItem) -> None:
         """Process a specific work item."""
         if item.item_type == WorkItemType.FILE_DISCOVERY:
@@ -262,43 +267,47 @@ class IndexingWorker:
             await self._process_index_update(item)
         else:
             raise ValueError(f"Unknown work item type: {item.item_type}")
-    
+
     async def _process_file_discovery(self, item: WorkItem) -> None:
         """Process file discovery work item."""
         directory = item.data["directory"]
         # Implementation would discover files in directory
-        logger.debug(f"Worker {self.worker_id} discovering files in {directory}")
-    
+        logger.debug(
+            f"Worker {self.worker_id} discovering files in {directory}")
+
     async def _process_content_extraction(self, item: WorkItem) -> None:
         """Process content extraction work item."""
         file_path = item.data["file_path"]
         # Implementation would extract content from file
-        logger.debug(f"Worker {self.worker_id} extracting content from {file_path}")
-    
+        logger.debug(
+            f"Worker {self.worker_id} extracting content from {file_path}")
+
     async def _process_entity_parsing(self, item: WorkItem) -> None:
         """Process entity parsing work item."""
         file_path = item.data["file_path"]
         # Implementation would parse entities from file
-        logger.debug(f"Worker {self.worker_id} parsing entities from {file_path}")
-    
+        logger.debug(
+            f"Worker {self.worker_id} parsing entities from {file_path}")
+
     async def _process_chunking(self, item: WorkItem) -> None:
         """Process chunking work item."""
         file_path = item.data["file_path"]
         # Implementation would chunk file content
         logger.debug(f"Worker {self.worker_id} chunking {file_path}")
-    
+
     async def _process_embedding_generation(self, item: WorkItem) -> None:
         """Process embedding generation work item."""
         chunks = item.data["chunks"]
         # Implementation would generate embeddings for chunks
-        logger.debug(f"Worker {self.worker_id} generating embeddings for {len(chunks)} chunks")
-    
+        logger.debug(
+            f"Worker {self.worker_id} generating embeddings for {len(chunks)} chunks")
+
     async def _process_index_update(self, item: WorkItem) -> None:
         """Process index update work item."""
         index_type = item.data["index_type"]
         # Implementation would update specific index
         logger.debug(f"Worker {self.worker_id} updating {index_type} index")
-    
+
     async def _update_resource_usage(self) -> None:
         """Update resource usage statistics."""
         try:
@@ -311,7 +320,7 @@ class IndexingWorker:
             pass
         except Exception as e:
             logger.debug(f"Error updating resource usage: {e}")
-    
+
     def stop(self) -> None:
         """Stop the worker."""
         self.running = False
@@ -321,11 +330,11 @@ class IndexingWorker:
 class DistributedIndexingEngine:
     """
     Main distributed indexing engine.
-    
+
     Coordinates multiple workers to process large codebases efficiently
     with parallel processing, load balancing, and progress monitoring.
     """
-    
+
     def __init__(
         self,
         config: SearchConfig,
@@ -338,14 +347,14 @@ class DistributedIndexingEngine:
         self.workers: List[IndexingWorker] = []
         self.worker_tasks: List[asyncio.Task] = []
         self.running = False
-    
+
     async def start_workers(self) -> None:
         """Start all indexing workers."""
         if self.running:
             return
-        
+
         self.running = True
-        
+
         # Create workers with different specializations
         for i in range(self.num_workers):
             if i < self.num_workers // 2:
@@ -362,41 +371,41 @@ class DistributedIndexingEngine:
                     WorkItemType.EMBEDDING_GENERATION,
                     WorkItemType.INDEX_UPDATE,
                 ]
-            
+
             worker = IndexingWorker(
                 worker_id=f"worker_{i}",
                 config=self.config,
                 work_types=work_types,
             )
-            
+
             self.workers.append(worker)
-            
+
             # Start worker task
             task = asyncio.create_task(worker.start(self.work_queue))
             self.worker_tasks.append(task)
-        
+
         logger.info(f"Started {len(self.workers)} indexing workers")
-    
+
     async def stop_workers(self) -> None:
         """Stop all indexing workers."""
         if not self.running:
             return
-        
+
         self.running = False
-        
+
         # Stop all workers
         for worker in self.workers:
             worker.stop()
-        
+
         # Wait for worker tasks to complete
         if self.worker_tasks:
             await asyncio.gather(*self.worker_tasks, return_exceptions=True)
-        
+
         self.workers.clear()
         self.worker_tasks.clear()
-        
+
         logger.info("All indexing workers stopped")
-    
+
     async def index_codebase(
         self,
         directories: List[str],
@@ -405,18 +414,18 @@ class DistributedIndexingEngine:
     ) -> AsyncGenerator[IndexingProgressUpdate, None]:
         """
         Index codebase using distributed workers.
-        
+
         Args:
             directories: Directories to index
             branch: Git branch name
             repo_name: Repository name
-            
+
         Yields:
             Progress updates during indexing
         """
         # Start workers
         await self.start_workers()
-        
+
         try:
             # Create work items for file discovery
             for directory in directories:
@@ -427,22 +436,24 @@ class DistributedIndexingEngine:
                     data={"directory": directory}
                 )
                 await self.work_queue.add_work_item(work_item)
-            
+
             # Monitor progress
             start_time = time.time()
             last_update = 0.0
-            
+
             while True:
                 # Get queue stats
                 stats = self.work_queue.get_stats()
-                
+
                 # Calculate progress
-                total_items = stats["completed_items"] + stats["failed_items"] + stats["pending_items"]
+                total_items = stats["completed_items"] + \
+                    stats["failed_items"] + stats["pending_items"]
                 if total_items > 0:
-                    progress = (stats["completed_items"] + stats["failed_items"]) / total_items
+                    progress = (stats["completed_items"] +
+                                stats["failed_items"]) / total_items
                 else:
                     progress = 0.0
-                
+
                 # Update progress periodically
                 current_time = time.time()
                 if current_time - last_update >= 1.0:  # Update every second
@@ -453,18 +464,18 @@ class DistributedIndexingEngine:
                         debug_info=f"Workers: {len(self.workers)}, Queue: {stats['queue_size']}"
                     )
                     last_update = current_time
-                
+
                 # Check if done
                 if stats["pending_items"] == 0 and stats["queue_size"] == 0:
                     break
-                
+
                 # Check for timeout
                 if current_time - start_time > 3600:  # 1 hour timeout
                     logger.warning("Distributed indexing timeout")
                     break
-                
+
                 await asyncio.sleep(0.1)
-            
+
             # Final progress update
             final_stats = self.work_queue.get_stats()
             yield IndexingProgressUpdate(
@@ -472,18 +483,18 @@ class DistributedIndexingEngine:
                 description=f"Distributed indexing complete: {final_stats['completed_items']} items processed, {final_stats['failed_items']} failed",
                 status="done" if final_stats["failed_items"] == 0 else "done_with_errors"
             )
-            
+
         finally:
             await self.stop_workers()
-    
+
     async def get_worker_stats(self) -> List[WorkerStats]:
         """Get statistics for all workers."""
         return [worker.stats for worker in self.workers]
-    
+
     async def scale_workers(self, target_count: int) -> None:
         """Dynamically scale the number of workers."""
         current_count = len(self.workers)
-        
+
         if target_count > current_count:
             # Add workers
             for i in range(current_count, target_count):
@@ -492,44 +503,46 @@ class DistributedIndexingEngine:
                     config=self.config,
                     work_types=list(WorkItemType),  # All work types
                 )
-                
+
                 self.workers.append(worker)
                 task = asyncio.create_task(worker.start(self.work_queue))
                 self.worker_tasks.append(task)
-            
+
             logger.info(f"Scaled up to {target_count} workers")
-            
+
         elif target_count < current_count:
             # Remove workers
             workers_to_remove = self.workers[target_count:]
             tasks_to_cancel = self.worker_tasks[target_count:]
-            
+
             # Stop excess workers
             for worker in workers_to_remove:
                 worker.stop()
-            
+
             # Cancel their tasks
             for task in tasks_to_cancel:
                 task.cancel()
-            
+
             # Update lists
             self.workers = self.workers[:target_count]
             self.worker_tasks = self.worker_tasks[:target_count]
-            
+
             logger.info(f"Scaled down to {target_count} workers")
-    
+
     async def get_performance_metrics(self) -> Dict[str, Any]:
         """Get comprehensive performance metrics."""
         worker_stats = await self.get_worker_stats()
         queue_stats = self.work_queue.get_stats()
-        
+
         # Aggregate worker metrics
         total_processed = sum(w.items_processed for w in worker_stats)
         total_failed = sum(w.items_failed for w in worker_stats)
-        avg_processing_time = sum(w.total_processing_time for w in worker_stats) / len(worker_stats) if worker_stats else 0.0
+        avg_processing_time = sum(
+            w.total_processing_time for w in worker_stats) / len(worker_stats) if worker_stats else 0.0
         total_memory_mb = sum(w.memory_usage_mb for w in worker_stats)
-        avg_cpu_percent = sum(w.cpu_usage_percent for w in worker_stats) / len(worker_stats) if worker_stats else 0.0
-        
+        avg_cpu_percent = sum(w.cpu_usage_percent for w in worker_stats) / \
+            len(worker_stats) if worker_stats else 0.0
+
         return {
             "workers": {
                 "total_workers": len(worker_stats),

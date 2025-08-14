@@ -71,7 +71,9 @@ class ContentAddress:
     async def from_file(cls, path: str) -> ContentAddress:
         """Create ContentAddress from file path."""
         try:
-            content = await read_text_safely(Path(path))
+            content = read_text_safely(Path(path))
+            if content is None:
+                raise ValueError(f"Cannot read file content: {path}")
             content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
 
             meta = file_meta(Path(path))
@@ -508,7 +510,8 @@ class ContentAddressedIndexer:
                     # File was modified, check if content actually changed
                     try:
                         content = read_file(path)
-                        current_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+                        current_hash = hashlib.sha256(
+                            content.encode('utf-8')).hexdigest()
 
                         if current_hash != saved_item["content_hash"]:
                             # Content changed - need to compute new index
@@ -537,12 +540,13 @@ class ContentAddressedIndexer:
                         # If content unchanged, no action needed
                     except Exception as e:
                         logger.error(f"Error processing file {path}: {e}")
-                        self.error_collector.add_error(path, str(e))
+                        self.error_collector.add_error(e, file_path=Path(path))
             else:
                 # New file
                 try:
                     content = read_file(path)
-                    content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+                    content_hash = hashlib.sha256(
+                        content.encode('utf-8')).hexdigest()
 
                     # Check if content exists in global cache
                     cached_content = await self.global_cache.get_cached_content(
@@ -561,7 +565,7 @@ class ContentAddressedIndexer:
                         ))
                 except Exception as e:
                     logger.error(f"Error processing new file {path}: {e}")
-                    self.error_collector.add_error(path, str(e))
+                    self.error_collector.add_error(e, file_path=Path(path))
 
         # Find deleted files
         current_paths = set(current_files.keys())

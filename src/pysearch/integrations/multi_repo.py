@@ -347,7 +347,8 @@ class SearchCoordinator:
         # Sort repositories by priority
         sorted_repos = sorted(
             repositories.items(),
-            key=lambda x: {"high": 0, "normal": 1, "low": 2}.get(x[1].priority, 1)
+            key=lambda x: {"high": 0, "normal": 1,
+                           "low": 2}.get(x[1].priority, 1)
         )
 
         # Execute searches in parallel
@@ -367,10 +368,12 @@ class SearchCoordinator:
                         repository_results[repo_name] = result
                     else:
                         failed_repositories.append(repo_name)
-                        self.logger.warning(f"No results from repository '{repo_name}'")
+                        self.logger.warning(
+                            f"No results from repository '{repo_name}'")
                 except Exception as e:
                     failed_repositories.append(repo_name)
-                    self.logger.error(f"Error searching repository '{repo_name}': {e}")
+                    self.logger.error(
+                        f"Error searching repository '{repo_name}': {e}")
 
         # Create multi-repo result
         search_time_ms = (time.time() - start_time) * 1000
@@ -412,14 +415,17 @@ class SearchCoordinator:
             # Add repository metadata to results
             for item in result.items:
                 if not hasattr(item, 'metadata'):
-                    item.metadata = {}
+                    item.metadata = {}  # type: ignore[attr-defined]
+                # type: ignore[attr-defined]
                 item.metadata['repository'] = repo_info.name
-                item.metadata['repository_path'] = str(repo_info.path)
+                item.metadata['repository_path'] = str(
+                    repo_info.path)  # type: ignore[attr-defined]
 
             return result
 
         except Exception as e:
-            self.logger.error(f"Error searching repository '{repo_info.name}': {e}")
+            self.logger.error(
+                f"Error searching repository '{repo_info.name}': {e}")
             return None
 
     def aggregate_results(
@@ -452,7 +458,7 @@ class SearchCoordinator:
         # Sort by relevance (you might want to implement cross-repo scoring)
         all_items.sort(key=lambda item: (
             # Prioritize by repository priority if available
-            item.metadata.get('repository_priority', 1),
+            getattr(item, 'metadata', {}).get('repository_priority', 1),
             # Then by file name (simple heuristic)
             str(item.file)
         ))
@@ -715,7 +721,8 @@ class MultiRepoSearchEngine:
                 if repo_info and repo_info.enabled:
                     target_repos[repo_name] = repo_info
                 else:
-                    self.logger.warning(f"Repository '{repo_name}' not found or disabled")
+                    self.logger.warning(
+                        f"Repository '{repo_name}' not found or disabled")
 
         if not target_repos:
             self.logger.warning("No repositories available for search")
@@ -727,7 +734,8 @@ class MultiRepoSearchEngine:
             )
 
         # Execute search
-        self.logger.info(f"Searching {len(target_repos)} repositories for: {query.pattern}")
+        self.logger.info(
+            f"Searching {len(target_repos)} repositories for: {query.pattern}")
 
         result = self.search_coordinator.search_repositories(
             repositories=target_repos,

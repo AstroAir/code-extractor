@@ -162,7 +162,8 @@ class IndexingOrchestrator:
 
             # Initialize performance monitoring
             cache_dir = self.config.resolve_cache_dir()
-            self.performance_monitor = PerformanceMonitor(self.config, cache_dir)
+            self.performance_monitor = PerformanceMonitor(
+                self.config, cache_dir)
             await self.performance_monitor.start_monitoring()
 
             logger.info("Enhanced indexing orchestrator initialized")
@@ -193,7 +194,8 @@ class IndexingOrchestrator:
             try:
                 async for progress in self.indexing_engine.refresh_index():
                     if progress.progress % 0.2 < 0.01:  # Log every 20%
-                        logger.info(f"Indexing progress: {progress.progress:.1%}")
+                        logger.info(
+                            f"Indexing progress: {progress.progress:.1%}")
 
                 self.last_index_time = time.time()
                 logger.info("Indexing completed successfully")
@@ -335,7 +337,8 @@ class EnhancedSearchEngine:
 
         # Fallback to basic search if no enhanced results
         if not all_results:
-            logger.info("No enhanced search results, falling back to basic search")
+            logger.info(
+                "No enhanced search results, falling back to basic search")
             # TODO: Implement fallback to basic pysearch
             return []
 
@@ -379,7 +382,7 @@ class EnhancedSearchEngine:
         await self.initialize()
 
         # Build search filters
-        filters = {}
+        filters: dict[str, Any] = {}
         if languages:
             filters["languages"] = languages
         if entity_types:
@@ -407,7 +410,7 @@ class EnhancedSearchEngine:
             # Semantic threshold filter
             if (semantic_threshold > 0 and
                 result.similarity_score is not None and
-                result.similarity_score < semantic_threshold):
+                    result.similarity_score < semantic_threshold):
                 continue
 
             filtered_results.append(result)
@@ -461,7 +464,7 @@ class EnhancedSearchEngine:
 
     async def get_statistics(self) -> Dict[str, Any]:
         """Get search engine statistics."""
-        stats = {
+        stats: dict[str, Any] = {
             "initialized": self._initialized,
             "enhanced_indexing_enabled": self.config.enable_enhanced_indexing,
         }

@@ -200,7 +200,7 @@ class PerformanceProfiler:
         self._lock = asyncio.Lock()
 
     @asynccontextmanager
-    async def profile_operation(self, operation_name: str, metadata: Optional[Dict[str, Any]] = None) -> AsyncGenerator[None, None]:
+    async def profile_operation(self, operation_name: str, metadata: Optional[Dict[str, Any]] = None) -> AsyncGenerator[str, None]:
         """Context manager for profiling an operation."""
         profile_id = f"{operation_name}_{int(time.time() * 1000)}"
 
@@ -287,7 +287,8 @@ class PerformanceProfiler:
                 tags={"operation": profile.operation_name},
             )
 
-            logger.info(f"Operation {profile.operation_name} completed in {profile.duration:.2f}s")
+            logger.info(
+                f"Operation {profile.operation_name} completed in {profile.duration:.2f}s")
 
     async def update_profile_stats(
         self,
@@ -306,7 +307,8 @@ class PerformanceProfiler:
                 try:
                     process = psutil.Process()
                     current_memory = process.memory_info().rss / 1024 / 1024
-                    profile.memory_peak = max(profile.memory_peak, current_memory)
+                    profile.memory_peak = max(
+                        profile.memory_peak, current_memory)
                 except Exception:
                     pass
 
@@ -334,25 +336,31 @@ class OptimizationEngine:
         # Analyze memory usage
         memory_metrics = await self.metrics_collector.get_metrics("memory")
         if memory_metrics:
-            avg_memory = sum(m.value for m in memory_metrics) / len(memory_metrics)
+            avg_memory = sum(m.value for m in memory_metrics) / \
+                len(memory_metrics)
             if avg_memory > 1000:  # > 1GB
                 analysis["bottlenecks"].append("High memory usage")
-                analysis["recommendations"].append("Consider reducing batch sizes or enabling streaming")
+                analysis["recommendations"].append(
+                    "Consider reducing batch sizes or enabling streaming")
 
         # Analyze operation durations
         duration_aggregates = self.metrics_collector.get_all_aggregates()
         for metric_name, stats in duration_aggregates.items():
             if "duration" in metric_name and stats["avg"] > 60:  # > 1 minute
-                analysis["bottlenecks"].append(f"Slow operation: {metric_name}")
-                analysis["recommendations"].append(f"Optimize {metric_name} operation")
+                analysis["bottlenecks"].append(
+                    f"Slow operation: {metric_name}")
+                analysis["recommendations"].append(
+                    f"Optimize {metric_name} operation")
 
         # Analyze error rates
         error_metrics = await self.metrics_collector.get_metrics("error")
         if error_metrics:
-            recent_errors = [m for m in error_metrics if time.time() - m.timestamp < 3600]
+            recent_errors = [
+                m for m in error_metrics if time.time() - m.timestamp < 3600]
             if len(recent_errors) > 10:
                 analysis["bottlenecks"].append("High error rate")
-                analysis["recommendations"].append("Review error logs and improve error handling")
+                analysis["recommendations"].append(
+                    "Review error logs and improve error handling")
 
         return analysis
 
@@ -399,15 +407,18 @@ class OptimizationEngine:
             if opt_type == "memory":
                 # Apply memory optimization
                 if "batch_size" in optimization["description"]:
-                    setattr(config, "embedding_batch_size", optimization["suggested_value"])
-                    logger.info(f"Applied memory optimization: batch_size = {optimization['suggested_value']}")
+                    setattr(config, "embedding_batch_size",
+                            optimization["suggested_value"])
+                    logger.info(
+                        f"Applied memory optimization: batch_size = {optimization['suggested_value']}")
                     return True
 
             elif opt_type == "performance":
                 # Apply performance optimization
                 if "parallel" in optimization["suggested_value"]:
                     setattr(config, "enable_parallel_processing", True)
-                    logger.info("Applied performance optimization: enabled parallel processing")
+                    logger.info(
+                        "Applied performance optimization: enabled parallel processing")
                     return True
 
             return False

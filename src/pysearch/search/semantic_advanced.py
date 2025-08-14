@@ -115,11 +115,13 @@ class SemanticEmbedding:
         for identifier in identifiers:
             # Split camelCase
             camel_parts = re.findall(r'[A-Z][a-z]*|[a-z]+', identifier)
-            tokens.extend([part.lower() for part in camel_parts if len(part) > 1])
+            tokens.extend([part.lower()
+                          for part in camel_parts if len(part) > 1])
 
             # Split snake_case
             snake_parts = identifier.split('_')
-            tokens.extend([part.lower() for part in snake_parts if len(part) > 1])
+            tokens.extend([part.lower()
+                          for part in snake_parts if len(part) > 1])
 
         # Extract string literals content
         string_pattern = r'["\']([^"\']*)["\']'
@@ -169,7 +171,8 @@ class SemanticEmbedding:
 
         # Build vocabulary
         token_counts = Counter(all_tokens)
-        self.vocabulary = {token: idx for idx, (token, _) in enumerate(token_counts.most_common())}
+        self.vocabulary = {token: idx for idx,
+                           (token, _) in enumerate(token_counts.most_common())}
 
         # Calculate IDF scores
         doc_count = len(documents)
@@ -318,10 +321,12 @@ class CodeSemanticAnalyzer:
         try:
             # Try AST-based analysis for supported languages
             if language == Language.PYTHON:
-                concepts.extend(self._extract_python_concepts(code_content, lines))
+                concepts.extend(
+                    self._extract_python_concepts(code_content, lines))
             else:
                 # Fallback to regex-based analysis
-                concepts.extend(self._extract_regex_concepts(code_content, lines))
+                concepts.extend(
+                    self._extract_regex_concepts(code_content, lines))
         except Exception:
             # Fallback to regex-based analysis on AST errors
             concepts.extend(self._extract_regex_concepts(code_content, lines))
@@ -373,7 +378,8 @@ class CodeSemanticAnalyzer:
                         concept = SemanticConcept(
                             name=alias.name,
                             category='import',
-                            context=f"from {node.module}" if isinstance(node, ast.ImportFrom) else "import",
+                            context=f"from {node.module}" if isinstance(
+                                node, ast.ImportFrom) else "import",
                             confidence=0.8,
                             line_number=node.lineno,
                             metadata={
@@ -471,7 +477,7 @@ class CodeSemanticAnalyzer:
         # Add docstring if available
         if (node.body and isinstance(node.body[0], ast.Expr) and
             isinstance(node.body[0].value, ast.Constant) and
-            isinstance(node.body[0].value.value, str)):
+                isinstance(node.body[0].value.value, str)):
             docstring = node.body[0].value.value.strip()
             context_parts.append(f"Doc: {docstring[:100]}")
 
@@ -541,7 +547,8 @@ class CodeSemanticAnalyzer:
                 concept_score += 0.6 * concept.confidence
 
             # Category-based semantic matching
-            category_score = self._calculate_category_similarity(query_lower, concept)
+            category_score = self._calculate_category_similarity(
+                query_lower, concept)
             concept_score += category_score * concept.confidence
 
             total_score += concept_score
@@ -620,13 +627,15 @@ class SemanticSearchEngine:
         if self.embedding_model.is_fitted:
             query_vector = self.embedding_model.transform(query)
             content_vector = self.embedding_model.transform(content)
-            embedding_score = self.embedding_model.cosine_similarity(query_vector, content_vector)
+            embedding_score = self.embedding_model.cosine_similarity(
+                query_vector, content_vector)
 
         # Calculate structural score
         structural_score = self._calculate_structural_score(query, concepts)
 
         # Calculate contextual score
-        contextual_score = self._calculate_contextual_score(query, content, concepts)
+        contextual_score = self._calculate_contextual_score(
+            query, content, concepts)
 
         # Combine scores with weights
         combined_score = (
@@ -660,7 +669,8 @@ class SemanticSearchEngine:
                 file=file_path or Path("unknown"),
                 start_line=concept.line_number,
                 end_line=concept.line_number,
-                lines=lines[start_line:end_line] if start_line < len(lines) else [],
+                lines=lines[start_line:end_line] if start_line < len(lines) else [
+                ],
                 match_spans=[(0, (0, len(concept.name)))]
             )
 
@@ -726,10 +736,12 @@ class SemanticSearchEngine:
 
                 # Count query term occurrences in context
                 query_words = query_lower.split()
-                context_matches = sum(1 for word in query_words if word in context_text)
+                context_matches = sum(
+                    1 for word in query_words if word in context_text)
 
                 if context_matches > 0:
-                    context_score += (context_matches / len(query_words)) * concept.confidence
+                    context_score += (context_matches /
+                                      len(query_words)) * concept.confidence
 
         return min(context_score / len(concepts), 1.0) if concepts else 0.0
 
@@ -755,7 +767,8 @@ class SemanticSearchEngine:
         if '_' in query:
             # Convert snake_case to camelCase
             parts = query.split('_')
-            camel_case = parts[0] + ''.join(word.capitalize() for word in parts[1:])
+            camel_case = parts[0] + \
+                ''.join(word.capitalize() for word in parts[1:])
             expanded_terms.append(camel_case)
 
         # Add plural/singular variations

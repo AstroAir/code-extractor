@@ -304,7 +304,8 @@ class ErrorCollector:
             message=str(exception),
             file_path=error_file_path,
             exception_type=type(exception).__name__,
-            traceback_str=traceback.format_exc() if sys.exc_info()[0] else None,
+            traceback_str=traceback.format_exc() if sys.exc_info()[
+                0] else None,
             context=error_context,
             suggestions=error_suggestions,
         )
@@ -314,7 +315,8 @@ class ErrorCollector:
             self.errors.append(error_info)
 
         # Update counts
-        self.error_counts[error_category] = self.error_counts.get(error_category, 0) + 1
+        self.error_counts[error_category] = self.error_counts.get(
+            error_category, 0) + 1
 
     def _classify_exception(self, exception: Exception) -> ErrorCategory:
         """Classify exception into error category."""
@@ -400,14 +402,18 @@ def handle_file_error(
     # Classify the error
     error: SearchError
     if isinstance(exception, (FileNotFoundError, IsADirectoryError)):
-        error = FileAccessError(f"Cannot {operation} file: {exception}", file_path)
+        error = FileAccessError(
+            f"Cannot {operation} file: {exception}", file_path)
     elif isinstance(exception, BuiltinPermissionError):
-        error = PermissionError(f"Permission denied during {operation}: {exception}", file_path)
+        error = PermissionError(
+            f"Permission denied during {operation}: {exception}", file_path)
     elif isinstance(exception, (UnicodeDecodeError, UnicodeError)):
-        error = EncodingError(f"Encoding error during {operation}: {exception}", file_path)
+        error = EncodingError(
+            f"Encoding error during {operation}: {exception}", file_path)
     elif isinstance(exception, (SyntaxError, IndentationError)):
         line_num = getattr(exception, "lineno", None)
-        error = ParsingError(f"Parsing error during {operation}: {exception}", file_path, line_num)
+        error = ParsingError(
+            f"Parsing error during {operation}: {exception}", file_path, line_num)
     else:
         error = SearchError(
             f"Unexpected error during {operation}: {exception}", file_path=file_path
@@ -440,7 +446,8 @@ def create_error_report(error_collector: ErrorCollector) -> str:
     report.append("Errors by category:")
     for category, count in summary["by_category"].items():
         # Use the enum value instead of the enum name
-        category_name = category.value if hasattr(category, 'value') else str(category)
+        category_name = category.value if hasattr(
+            category, 'value') else str(category)
         report.append(f"  {category_name}: {count}")
     report.append("")
 
@@ -453,7 +460,8 @@ def create_error_report(error_collector: ErrorCollector) -> str:
             if error.file_path:
                 report.append(f"    File: {error.file_path}")
             if error.suggestions:
-                report.append(f"    Suggestions: {', '.join(error.suggestions)}")
+                report.append(
+                    f"    Suggestions: {', '.join(error.suggestions)}")
         report.append("")
 
     # Suggestions

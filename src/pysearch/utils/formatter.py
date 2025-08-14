@@ -162,7 +162,8 @@ def render_highlight_console(result: SearchResult) -> None:
     for it in result.items:
         code = "\n".join(it.lines)
         # Use Python syntax highlight
-        syntax = Syntax(code, "python", line_numbers=True, line_range=(it.start_line, it.end_line))
+        syntax = Syntax(code, "python", line_numbers=True,
+                        line_range=(it.start_line, it.end_line))
         console.print(f"[bold]{it.file}:{it.start_line}-{it.end_line}[/bold]")
         console.print(syntax)
         console.print()
