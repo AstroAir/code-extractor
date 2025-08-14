@@ -61,13 +61,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from .config import SearchConfig
-from .graphrag import EntityExtractor
+from ..core.config import SearchConfig
+from ..analysis.graphrag.core import EntityExtractor
 from .indexer import Indexer, IndexRecord
-from .language_detection import detect_language
-from .semantic_advanced import SemanticEmbedding
-from .types import CodeEntity, EntityType, Language
-from .utils import read_text_safely
+from ..analysis.language_detection import detect_language
+from ..search.semantic_advanced import SemanticEmbedding
+from ..core.types import CodeEntity, EntityType, Language
+from ..utils.utils import read_text_safely
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class EntityMetadata:
     """Metadata for a code entity in the index."""
-    
+
     entity_id: str
     name: str
     entity_type: str
@@ -95,7 +95,7 @@ class EntityMetadata:
 @dataclass
 class FileMetadata:
     """Enhanced metadata for a file in the index."""
-    
+
     file_path: str
     size: int
     mtime: float
@@ -116,7 +116,7 @@ class FileMetadata:
 @dataclass
 class IndexQuery:
     """Query specification for the enhanced index."""
-    
+
     # File-level filters
     file_patterns: Optional[List[str]] = None
     languages: Optional[List[str]] = None
@@ -126,18 +126,18 @@ class IndexQuery:
     max_lines: Optional[int] = None
     modified_after: Optional[float] = None
     modified_before: Optional[float] = None
-    
+
     # Entity-level filters
     entity_types: Optional[List[str]] = None
     entity_names: Optional[List[str]] = None
     has_docstring: Optional[bool] = None
     min_complexity: Optional[float] = None
     max_complexity: Optional[float] = None
-    
+
     # Semantic filters
     semantic_query: Optional[str] = None
     similarity_threshold: float = 0.7
-    
+
     # Result options
     include_entities: bool = True
     include_file_content: bool = False
@@ -148,7 +148,7 @@ class IndexQuery:
 @dataclass
 class IndexStats:
     """Statistics for the enhanced index."""
-    
+
     total_files: int = 0
     total_entities: int = 0
     languages: Dict[str, int] = field(default_factory=dict)
@@ -163,33 +163,33 @@ class IndexStats:
 class MetadataIndex:
     """
     Comprehensive metadata index using SQLite for efficient storage and querying.
-    
+
     This class provides a persistent, queryable index of file and entity metadata
     with support for complex queries and efficient updates.
     """
-    
+
     def __init__(self, db_path: Path) -> None:
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._connection: Optional[sqlite3.Connection] = None
-    
+
     async def initialize(self) -> None:
         """Initialize the metadata index database."""
         self._connection = sqlite3.connect(str(self.db_path))
         self._connection.row_factory = sqlite3.Row
-        
+
         # Create tables
         await self._create_tables()
-        
+
         logger.info(f"Metadata index initialized: {self.db_path}")
-    
+
     async def _create_tables(self) -> None:
         """Create database tables for metadata storage."""
         if not self._connection:
             return
-        
+
         cursor = self._connection.cursor()
-        
+
         # Files table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS files (
@@ -210,7 +210,7 @@ class MetadataIndex:
                 last_accessed REAL
             )
         """)
-        
+
         # Entities table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS entities (
@@ -231,7 +231,7 @@ class MetadataIndex:
                 FOREIGN KEY (file_path) REFERENCES files (file_path)
             )
         """)
-        
+
         # Create indexes for efficient querying
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_language ON files (language)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_mtime ON files (mtime)")
@@ -239,14 +239,14 @@ class MetadataIndex:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_entities_type ON entities (entity_type)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_entities_name ON entities (name)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_entities_file ON entities (file_path)")
-        
+
         self._connection.commit()
-    
+
     async def add_file_metadata(self, metadata: FileMetadata) -> None:
         """Add or update file metadata."""
         if not self._connection:
             return
-        
+
         cursor = self._connection.cursor()
         cursor.execute("""
             INSERT OR REPLACE INTO files (
@@ -263,12 +263,12 @@ class MetadataIndex:
             metadata.access_count, metadata.last_accessed
         ))
         self._connection.commit()
-    
+
     async def add_entity_metadata(self, metadata: EntityMetadata) -> None:
         """Add or update entity metadata."""
         if not self._connection:
             return
-        
+
         cursor = self._connection.cursor()
         cursor.execute("""
             INSERT OR REPLACE INTO entities (
@@ -285,60 +285,60 @@ class MetadataIndex:
             json.dumps(metadata.properties), metadata.last_updated
         ))
         self._connection.commit()
-    
+
     async def query_files(self, query: IndexQuery) -> List[FileMetadata]:
         """Query files based on criteria."""
         if not self._connection:
             return []
-        
+
         cursor = self._connection.cursor()
-        
+
         # Build WHERE clause
         conditions = []
         params: list[Any] = []
-        
+
         if query.languages:
             conditions.append(f"language IN ({','.join(['?'] * len(query.languages))})")
             params.extend(query.languages)
-        
+
         if query.min_size is not None:
             conditions.append("size >= ?")
             params.append(query.min_size)
-        
+
         if query.max_size is not None:
             conditions.append("size <= ?")
             params.append(query.max_size)
-        
+
         if query.min_lines is not None:
             conditions.append("line_count >= ?")
             params.append(query.min_lines)
-        
+
         if query.max_lines is not None:
             conditions.append("line_count <= ?")
             params.append(query.max_lines)
-        
+
         if query.modified_after is not None:
             conditions.append("mtime >= ?")
             params.append(query.modified_after)
-        
+
         if query.modified_before is not None:
             conditions.append("mtime <= ?")
             params.append(query.modified_before)
-        
+
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        
+
         # Build full query
         sql = f"SELECT * FROM files WHERE {where_clause}"
-        
+
         if query.limit is not None:
             sql += f" LIMIT {query.limit}"
-        
+
         if query.offset > 0:
             sql += f" OFFSET {query.offset}"
-        
+
         cursor.execute(sql, params)
         rows = cursor.fetchall()
-        
+
         # Convert to FileMetadata objects
         files = []
         for row in rows:
@@ -360,7 +360,7 @@ class MetadataIndex:
                 last_accessed=row['last_accessed']
             )
             files.append(metadata)
-        
+
         return files
 
     async def query_entities(self, query: IndexQuery) -> List[EntityMetadata]:

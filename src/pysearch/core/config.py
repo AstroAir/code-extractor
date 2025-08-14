@@ -44,6 +44,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Optional
 
 from .types import Language, OutputFormat
 
@@ -99,6 +100,19 @@ class SearchConfig:
     enhanced_indexing_include_semantic: bool = True
     enhanced_indexing_complexity_analysis: bool = True
     enhanced_indexing_dependency_tracking: bool = True
+
+    # Enhanced Indexing Engine Configuration
+    embedding_provider: str = "openai"  # "openai", "huggingface", "local"
+    embedding_model: str = "text-embedding-ada-002"
+    embedding_batch_size: int = 100
+    embedding_api_key: Optional[str] = None
+    vector_db_provider: str = "lancedb"  # "lancedb", "qdrant", "chroma"
+    chunk_size: int = 1000
+    chunk_overlap: int = 100
+    enable_parallel_processing: bool = False
+    max_workers: int = 4
+    chunking_strategy: str = "hybrid"  # "structural", "semantic", "hybrid"
+    quality_threshold: float = 0.7
 
     # Qdrant Vector Database Configuration
     qdrant_enabled: bool = False
@@ -160,7 +174,7 @@ class SearchConfig:
             ]
 
         # Generate patterns for specific languages
-        from .language_detection import get_language_extensions
+        from ..analysis.language_detection import get_language_extensions
 
         patterns = []
         for lang in self.languages:
@@ -179,7 +193,7 @@ class SearchConfig:
         if not self.qdrant_enabled:
             return None
 
-        from .qdrant_client import QdrantConfig
+        from ..storage.qdrant_client import QdrantConfig
         return QdrantConfig(
             host=self.qdrant_host,
             port=self.qdrant_port,

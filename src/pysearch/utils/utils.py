@@ -61,8 +61,8 @@ from pathlib import Path
 
 import pathspec
 
-from .language_detection import detect_language, is_text_file
-from .types import FileMetadata
+from ..analysis.language_detection import detect_language, is_text_file
+from ..core.types import FileMetadata
 
 
 @dataclass(slots=True)

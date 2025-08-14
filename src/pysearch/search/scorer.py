@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-from .config import SearchConfig
+from ..core.config import SearchConfig
 from .semantic import semantic_similarity_score
-from .types import SearchItem
+from ..core.types import SearchItem
 
 
 class RankingStrategy(str, Enum):

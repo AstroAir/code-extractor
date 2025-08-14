@@ -45,31 +45,31 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 from pathlib import Path
 from typing import Any
 
-from .cache_manager import CacheManager
+from ..indexing.cache_manager import CacheManager
 from .config import SearchConfig
-from .dependency_analysis import DependencyAnalyzer, DependencyGraph, DependencyMetrics
-from .indexer_metadata import MetadataIndexer, IndexQuery
-from .error_handling import ErrorCollector, create_error_report, handle_file_error
-from .file_watcher import FileEvent, WatchManager
-from .graphrag_engine import GraphRAGEngine
+from ..analysis.dependency_analysis import DependencyAnalyzer, DependencyGraph, DependencyMetrics
+from ..indexing.metadata import MetadataIndexer, IndexQuery
+from ..utils.error_handling import ErrorCollector, create_error_report, handle_file_error
+from ..utils.file_watcher import FileEvent, WatchManager
+from ..analysis.graphrag.engine import GraphRAGEngine
 from .history import SearchHistory
-from .indexer import Indexer
-from .logging_config import SearchLogger, get_logger
-from .matchers import search_in_file
-from .metadata_filters import apply_metadata_filters, get_file_author
-from .multi_repo import MultiRepoSearchEngine, MultiRepoSearchResult, RepositoryInfo
-from .qdrant_client import QdrantConfig, QdrantVectorStore
-from .scorer import (
+from ..indexing.indexer import Indexer
+from ..utils.logging_config import SearchLogger, get_logger
+from ..search.matchers import search_in_file
+from ..utils.metadata_filters import apply_metadata_filters, get_file_author
+from ..integrations.multi_repo import MultiRepoSearchEngine, MultiRepoSearchResult, RepositoryInfo
+from ..storage.qdrant_client import QdrantConfig, QdrantVectorStore
+from ..search.scorer import (
     RankingStrategy,
     cluster_results_by_similarity,
     deduplicate_overlapping_results,
     sort_items,
 )
-from .semantic_advanced import SemanticSearchEngine
+from ..search.semantic_advanced import SemanticSearchEngine
 from .types import (
     GraphRAGQuery, GraphRAGResult, OutputFormat, Query, SearchItem, SearchResult, SearchStats
 )
-from .utils import create_file_metadata, read_text_safely
+from ..utils.utils import create_file_metadata, read_text_safely
 
 
 class PySearch:
@@ -1711,7 +1711,7 @@ class PySearch:
             algorithm: Fuzzy algorithm ('levenshtein', 'damerau_levenshtein', 'jaro_winkler', 'soundex', 'metaphone')
             **kwargs: Additional search parameters
         """
-        from .fuzzy import FuzzyAlgorithm, fuzzy_pattern
+        from ..search.fuzzy import FuzzyAlgorithm, fuzzy_pattern
 
         # Parse algorithm parameter
         if algorithm:
@@ -1743,7 +1743,7 @@ class PySearch:
             min_similarity: Minimum similarity score
             **kwargs: Additional search parameters
         """
-        from .fuzzy import FuzzyAlgorithm
+        from ..search.fuzzy import FuzzyAlgorithm
 
         # Parse algorithms
         if algorithms:
@@ -1763,7 +1763,7 @@ class PySearch:
         # For now, use the first algorithm for regex generation
         # In a full implementation, you'd want to process results differently
         if fuzzy_algos:
-            from .fuzzy import fuzzy_pattern
+            from ..search.fuzzy import fuzzy_pattern
 
             fuzzy_regex = fuzzy_pattern(pattern, max_distance, fuzzy_algos[0])
             return self.search(fuzzy_regex, regex=True, **kwargs)
@@ -1781,7 +1781,7 @@ class PySearch:
             algorithm: Phonetic algorithm ('soundex' or 'metaphone')
             **kwargs: Additional search parameters
         """
-        from .fuzzy import FuzzyAlgorithm, fuzzy_pattern
+        from ..search.fuzzy import FuzzyAlgorithm, fuzzy_pattern
 
         if algorithm.lower() == "soundex":
             fuzzy_algo = FuzzyAlgorithm.SOUNDEX
@@ -1795,7 +1795,7 @@ class PySearch:
 
     def semantic_search(self, concept: str, **kwargs: Any) -> SearchResult:
         """Semantic search based on code concepts."""
-        from .semantic import concept_to_patterns
+        from ..search.semantic import concept_to_patterns
 
         patterns = concept_to_patterns(concept)
         all_items = []
@@ -1916,7 +1916,7 @@ class PySearch:
 
     def get_errors_by_category(self, category: str) -> list[Any]:
         """Get errors of a specific category."""
-        from .error_handling import ErrorCategory
+        from ..utils.error_handling import ErrorCategory
 
         try:
             error_category = ErrorCategory(category)
@@ -1934,7 +1934,7 @@ class PySearch:
 
     def suppress_error_category(self, category: str) -> None:
         """Suppress errors of a specific category."""
-        from .error_handling import ErrorCategory
+        from ..utils.error_handling import ErrorCategory
 
         try:
             error_category = ErrorCategory(category)
@@ -1950,7 +1950,7 @@ class PySearch:
         enable_file: bool = False,
     ) -> None:
         """Configure logging settings."""
-        from .logging_config import LogFormat, LogLevel, configure_logging
+        from ..utils.logging_config import LogFormat, LogLevel, configure_logging
 
         try:
             log_level = LogLevel(level.upper())
@@ -1965,14 +1965,14 @@ class PySearch:
 
     def enable_debug_logging(self) -> None:
         """Enable debug logging for troubleshooting."""
-        from .logging_config import enable_debug_logging
+        from ..utils.logging_config import enable_debug_logging
 
         enable_debug_logging()
         self.logger.info("Debug logging enabled")
 
     def disable_logging(self) -> None:
         """Disable all logging."""
-        from .logging_config import disable_logging
+        from ..utils.logging_config import disable_logging
 
         disable_logging()
 
@@ -2122,8 +2122,8 @@ class PySearch:
 # Helper function for process pool (must be at module level)
 def _search_file_batch(paths: list[Path], query: Query) -> list[list[SearchItem]]:
     """Process a batch of files in a separate process."""
-    from .matchers import search_in_file
-    from .utils import read_text_safely
+    from ..search.matchers import search_in_file
+    from ..utils.utils import read_text_safely
 
     results = []
     for path in paths:

@@ -28,10 +28,10 @@ Example:
     Basic caching:
         >>> from pysearch.cache_manager import CacheManager
         >>> cache = CacheManager()
-        >>> 
+        >>>
         >>> # Cache search results
         >>> cache.set("query_key", search_result, ttl=3600)
-        >>> 
+        >>>
         >>> # Retrieve cached results
         >>> cached_result = cache.get("query_key")
         >>> if cached_result:
@@ -45,7 +45,7 @@ Example:
         ...     default_ttl=1800,
         ...     compression=True
         ... )
-        >>> 
+        >>>
         >>> # Monitor cache performance
         >>> stats = cache.get_stats()
         >>> print(f"Hit rate: {stats['hit_rate']:.2%}")
@@ -66,14 +66,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .logging_config import get_logger
-from .types import SearchResult
+from ..utils.logging_config import get_logger
+from ..core.types import SearchResult
 
 
 @dataclass
 class CacheEntry:
     """Represents a cached search result with metadata."""
-    
+
     key: str
     value: SearchResult
     created_at: float
@@ -84,19 +84,19 @@ class CacheEntry:
     compressed: bool = False
     file_dependencies: set[str] = field(default_factory=set)
     metadata: dict[str, Any] = field(default_factory=dict)
-    
+
     @property
     def is_expired(self) -> bool:
         """Check if the cache entry has expired."""
         if self.ttl <= 0:
             return False  # No expiration
         return time.time() - self.created_at > self.ttl
-    
+
     @property
     def age_seconds(self) -> float:
         """Get the age of the cache entry in seconds."""
         return time.time() - self.created_at
-    
+
     def touch(self) -> None:
         """Update last accessed time and increment access count."""
         self.last_accessed = time.time()
@@ -106,7 +106,7 @@ class CacheEntry:
 @dataclass
 class CacheStats:
     """Cache performance statistics."""
-    
+
     hits: int = 0
     misses: int = 0
     evictions: int = 0
@@ -115,7 +115,7 @@ class CacheStats:
     total_size_bytes: int = 0
     average_access_time: float = 0.0
     hit_rate: float = 0.0
-    
+
     def update_hit_rate(self) -> None:
         """Update the hit rate calculation."""
         total_requests = self.hits + self.misses
@@ -124,32 +124,32 @@ class CacheStats:
 
 class CacheBackend(ABC):
     """Abstract base class for cache backends."""
-    
+
     @abstractmethod
     def get(self, key: str) -> CacheEntry | None:
         """Get a cache entry by key."""
         pass
-    
+
     @abstractmethod
     def set(self, key: str, entry: CacheEntry) -> bool:
         """Set a cache entry."""
         pass
-    
+
     @abstractmethod
     def delete(self, key: str) -> bool:
         """Delete a cache entry."""
         pass
-    
+
     @abstractmethod
     def clear(self) -> None:
         """Clear all cache entries."""
         pass
-    
+
     @abstractmethod
     def keys(self) -> list[str]:
         """Get all cache keys."""
         pass
-    
+
     @abstractmethod
     def size(self) -> int:
         """Get the number of cache entries."""
@@ -159,18 +159,18 @@ class CacheBackend(ABC):
 class MemoryCache(CacheBackend):
     """
     In-memory cache implementation with LRU eviction.
-    
+
     Provides fast access to cached results but data is lost when
     the process terminates.
     """
-    
+
     def __init__(self, max_size: int = 1000, max_memory_mb: int = 100):
         self.max_size = max_size
         self.max_memory_bytes = max_memory_mb * 1024 * 1024
         self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
         self._lock = threading.RLock()
         self._current_size_bytes = 0
-    
+
     def get(self, key: str) -> CacheEntry | None:
         """Get a cache entry by key."""
         with self._lock:
@@ -181,7 +181,7 @@ class MemoryCache(CacheBackend):
                 entry.touch()
                 return entry
             return None
-    
+
     def set(self, key: str, entry: CacheEntry) -> bool:
         """Set a cache entry."""
         with self._lock:
@@ -190,17 +190,17 @@ class MemoryCache(CacheBackend):
                 old_entry = self._cache[key]
                 self._current_size_bytes -= old_entry.size_bytes
                 del self._cache[key]
-            
+
             # Check memory limits
             if (self._current_size_bytes + entry.size_bytes > self.max_memory_bytes or
                 len(self._cache) >= self.max_size):
                 self._evict_entries()
-            
+
             # Add new entry
             self._cache[key] = entry
             self._current_size_bytes += entry.size_bytes
             return True
-    
+
     def delete(self, key: str) -> bool:
         """Delete a cache entry."""
         with self._lock:
@@ -210,30 +210,30 @@ class MemoryCache(CacheBackend):
                 del self._cache[key]
                 return True
             return False
-    
+
     def clear(self) -> None:
         """Clear all cache entries."""
         with self._lock:
             self._cache.clear()
             self._current_size_bytes = 0
-    
+
     def keys(self) -> list[str]:
         """Get all cache keys."""
         with self._lock:
             return list(self._cache.keys())
-    
+
     def size(self) -> int:
         """Get the number of cache entries."""
         return len(self._cache)
-    
+
     def _evict_entries(self) -> None:
         """Evict least recently used entries to make space."""
         # Remove oldest entries until we're under limits
-        while (len(self._cache) >= self.max_size or 
+        while (len(self._cache) >= self.max_size or
                self._current_size_bytes > self.max_memory_bytes * 0.8):
             if not self._cache:
                 break
-            
+
             # Remove least recently used (first item)
             key, entry = self._cache.popitem(last=False)
             self._current_size_bytes -= entry.size_bytes
@@ -242,11 +242,11 @@ class MemoryCache(CacheBackend):
 class DiskCache(CacheBackend):
     """
     Persistent disk-based cache implementation.
-    
+
     Stores cache entries on disk for persistence across process restarts.
     Uses pickle for serialization and optional compression.
     """
-    
+
     def __init__(
         self,
         cache_dir: Path | str,
@@ -258,21 +258,21 @@ class DiskCache(CacheBackend):
         self.compression = compression
         self._lock = threading.RLock()
         self.logger = get_logger()
-        
+
         # Create cache directory
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Index file for metadata
         self.index_file = self.cache_dir / "cache_index.json"
         self._index: dict[str, dict[str, Any]] = {}
         self._load_index()
-    
+
     def get(self, key: str) -> CacheEntry | None:
         """Get a cache entry by key."""
         with self._lock:
             if key not in self._index:
                 return None
-            
+
             try:
                 entry_file = self._get_entry_file(key)
                 if not entry_file.exists():
@@ -280,28 +280,28 @@ class DiskCache(CacheBackend):
                     del self._index[key]
                     self._save_index()
                     return None
-                
+
                 # Load entry from disk
                 with open(entry_file, 'rb') as f:
                     data = f.read()
-                
+
                 if self.compression:
                     data = zlib.decompress(data)
-                
+
                 entry = pickle.loads(data)
                 entry.touch()
-                
+
                 # Update index
                 self._index[key]['last_accessed'] = entry.last_accessed
                 self._index[key]['access_count'] = entry.access_count
                 self._save_index()
-                
+
                 return entry
-                
+
             except Exception as e:
                 self.logger.error(f"Error loading cache entry {key}: {e}")
                 return None
-    
+
     def set(self, key: str, entry: CacheEntry) -> bool:
         """Set a cache entry."""
         with self._lock:
@@ -309,17 +309,17 @@ class DiskCache(CacheBackend):
                 # Check size limits and evict if necessary
                 if len(self._index) >= self.max_size:
                     self._evict_entries()
-                
+
                 # Serialize entry
                 data = pickle.dumps(entry)
                 if self.compression:
                     data = zlib.compress(data)
-                
+
                 # Save to disk
                 entry_file = self._get_entry_file(key)
                 with open(entry_file, 'wb') as f:
                     f.write(data)
-                
+
                 # Update index
                 self._index[key] = {
                     'created_at': entry.created_at,
@@ -329,32 +329,32 @@ class DiskCache(CacheBackend):
                     'access_count': entry.access_count
                 }
                 self._save_index()
-                
+
                 return True
-                
+
             except Exception as e:
                 self.logger.error(f"Error saving cache entry {key}: {e}")
                 return False
-    
+
     def delete(self, key: str) -> bool:
         """Delete a cache entry."""
         with self._lock:
             if key not in self._index:
                 return False
-            
+
             try:
                 entry_file = self._get_entry_file(key)
                 if entry_file.exists():
                     entry_file.unlink()
-                
+
                 del self._index[key]
                 self._save_index()
                 return True
-                
+
             except Exception as e:
                 self.logger.error(f"Error deleting cache entry {key}: {e}")
                 return False
-    
+
     def clear(self) -> None:
         """Clear all cache entries."""
         with self._lock:
@@ -362,27 +362,27 @@ class DiskCache(CacheBackend):
                 # Remove all entry files
                 for entry_file in self.cache_dir.glob("entry_*.pkl"):
                     entry_file.unlink()
-                
+
                 self._index.clear()
                 self._save_index()
-                
+
             except Exception as e:
                 self.logger.error(f"Error clearing cache: {e}")
-    
+
     def keys(self) -> list[str]:
         """Get all cache keys."""
         return list(self._index.keys())
-    
+
     def size(self) -> int:
         """Get the number of cache entries."""
         return len(self._index)
-    
+
     def _get_entry_file(self, key: str) -> Path:
         """Get the file path for a cache entry."""
         # Use hash of key to avoid filesystem issues
         key_hash = hashlib.md5(key.encode()).hexdigest()
         return self.cache_dir / f"entry_{key_hash}.pkl"
-    
+
     def _load_index(self) -> None:
         """Load the cache index from disk."""
         try:
@@ -392,7 +392,7 @@ class DiskCache(CacheBackend):
         except Exception as e:
             self.logger.warning(f"Error loading cache index: {e}")
             self._index = {}
-    
+
     def _save_index(self) -> None:
         """Save the cache index to disk."""
         try:
@@ -400,7 +400,7 @@ class DiskCache(CacheBackend):
                 json.dump(self._index, f, indent=2)
         except Exception as e:
             self.logger.error(f"Error saving cache index: {e}")
-    
+
     def _evict_entries(self) -> None:
         """Evict least recently used entries to make space."""
         # Sort by last accessed time
@@ -408,7 +408,7 @@ class DiskCache(CacheBackend):
             self._index.items(),
             key=lambda x: x[1]['last_accessed']
         )
-        
+
         # Remove oldest 20% of entries
         num_to_remove = max(1, len(sorted_entries) // 5)
         for key, _ in sorted_entries[:num_to_remove]:

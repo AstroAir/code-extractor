@@ -4,7 +4,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from .types import FileMetadata, Language, MetadataFilters
+from ..core.types import FileMetadata, Language, MetadataFilters
 
 
 def get_file_author(path: Path) -> str | None:

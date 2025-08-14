@@ -54,7 +54,7 @@ import orjson
 from rich.console import Console
 from rich.syntax import Syntax
 
-from .types import OutputFormat, SearchResult
+from ..core.types import OutputFormat, SearchResult
 from .utils import highlight_spans
 
 

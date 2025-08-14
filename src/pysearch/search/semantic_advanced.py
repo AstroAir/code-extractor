@@ -42,15 +42,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .language_detection import detect_language
-from .types import Language, SearchItem
-from .utils import split_lines_keepends
+from ..analysis.language_detection import detect_language
+from ..core.types import Language, SearchItem
+from ..utils.utils import split_lines_keepends
 
 
 @dataclass
 class SemanticConcept:
     """Represents a semantic concept extracted from code."""
-    
+
     name: str
     category: str  # function, class, variable, import, comment, etc.
     context: str  # surrounding context
@@ -62,7 +62,7 @@ class SemanticConcept:
 @dataclass
 class SemanticMatch:
     """Represents a semantic search match with detailed scoring."""
-    
+
     item: SearchItem
     semantic_score: float
     concept_matches: list[SemanticConcept]
@@ -74,16 +74,16 @@ class SemanticMatch:
 class SemanticEmbedding:
     """
     Lightweight embedding model for code similarity using TF-IDF.
-    
+
     This class provides vector-based similarity without external dependencies,
     optimized for code content and programming concepts.
     """
-    
+
     def __init__(self):
         self.vocabulary: dict[str, int] = {}
         self.idf_scores: dict[str, float] = {}
         self.is_fitted = False
-        
+
         # Code-specific stop words
         self.stop_words = {
             'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
@@ -92,42 +92,42 @@ class SemanticEmbedding:
             'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we',
             'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'its', 'our', 'their'
         }
-    
+
     def _tokenize_code(self, text: str) -> list[str]:
         """
         Tokenize code text into meaningful tokens.
-        
+
         Args:
             text: Code content to tokenize
-            
+
         Returns:
             List of tokens extracted from the code
         """
         # Extract identifiers, keywords, and meaningful terms
         tokens = []
-        
+
         # Programming identifiers (camelCase, snake_case, etc.)
         identifier_pattern = r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'
         identifiers = re.findall(identifier_pattern, text)
         tokens.extend(identifiers)
-        
+
         # Split camelCase and snake_case
         for identifier in identifiers:
             # Split camelCase
             camel_parts = re.findall(r'[A-Z][a-z]*|[a-z]+', identifier)
             tokens.extend([part.lower() for part in camel_parts if len(part) > 1])
-            
+
             # Split snake_case
             snake_parts = identifier.split('_')
             tokens.extend([part.lower() for part in snake_parts if len(part) > 1])
-        
+
         # Extract string literals content
         string_pattern = r'["\']([^"\']*)["\']'
         strings = re.findall(string_pattern, text)
         for string_content in strings:
             string_tokens = re.findall(r'\b\w+\b', string_content.lower())
             tokens.extend(string_tokens)
-        
+
         # Extract comments content
         comment_patterns = [
             r'#\s*(.+)',  # Python comments
@@ -139,75 +139,75 @@ class SemanticEmbedding:
             for comment in comments:
                 comment_tokens = re.findall(r'\b\w+\b', comment.lower())
                 tokens.extend(comment_tokens)
-        
+
         # Filter out stop words and short tokens
         filtered_tokens = [
-            token.lower() for token in tokens 
+            token.lower() for token in tokens
             if len(token) > 2 and token.lower() not in self.stop_words
         ]
-        
+
         return filtered_tokens
-    
+
     def fit(self, documents: list[str]) -> None:
         """
         Fit the embedding model on a collection of documents.
-        
+
         Args:
             documents: List of code documents to train on
         """
         if not documents:
             return
-        
+
         # Tokenize all documents
         all_tokens = []
         doc_tokens = []
-        
+
         for doc in documents:
             tokens = self._tokenize_code(doc)
             doc_tokens.append(tokens)
             all_tokens.extend(tokens)
-        
+
         # Build vocabulary
         token_counts = Counter(all_tokens)
         self.vocabulary = {token: idx for idx, (token, _) in enumerate(token_counts.most_common())}
-        
+
         # Calculate IDF scores
         doc_count = len(documents)
         token_doc_counts = defaultdict(int)
-        
+
         for tokens in doc_tokens:
             unique_tokens = set(tokens)
             for token in unique_tokens:
                 token_doc_counts[token] += 1
-        
+
         for token in self.vocabulary:
             df = token_doc_counts[token]
             idf = math.log(doc_count / (df + 1))  # +1 for smoothing
             self.idf_scores[token] = idf
-        
+
         self.is_fitted = True
-    
+
     def transform(self, text: str) -> dict[int, float]:
         """
         Transform text into TF-IDF vector representation.
-        
+
         Args:
             text: Text to transform
-            
+
         Returns:
             Sparse vector as dictionary {token_id: tfidf_score}
         """
         if not self.is_fitted:
             return {}
-        
+
         tokens = self._tokenize_code(text)
         if not tokens:
             return {}
-        
+
         # Calculate term frequencies
         token_counts = Counter(tokens)
         total_tokens = len(tokens)
-        
+
         # Calculate TF-IDF scores
         vector = {}
         for token, count in token_counts.items():
@@ -217,51 +217,51 @@ class SemanticEmbedding:
                 tfidf = tf * idf
                 if tfidf > 0:
                     vector[self.vocabulary[token]] = tfidf
-        
+
         return vector
-    
+
     def cosine_similarity(self, vec1: dict[int, float], vec2: dict[int, float]) -> float:
         """
         Calculate cosine similarity between two sparse vectors.
-        
+
         Args:
             vec1: First vector
             vec2: Second vector
-            
+
         Returns:
             Cosine similarity score (0.0 to 1.0)
         """
         if not vec1 or not vec2:
             return 0.0
-        
+
         # Calculate dot product
         common_keys = set(vec1.keys()) & set(vec2.keys())
         dot_product = sum(vec1[key] * vec2[key] for key in common_keys)
-        
+
         # Calculate magnitudes
         mag1 = math.sqrt(sum(val ** 2 for val in vec1.values()))
         mag2 = math.sqrt(sum(val ** 2 for val in vec2.values()))
-        
+
         if mag1 == 0 or mag2 == 0:
             return 0.0
-        
+
         return dot_product / (mag1 * mag2)
 
 
 class CodeSemanticAnalyzer:
     """
     Advanced semantic analyzer for code structures.
-    
+
     Provides deep semantic understanding of code including:
     - Function and class semantic roles
     - Import dependency semantics
     - Variable usage patterns
     - Code structure relationships
     """
-    
+
     def __init__(self):
         self.embedding_model = SemanticEmbedding()
-        
+
         # Semantic categories for code elements
         self.semantic_categories = {
             'data_processing': [
@@ -297,24 +297,24 @@ class CodeSemanticAnalyzer:
                 'protocol', 'tcp', 'udp', 'http', 'https'
             ]
         }
-    
+
     def extract_concepts(self, code_content: str, file_path: Path | None = None) -> list[SemanticConcept]:
         """
         Extract semantic concepts from code content.
-        
+
         Args:
             code_content: Source code to analyze
             file_path: Optional file path for context
-            
+
         Returns:
             List of extracted semantic concepts
         """
         concepts = []
         lines = split_lines_keepends(code_content)
-        
+
         # Detect language for language-specific analysis
         language = detect_language(file_path) if file_path else Language.PYTHON
-        
+
         try:
             # Try AST-based analysis for supported languages
             if language == Language.PYTHON:
@@ -325,10 +325,10 @@ class CodeSemanticAnalyzer:
         except Exception:
             # Fallback to regex-based analysis on AST errors
             concepts.extend(self._extract_regex_concepts(code_content, lines))
-        
+
         # Add comment-based concepts
         concepts.extend(self._extract_comment_concepts(code_content, lines))
-        
+
         return concepts
 
     def _extract_python_concepts(self, code_content: str, lines: list[str]) -> list[SemanticConcept]:

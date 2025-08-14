@@ -44,8 +44,8 @@ from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .config import SearchConfig
-from .utils import file_meta, file_sha1, iter_files
+from ..core.config import SearchConfig
+from ..utils.utils import file_meta, file_sha1, iter_files
 
 CACHE_FILE = "index.json"
 

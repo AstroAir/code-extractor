@@ -58,8 +58,8 @@ except Exception:  # pragma: no cover
     pass
 # Use Any as fallback to avoid Pylance/Mypy inconsistent Pattern declaration errors
 
-from .types import ASTFilters, MatchSpan, Query, SearchItem
-from .utils import extract_context, iter_python_ast_nodes, split_lines_keepends
+from ..core.types import ASTFilters, MatchSpan, Query, SearchItem
+from ..utils.utils import extract_context, iter_python_ast_nodes, split_lines_keepends
 
 
 @dataclass(slots=True)

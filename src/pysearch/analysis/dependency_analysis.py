@@ -47,14 +47,14 @@ from pathlib import Path
 from typing import Any
 
 from .language_detection import detect_language
-from .types import Language
-from .utils import read_text_safely
+from ..core.types import Language
+from ..utils.utils import read_text_safely
 
 
 @dataclass
 class ImportNode:
     """Represents a single import statement with metadata."""
-    
+
     module: str  # The imported module/package name
     alias: str | None = None  # Import alias (as name)
     from_module: str | None = None  # For 'from X import Y' statements
@@ -69,7 +69,7 @@ class ImportNode:
 @dataclass
 class DependencyEdge:
     """Represents a dependency relationship between two modules."""
-    
+
     source: str  # Source module
     target: str  # Target module
     import_nodes: list[ImportNode] = field(default_factory=list)
@@ -80,7 +80,7 @@ class DependencyEdge:
 @dataclass
 class DependencyMetrics:
     """Metrics for dependency analysis."""
-    
+
     total_modules: int = 0
     total_dependencies: int = 0
     circular_dependencies: int = 0
@@ -94,33 +94,33 @@ class DependencyMetrics:
 class DependencyGraph:
     """
     Graph structure for tracking module dependencies.
-    
+
     Provides efficient storage and querying of dependency relationships
     with support for various graph algorithms and analysis operations.
     """
-    
+
     def __init__(self):
         self.nodes: set[str] = set()  # Module names
         self.edges: dict[str, list[DependencyEdge]] = defaultdict(list)
         self.reverse_edges: dict[str, list[DependencyEdge]] = defaultdict(list)
         self.import_map: dict[str, list[ImportNode]] = defaultdict(list)
-    
+
     def add_node(self, module: str) -> None:
         """Add a module node to the graph."""
         self.nodes.add(module)
-    
+
     def add_edge(self, source: str, target: str, import_node: ImportNode) -> None:
         """Add a dependency edge between two modules."""
         self.add_node(source)
         self.add_node(target)
-        
+
         # Check if edge already exists
         existing_edge = None
         for edge in self.edges[source]:
             if edge.target == target:
                 existing_edge = edge
                 break
-        
+
         if existing_edge:
             existing_edge.import_nodes.append(import_node)
             existing_edge.weight += 1
@@ -133,58 +133,58 @@ class DependencyGraph:
             )
             self.edges[source].append(edge)
             self.reverse_edges[target].append(edge)
-        
+
         self.import_map[source].append(import_node)
-    
+
     def get_dependencies(self, module: str) -> list[str]:
         """Get direct dependencies of a module."""
         return [edge.target for edge in self.edges.get(module, [])]
-    
+
     def get_dependents(self, module: str) -> list[str]:
         """Get modules that depend on this module."""
         return [edge.source for edge in self.reverse_edges.get(module, [])]
-    
+
     def get_transitive_dependencies(self, module: str, max_depth: int = 10) -> set[str]:
         """Get all transitive dependencies of a module."""
         visited = set()
         queue = deque([(module, 0)])
-        
+
         while queue:
             current, depth = queue.popleft()
             if current in visited or depth >= max_depth:
                 continue
-            
+
             visited.add(current)
             for dependency in self.get_dependencies(current):
                 if dependency not in visited:
                     queue.append((dependency, depth + 1))
-        
+
         visited.discard(module)  # Remove the starting module
         return visited
-    
+
     def has_path(self, source: str, target: str, max_depth: int = 10) -> bool:
         """Check if there's a path from source to target."""
         if source == target:
             return True
-        
+
         visited = set()
         queue = deque([(source, 0)])
-        
+
         while queue:
             current, depth = queue.popleft()
             if current in visited or depth >= max_depth:
                 continue
-            
+
             visited.add(current)
             if current == target:
                 return True
-            
+
             for dependency in self.get_dependencies(current):
                 if dependency not in visited:
                     queue.append((dependency, depth + 1))
-        
+
         return False
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Export graph to dictionary format for serialization."""
         return {
@@ -206,11 +206,11 @@ class DependencyGraph:
 class CircularDependencyDetector:
     """
     Specialized detector for circular dependencies using Tarjan's algorithm.
-    
+
     Efficiently detects strongly connected components in the dependency graph
     which represent circular dependency cycles.
     """
-    
+
     def __init__(self, graph: DependencyGraph):
         self.graph = graph
         self.index_counter = 0
@@ -219,11 +219,11 @@ class CircularDependencyDetector:
         self.index: dict[str, int] = {}
         self.on_stack: set[str] = set()
         self.sccs: list[list[str]] = []
-    
+
     def find_cycles(self) -> list[list[str]]:
         """
         Find all circular dependency cycles in the graph.
-        
+
         Returns:
             List of cycles, where each cycle is a list of module names
         """
@@ -233,15 +233,15 @@ class CircularDependencyDetector:
         self.lowlinks = {}
         self.index = {}
         self.on_stack = set()
-        
+
         for node in self.graph.nodes:
             if node not in self.index:
                 self._strongconnect(node)
-        
+
         # Filter out single-node SCCs (not cycles)
         cycles = [scc for scc in self.sccs if len(scc) > 1]
         return cycles
-    
+
     def _strongconnect(self, node: str) -> None:
         """Tarjan's strongly connected components algorithm."""
         self.index[node] = self.index_counter
@@ -249,14 +249,14 @@ class CircularDependencyDetector:
         self.index_counter += 1
         self.stack.append(node)
         self.on_stack.add(node)
-        
+
         for dependency in self.graph.get_dependencies(node):
             if dependency not in self.index:
                 self._strongconnect(dependency)
                 self.lowlinks[node] = min(self.lowlinks[node], self.lowlinks[dependency])
             elif dependency in self.on_stack:
                 self.lowlinks[node] = min(self.lowlinks[node], self.index[dependency])
-        
+
         if self.lowlinks[node] == self.index[node]:
             scc = []
             while True:
@@ -271,11 +271,11 @@ class CircularDependencyDetector:
 class DependencyAnalyzer:
     """
     Main analyzer for code dependency operations.
-    
+
     Provides comprehensive dependency analysis including import extraction,
     graph building, metrics calculation, and various analysis operations.
     """
-    
+
     def __init__(self):
         self.graph = DependencyGraph()
         self.language_parsers = {
@@ -286,63 +286,63 @@ class DependencyAnalyzer:
             Language.CSHARP: self._parse_csharp_imports,
             Language.GO: self._parse_go_imports,
         }
-    
+
     def analyze_file(self, file_path: Path) -> list[ImportNode]:
         """
         Analyze a single file for import statements.
-        
+
         Args:
             file_path: Path to the file to analyze
-            
+
         Returns:
             List of import nodes found in the file
         """
         language = detect_language(file_path)
         if language not in self.language_parsers:
             return []
-        
+
         try:
             content = read_text_safely(file_path)
             if not content:
                 return []
-            
+
             parser = self.language_parsers[language]
             imports = parser(content, file_path)
-            
+
             # Add imports to graph
             module_name = self._get_module_name(file_path, language)
             for import_node in imports:
                 import_node.file_path = file_path
                 target_module = import_node.from_module or import_node.module
                 self.graph.add_edge(module_name, target_module, import_node)
-            
+
             return imports
-            
+
         except Exception:
             return []
-    
+
     def analyze_directory(self, directory: Path, recursive: bool = True) -> DependencyGraph:
         """
         Analyze all files in a directory for dependencies.
-        
+
         Args:
             directory: Directory to analyze
             recursive: Whether to analyze subdirectories
-            
+
         Returns:
             Complete dependency graph for the directory
         """
         self.graph = DependencyGraph()
-        
+
         if recursive:
             pattern = "**/*"
         else:
             pattern = "*"
-        
+
         for file_path in directory.glob(pattern):
             if file_path.is_file():
                 self.analyze_file(file_path)
-        
+
         return self.graph
 
     def _parse_python_imports(self, content: str, file_path: Path) -> list[ImportNode]:
