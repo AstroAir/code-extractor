@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pysearch.config import SearchConfig
-from pysearch.file_watcher import FileWatcher, PySearchEventHandler
+from pysearch import SearchConfig
+from pysearch.utils.file_watcher import FileWatcher, PySearchEventHandler
 
 
 def test_event_handler_methods(tmp_path):

@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pysearch.qdrant_client import (
+from pysearch.storage.qdrant_client import (
     QdrantConfig, QdrantVectorStore, VectorSearchResult,
     normalize_vector, cosine_similarity
 )

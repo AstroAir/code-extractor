@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.config import SearchConfig
-from pysearch.file_watcher import PySearchEventHandler
+from pysearch import SearchConfig
+from pysearch.utils.file_watcher import PySearchEventHandler
 
 
 def test_duplicate_suppression_and_filters(tmp_path: Path) -> None:

@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.error_handling import (
+from pysearch import PySearch
+from pysearch import SearchConfig
+from pysearch.utils.error_handling import (
     EncodingError,
     ErrorCategory,
     ErrorCollector,
@@ -17,8 +17,8 @@ from pysearch.error_handling import (
 )
 
 # Import custom PermissionError with alias to avoid conflict with built-in
-from pysearch.error_handling import PermissionError as CustomPermissionError
-from pysearch.logging_config import (
+from pysearch.utils.error_handling import PermissionError as CustomPermissionError
+from pysearch.utils.logging_config import (
     LogFormat,
     LogLevel,
     SearchLogger,
@@ -27,7 +27,7 @@ from pysearch.logging_config import (
     enable_debug_logging,
     get_logger,
 )
-from pysearch.types import OutputFormat
+from pysearch import OutputFormat
 
 
 def test_search_logger_basic():

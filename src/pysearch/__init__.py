@@ -81,22 +81,24 @@ For detailed documentation, examples, and advanced usage patterns, see:
     - Project repository: https://github.com/your-org/pysearch
 """
 
-from .api import PySearch
-from .config import SearchConfig
-from .error_handling import (
+from .core.api import PySearch
+from .core.config import SearchConfig
+from .utils.error_handling import (
     EncodingError,
     FileAccessError,
     ParsingError,
     PermissionError,
     SearchError,
 )
-from .history import SearchHistory
-from .language_detection import detect_language, get_supported_languages
-from .logging_config import configure_logging, disable_logging, enable_debug_logging, get_logger
-from .metadata_filters import create_metadata_filters
-from .types import (
+from .core.history import SearchHistory
+from .analysis.language_detection import detect_language, get_supported_languages
+from .utils.logging_config import configure_logging, disable_logging, enable_debug_logging, get_logger
+from .utils.metadata_filters import create_metadata_filters
+from .core.types import (
     ASTFilters,
     FileMetadata,
+    GraphRAGQuery,
+    GraphRAGResult,
     Language,
     MatchSpan,
     MetadataFilters,
@@ -106,6 +108,35 @@ from .types import (
     SearchResult,
     SearchStats,
 )
+
+# Enhanced indexing functionality (optional)
+try:
+    from .indexing.advanced.integration import (
+        EnhancedSearchEngine,
+        EnhancedSearchResult,
+        enhanced_search,
+        ensure_indexed,
+    )
+    from .indexing.advanced.engine import EnhancedIndexingEngine
+    ENHANCED_INDEXING_AVAILABLE = True
+except ImportError:
+    ENHANCED_INDEXING_AVAILABLE = False
+
+# Storage functionality (optional)
+try:
+    from .storage import qdrant_client
+    QDRANT_AVAILABLE = True
+except ImportError:
+    QDRANT_AVAILABLE = False
+    qdrant_client = None  # type: ignore
+
+# Indexing functionality
+try:
+    from .indexing import indexer
+    INDEXER_AVAILABLE = True
+except ImportError:
+    INDEXER_AVAILABLE = False
+    indexer = None  # type: ignore
 
 # Package metadata
 __version__ = "0.1.0"
@@ -132,6 +163,8 @@ __all__ = [
     "Language",
     "FileMetadata",
     "MetadataFilters",
+    "GraphRAGQuery",
+    "GraphRAGResult",
     # Utility functions
     "detect_language",
     "get_supported_languages",
@@ -154,4 +187,20 @@ __all__ = [
     "__license__",
     "__description__",
     "__url__",
+    # Enhanced indexing availability
+    "ENHANCED_INDEXING_AVAILABLE",
+    "QDRANT_AVAILABLE",
+    "INDEXER_AVAILABLE",
+    "qdrant_client",
+    "indexer",
 ]
+
+# Add enhanced functionality to __all__ if available
+if ENHANCED_INDEXING_AVAILABLE:
+    __all__.extend([
+        "EnhancedSearchEngine",
+        "EnhancedSearchResult",
+        "EnhancedIndexingEngine",
+        "enhanced_search",
+        "ensure_indexed",
+    ])

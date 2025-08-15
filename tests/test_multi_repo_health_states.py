@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.config import SearchConfig
-from pysearch.multi_repo import RepositoryInfo, RepositoryManager
+from pysearch import SearchConfig
+from pysearch.integrations.multi_repo import RepositoryInfo, RepositoryManager
 
 
 def test_repository_info_health_states(tmp_path: Path) -> None:

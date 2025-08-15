@@ -15,7 +15,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from pysearch.error_handling import (
+from pysearch.utils.error_handling import (
     ErrorCategory,
     ErrorCollector,
     ErrorInfo,

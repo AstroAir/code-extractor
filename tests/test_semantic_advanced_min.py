@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pysearch.semantic_advanced import CodeSemanticAnalyzer, SemanticEmbedding, SemanticSearchEngine
+from pysearch.search.semantic_advanced import CodeSemanticAnalyzer, SemanticEmbedding, SemanticSearchEngine
 
 
 def test_semantic_embedding_basic():

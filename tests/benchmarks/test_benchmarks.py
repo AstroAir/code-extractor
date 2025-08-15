@@ -6,7 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol, TypeVar
 
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig
 
 T = TypeVar("T")
 
@@ -15,9 +15,9 @@ class _Benchmark(Protocol):
     def __call__(self, func: Callable[[], T]) -> T: ...
 
 
-from pysearch.indexer import Indexer
-from pysearch.matchers import find_text_regex_matches
-from pysearch.utils import iter_files
+from pysearch.indexing.indexer import Indexer
+from pysearch.search.matchers import find_text_regex_matches
+from pysearch.utils.utils import iter_files
 
 
 def _write(p: Path, content: str) -> None:

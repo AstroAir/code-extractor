@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.history import SearchCategory, SearchHistory
-from pysearch.types import OutputFormat, Query, SearchResult, SearchStats
+from pysearch import PySearch
+from pysearch import SearchConfig
+from pysearch.core.history import SearchCategory, SearchHistory
+from pysearch import OutputFormat, Query, SearchResult, SearchStats
 
 
 def test_search_categorization():

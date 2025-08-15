@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.semantic_advanced import SemanticSearchEngine
+from pysearch.search.semantic_advanced import SemanticSearchEngine
 
 
 def test_semantic_search_combined_scoring_and_thresholds(tmp_path: Path) -> None:

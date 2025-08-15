@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.cache_manager import CacheManager
-from pysearch.types import SearchItem, SearchResult, SearchStats
+from pysearch.indexing.cache_manager import CacheManager
+from pysearch import SearchItem, SearchResult, SearchStats
 
 
 def _large_result(path: Path, size_multiplier: int = 1) -> SearchResult:

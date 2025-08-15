@@ -14,9 +14,9 @@ from typing import Generator
 
 import pytest
 
-from pysearch.config import SearchConfig
-from pysearch.graphrag import EntityExtractor, RelationshipMapper
-from pysearch.types import (
+from pysearch import SearchConfig
+from pysearch.analysis.graphrag import EntityExtractor, RelationshipMapper
+from pysearch import (
     CodeEntity, EntityRelationship, EntityType,
     KnowledgeGraph, RelationType
 )

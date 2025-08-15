@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.config import SearchConfig
-from pysearch.multi_repo import MultiRepoSearchEngine
+from pysearch import SearchConfig
+from pysearch.integrations.multi_repo import MultiRepoSearchEngine
 
 
 def test_multi_repo_engine_basic_search(tmp_path: Path) -> None:

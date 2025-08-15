@@ -3,8 +3,8 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from pysearch.config import SearchConfig
-from pysearch.indexer import Indexer
+from pysearch import SearchConfig
+from pysearch.indexing.indexer import Indexer
 
 
 def write(p: Path, content: str) -> None:

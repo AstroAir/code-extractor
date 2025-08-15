@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.utils import matches_patterns
+from pysearch.utils.utils import matches_patterns
 
 
 def test_matches_patterns_basic(tmp_path: Path) -> None:

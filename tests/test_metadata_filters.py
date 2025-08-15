@@ -4,14 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.metadata_filters import (
+from pysearch import PySearch
+from pysearch import SearchConfig
+from pysearch.utils.metadata_filters import (
     create_date_filter,
     create_metadata_filters,
     create_size_filter,
 )
-from pysearch.types import Language, OutputFormat, Query
+from pysearch import Language, OutputFormat, Query
 
 
 def test_size_filter_parsing():

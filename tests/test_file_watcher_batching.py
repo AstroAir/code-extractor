@@ -3,9 +3,9 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from pysearch.config import SearchConfig
-from pysearch.file_watcher import ChangeProcessor, EventType, FileEvent
-from pysearch.indexer import Indexer
+from pysearch import SearchConfig
+from pysearch.utils.file_watcher import ChangeProcessor, EventType, FileEvent
+from pysearch.indexing.indexer import Indexer
 
 
 def test_change_processor_batching_and_debounce(tmp_path: Path) -> None:

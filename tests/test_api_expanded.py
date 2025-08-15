@@ -18,9 +18,9 @@ from unittest.mock import Mock, patch, AsyncMock
 
 import pytest
 
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.types import (
+from pysearch import PySearch
+from pysearch import SearchConfig
+from pysearch import (
     Query,
     OutputFormat,
     Language,
@@ -30,8 +30,8 @@ from pysearch.types import (
     SearchResult,
     SearchStats
 )
-from pysearch.qdrant_client import QdrantConfig
-from pysearch.indexer_metadata import IndexQuery
+from pysearch.storage.qdrant_client import QdrantConfig
+from pysearch.indexing.metadata import IndexQuery
 
 
 class TestPySearchInitialization:
@@ -313,7 +313,7 @@ class TestPySearchAdvancedFeatures:
             engine._graphrag_initialized = True
 
             # Create a proper GraphRAGResult mock
-            from pysearch.types import GraphRAGResult
+            from pysearch import GraphRAGResult
             mock_result = GraphRAGResult(
                 entities=[],
                 relationships=[],

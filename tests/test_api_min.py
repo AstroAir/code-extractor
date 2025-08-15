@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.types import Query
+from pysearch import PySearch
+from pysearch import SearchConfig
+from pysearch import Query
 
 
 def test_pysearch_text_and_regex(tmp_path: Path) -> None:

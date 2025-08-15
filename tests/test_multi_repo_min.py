@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.multi_repo import RepositoryManager
+from pysearch.integrations.multi_repo import RepositoryManager
 
 
 def test_repository_manager_add_list_remove(tmp_path: Path) -> None:

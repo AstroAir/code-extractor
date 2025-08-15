@@ -299,7 +299,7 @@ class TestCLI:
             data = self.extract_json_from_output(result.output)
             assert "items" in data
 
-    @patch("pysearch.cli.PySearch")
+    @patch("pysearch.cli.main.PySearch")
     def test_find_command_with_debug_logging(self, mock_pysearch):
         """Test find command with debug logging."""
         mock_engine = MagicMock()
@@ -314,7 +314,7 @@ class TestCLI:
         # Debug mode might change exit code, just check it ran
         assert result.exit_code in [0, 1]
 
-    @patch("pysearch.cli.PySearch")
+    @patch("pysearch.cli.main.PySearch")
     def test_find_command_with_log_file(self, mock_pysearch):
         """Test find command with log file option."""
         mock_engine = MagicMock()
@@ -369,7 +369,7 @@ class TestCLI:
         assert result.exit_code == 2  # Click uses exit code 2 for usage errors
         assert "Invalid value" in result.output or "Error" in result.output
 
-    @patch("pysearch.cli.PySearch")
+    @patch("pysearch.cli.main.PySearch")
     def test_find_command_with_error_reporting(self, mock_pysearch):
         """Test find command with error reporting."""
         mock_engine = MagicMock()
@@ -388,7 +388,7 @@ class TestCLI:
         # Mock was called, so command executed
         mock_pysearch.assert_called_once()
 
-    @patch("pysearch.cli.PySearch")
+    @patch("pysearch.cli.main.PySearch")
     def test_find_command_with_ranking_analysis(self, mock_pysearch):
         """Test find command with ranking analysis."""
         mock_engine = MagicMock()
@@ -412,7 +412,7 @@ class TestCLI:
         # Mock was called, so command executed
         mock_pysearch.assert_called_once()
 
-    @patch("pysearch.cli.PySearch")
+    @patch("pysearch.cli.main.PySearch")
     def test_history_command_basic(self, mock_pysearch):
         """Test basic history command."""
         mock_engine = MagicMock()
@@ -432,7 +432,7 @@ class TestCLI:
         assert result.exit_code == 0
         assert "test" in result.output
 
-    @patch("pysearch.cli.PySearch")
+    @patch("pysearch.cli.main.PySearch")
     def test_history_command_with_analytics(self, mock_pysearch):
         """Test history command with analytics."""
         mock_engine = MagicMock()
@@ -455,7 +455,7 @@ class TestCLI:
         assert "Total searches: 100" in result.output
         assert "Success rate: 85.0%" in result.output
 
-    @patch("pysearch.cli.PySearch")
+    @patch("pysearch.cli.main.PySearch")
     def test_history_command_with_sessions(self, mock_pysearch):
         """Test history command with sessions."""
         mock_engine = MagicMock()
@@ -475,7 +475,7 @@ class TestCLI:
         assert "Recent Search Sessions" in result.output
         assert "abc123de" in result.output  # First 8 chars of session ID
 
-    @patch("pysearch.cli.PySearch")
+    @patch("pysearch.cli.main.PySearch")
     def test_history_command_with_tags(self, mock_pysearch):
         """Test history command with tags."""
         mock_engine = MagicMock()
@@ -495,7 +495,7 @@ class TestCLI:
         assert result.exit_code == 0
         assert "tagged_search" in result.output
 
-    @patch("pysearch.cli.PySearch")
+    @patch("pysearch.cli.main.PySearch")
     def test_bookmarks_command_list(self, mock_pysearch):
         """Test bookmarks command list functionality."""
         mock_engine = MagicMock()
@@ -511,7 +511,7 @@ class TestCLI:
         assert "search1" in result.output
         assert "def main" in result.output
 
-    @patch("pysearch.cli.PySearch")
+    @patch("pysearch.cli.main.PySearch")
     def test_bookmarks_command_add(self, mock_pysearch):
         """Test bookmarks command add functionality."""
         mock_engine = MagicMock()
@@ -525,7 +525,7 @@ class TestCLI:
         assert result.exit_code == 0
         assert "Bookmark 'my_search' added" in result.output
 
-    @patch("pysearch.cli.PySearch")
+    @patch("pysearch.cli.main.PySearch")
     def test_bookmarks_command_remove(self, mock_pysearch):
         """Test bookmarks command remove functionality."""
         mock_engine = MagicMock()
@@ -537,7 +537,7 @@ class TestCLI:
         assert result.exit_code == 0
         assert "Bookmark 'old_search' removed" in result.output
 
-    @patch("pysearch.cli.PySearch")
+    @patch("pysearch.cli.main.PySearch")
     def test_bookmarks_command_folders(self, mock_pysearch):
         """Test bookmarks command folder functionality."""
         mock_engine = MagicMock()

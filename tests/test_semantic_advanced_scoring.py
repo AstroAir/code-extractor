@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.types import Language, MetadataFilters
+from pysearch import PySearch
+from pysearch import SearchConfig
+from pysearch import Language, MetadataFilters
 
 
 def test_semantic_advanced_scoring_and_thresholds(tmp_path: Path) -> None:

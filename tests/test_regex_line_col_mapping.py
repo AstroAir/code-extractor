@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pysearch.matchers import find_text_regex_matches
+from pysearch.search.matchers import find_text_regex_matches
 
 
 def test_regex_line_col_mapping_simple() -> None:

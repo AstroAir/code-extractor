@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pysearch.dependency_analysis import CircularDependencyDetector, DependencyGraph, ImportNode
+from pysearch.analysis.dependency_analysis import CircularDependencyDetector, DependencyGraph, ImportNode
 
 
 def test_circular_dependency_detector_finds_cycle():

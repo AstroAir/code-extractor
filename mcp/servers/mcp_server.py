@@ -914,7 +914,7 @@ class PySearchMCPServer(BasicPySearchMCPServer):
             # On Unix systems, you could get the owner
             import pwd
 
-            owner = pwd.getpwuid(stat_info.st_uid).pw_name
+            owner: str = pwd.getpwuid(stat_info.st_uid).pw_name  # type: ignore[attr-defined]
             return owner
         except:
             return None
