@@ -34,8 +34,13 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
     for fast retrieval and filtering.
     """
 
-    artifact_id = "enhanced_code_snippets"
-    relative_expected_time = 1.5
+    @property
+    def artifact_id(self) -> str:
+        return "enhanced_code_snippets"
+
+    @property
+    def relative_expected_time(self) -> float:
+        return 1.5
 
     def __init__(self, config: Any) -> None:
         self.config = config

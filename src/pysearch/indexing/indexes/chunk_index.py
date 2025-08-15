@@ -32,8 +32,12 @@ class EnhancedChunkIndex(EnhancedCodebaseIndex):
     boundaries and provide optimal segments for embedding and analysis.
     """
 
-    artifact_id = "enhanced_chunks"
-    relative_expected_time = 1.2
+    @property
+    def artifact_id(self) -> str:
+        return "enhanced_chunks"
+    @property
+    def relative_expected_time(self) -> float:
+        return 1.2
 
     def __init__(self, config: Any) -> None:
         self.config = config

@@ -30,8 +30,13 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
     with improved ranking, filtering, and language-aware tokenization.
     """
 
-    artifact_id = "enhanced_full_text"
-    relative_expected_time = 1.0
+    @property
+    def artifact_id(self) -> str:
+        return "enhanced_full_text"
+
+    @property
+    def relative_expected_time(self) -> float:
+        return 1.0
 
     def __init__(self, config: Any) -> None:
         self.config = config

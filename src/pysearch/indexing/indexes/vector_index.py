@@ -33,8 +33,13 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
     and embedding providers.
     """
 
-    artifact_id = "enhanced_vectors"
-    relative_expected_time = 3.0  # Higher cost due to embedding generation
+    @property
+    def artifact_id(self) -> str:
+        return "enhanced_vectors"
+
+    @property
+    def relative_expected_time(self) -> float:
+        return 3.0
 
     def __init__(self, config: Any) -> None:
         self.config = config
