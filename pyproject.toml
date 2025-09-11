@@ -140,14 +140,64 @@ package-data = { pysearch = ["py.typed"] }
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q"
+addopts = [
+    "-ra",                    # Show extra test summary info for all except passed
+    "-q",                     # Quiet mode
+    "--strict-markers",       # Treat unregistered markers as errors
+    "--strict-config",        # Treat config warnings as errors
+    "--disable-warnings",     # Disable warnings for cleaner output
+    "--tb=short",            # Shorter traceback format
+    "--maxfail=5",           # Stop after 5 failures
+]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
 markers = [
-    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "benchmark: marks tests as benchmarks",
-    "asyncio: marks tests as async tests"
+    # Test categories
+    "unit: Unit tests - fast, isolated tests",
+    "integration: Integration tests - test component interactions",
+    "e2e: End-to-end tests - full system tests",
+    "benchmark: Performance benchmark tests",
+
+    # Speed markers
+    "slow: Slow tests that may take longer to run",
+    "fast: Fast tests that should complete quickly",
+
+    # Component markers
+    "api: API-related tests",
+    "cli: CLI-related tests",
+    "indexer: Indexer component tests",
+    "matcher: Matcher component tests",
+    "scorer: Scorer component tests",
+    "formatter: Formatter component tests",
+    "cache: Cache-related tests",
+    "config: Configuration tests",
+
+    # Feature markers
+    "regex: Regular expression functionality tests",
+    "ast: AST parsing and filtering tests",
+    "semantic: Semantic search tests",
+    "fuzzy: Fuzzy search tests",
+    "multi_language: Multi-language support tests",
+    "file_watcher: File watching functionality tests",
+
+    # Infrastructure markers
+    "asyncio: Async/await functionality tests",
+    "parallel: Parallel processing tests",
+    "disk_io: Tests involving disk I/O operations",
+    "network: Tests requiring network access",
+
+    # Quality markers
+    "smoke: Basic smoke tests",
+    "regression: Regression tests for specific bugs",
+    "edge_case: Edge case and boundary condition tests"
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::UserWarning:.*urllib3.*",
 ]
 
 [tool.coverage.run]

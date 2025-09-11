@@ -74,6 +74,17 @@ make type          # Run mypy on src and tests
 ## Build and Release
 
 ```bash
-make clean         # Clean build artifacts
+make clean         # Clean build artifacts and cache files
 make release       # Build package (requires TWINE_* env vars for upload)
 ```
+
+## Project Maintenance
+
+**Cache Management:**
+- Cache directories (`.mypy_cache`, `.pytest_cache`, `.pysearch-cache`, etc.) are automatically managed
+- Use `make clean` to remove all cache files and build artifacts
+- Cache files are regenerated automatically when needed
+
+**Virtual Environment:**
+- Project uses `.venv/` for development environment
+- No duplicate virtual environments after cleanup

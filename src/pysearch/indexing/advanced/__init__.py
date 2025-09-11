@@ -12,5 +12,14 @@ These features are designed to provide enterprise-grade search
 capabilities while maintaining compatibility with the core system.
 """
 
-# Enhanced indexing exports will be added during reorganization
-__all__: list[str] = []
+from .base import EnhancedCodebaseIndex
+from .coordinator import IndexCoordinator
+from .engine import EnhancedIndexingEngine
+from .locking import IndexLock
+
+__all__ = [
+    "EnhancedCodebaseIndex",
+    "IndexCoordinator",
+    "EnhancedIndexingEngine",
+    "IndexLock",
+]

@@ -15,7 +15,7 @@ help:
 	@echo "  cov         - Show coverage summary"
 	@echo "  htmlcov     - Open HTML coverage"
 	@echo "  bench       - Run pytest benchmarks"
-	@echo "  clean       - Cleanup build/test artifacts"
+	@echo "  clean       - Cleanup build/test artifacts and cache files"
 	@echo "  pre-commit  - Run pre-commit on all files"
 	@echo "  hooks       - Install pre-commit hooks"
 	@echo "  docs        - Build docs with mkdocs"
@@ -63,9 +63,11 @@ bench:
 
 clean:
 	rm -rf build/ dist/ sdist/ wheels/
-	rm -rf .pytest_cache/ .mypy_cache/ .ruff_cache/ .coverage/ htmlcov/ .benchmarks/
+	rm -rf .pytest_cache/ .mypy_cache/ .mypy_cache_temp/ .ruff_cache/ .coverage/ htmlcov/ .benchmarks/
+	rm -rf .pysearch-cache/ coverage.xml
 	rm -rf site/ .mkdocs_cache/ docs_build/ .docstring_cache/ .api_docs_cache/
-	find . -type d -name "__pycache__" -exec rm -rf {} +
+	rm -rf src/*.egg-info/
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 pre-commit:
 	pre-commit run --all-files

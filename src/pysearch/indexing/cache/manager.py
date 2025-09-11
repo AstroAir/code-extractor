@@ -20,13 +20,15 @@ from __future__ import annotations
 
 import builtins
 import pickle
-import threading
 import time
 from pathlib import Path
 from typing import Any
 
 from .backends import CacheBackend, DiskCache, MemoryCache
-from .models import CacheEntry, CacheStats
+from .cleanup import CacheCleanup
+from .dependencies import DependencyTracker
+from .models import CacheEntry
+from .statistics import CacheStatistics
 from ...core.types import SearchResult
 from ...utils.logging_config import get_logger
 
@@ -81,20 +83,18 @@ class CacheManager:
         else:
             raise ValueError(f"Unknown cache backend: {backend}")
 
-        # Statistics
-        self.stats = CacheStats()
-        self._stats_lock = threading.RLock()
+        # Statistics tracking
+        self.statistics = CacheStatistics()
 
         # File dependency tracking
-        self._file_dependencies: dict[str, set[str]] = {}  # file -> cache_keys
-        self._dependency_lock = threading.RLock()
+        self.dependencies = DependencyTracker()
 
-        # Cleanup thread
-        self._cleanup_thread: threading.Thread | None = None
-        self._cleanup_stop_event = threading.Event()
-
-        if auto_cleanup:
-            self._start_cleanup_thread()
+        # Cleanup management
+        self.cleanup_manager = CacheCleanup(
+            cleanup_callback=self.cleanup_expired,
+            cleanup_interval=cleanup_interval,
+            auto_cleanup=auto_cleanup
+        )
 
     def get(self, key: str) -> SearchResult | None:
         """
@@ -112,27 +112,27 @@ class CacheManager:
             entry = self.backend.get(key)
 
             if entry is None:
-                self._record_miss()
+                self.statistics.record_miss()
                 return None
 
             # Check expiration
             if entry.is_expired:
                 self.backend.delete(key)
-                self._remove_file_dependencies(key)
-                self._record_miss()
+                self.dependencies.remove_dependencies(key)
+                self.statistics.record_miss()
                 return None
 
-            self._record_hit()
+            self.statistics.record_hit()
             return entry.value
 
         except Exception as e:
             self.logger.error(f"Error getting cache entry {key}: {e}")
-            self._record_miss()
+            self.statistics.record_miss()
             return None
 
         finally:
             elapsed = time.time() - start_time
-            self._update_access_time(elapsed)
+            self.statistics.update_access_time(elapsed)
 
     def set(
         self,
@@ -178,12 +178,11 @@ class CacheManager:
             if success:
                 # Update file dependencies
                 if file_dependencies:
-                    self._add_file_dependencies(key, file_dependencies)
+                    self.dependencies.add_dependencies(key, file_dependencies)
 
                 # Update stats
-                with self._stats_lock:
-                    self.stats.total_entries = self.backend.size()
-                    self.stats.total_size_bytes += size_bytes
+                self.statistics.update_entry_count(self.backend.size())
+                self.statistics.add_size(size_bytes)
 
             return success
 
@@ -204,9 +203,8 @@ class CacheManager:
         try:
             success = self.backend.delete(key)
             if success:
-                self._remove_file_dependencies(key)
-                with self._stats_lock:
-                    self.stats.total_entries = self.backend.size()
+                self.dependencies.remove_dependencies(key)
+                self.statistics.update_entry_count(self.backend.size())
             return success
 
         except Exception as e:
@@ -223,9 +221,7 @@ class CacheManager:
         Returns:
             Number of cache entries invalidated
         """
-        with self._dependency_lock:
-            dependent_keys = self._file_dependencies.get(
-                file_path, set()).copy()
+        dependent_keys = self.dependencies.get_dependent_keys(file_path)
 
         invalidated = 0
         for key in dependent_keys:
@@ -233,8 +229,7 @@ class CacheManager:
                 invalidated += 1
 
         if invalidated > 0:
-            with self._stats_lock:
-                self.stats.invalidations += invalidated
+            self.statistics.record_invalidation(invalidated)
 
             self.logger.debug(
                 f"Invalidated {invalidated} cache entries for file: {file_path}")
@@ -264,8 +259,7 @@ class CacheManager:
                 invalidated += 1
 
         if invalidated > 0:
-            with self._stats_lock:
-                self.stats.invalidations += invalidated
+            self.statistics.record_invalidation(invalidated)
 
             self.logger.debug(
                 f"Invalidated {invalidated} cache entries matching pattern: {pattern}")
@@ -276,14 +270,8 @@ class CacheManager:
         """Clear all cached entries."""
         try:
             self.backend.clear()
-
-            with self._dependency_lock:
-                self._file_dependencies.clear()
-
-            with self._stats_lock:
-                self.stats.total_entries = 0
-                self.stats.total_size_bytes = 0
-
+            self.dependencies.clear_all_dependencies()
+            self.statistics.reset_stats()
             self.logger.info("Cache cleared")
 
         except Exception as e:
@@ -304,15 +292,14 @@ class CacheManager:
                 entry = self.backend.get(key)
                 if entry and entry.is_expired:
                     if self.backend.delete(key):
-                        self._remove_file_dependencies(key)
+                        self.dependencies.remove_dependencies(key)
                         removed += 1
             except Exception as e:
                 self.logger.error(f"Error checking expiration for {key}: {e}")
 
         if removed > 0:
-            with self._stats_lock:
-                self.stats.evictions += removed
-                self.stats.total_entries = self.backend.size()
+            self.statistics.record_eviction(removed)
+            self.statistics.update_entry_count(self.backend.size())
 
             self.logger.debug(f"Cleaned up {removed} expired cache entries")
 
@@ -325,21 +312,13 @@ class CacheManager:
         Returns:
             Dictionary with cache performance statistics
         """
-        with self._stats_lock:
-            self.stats.update_hit_rate()
-            self.stats.total_entries = self.backend.size()
+        self.statistics.update_entry_count(self.backend.size())
 
-            return {
-                "hits": self.stats.hits,
-                "misses": self.stats.misses,
-                "hit_rate": self.stats.hit_rate,
-                "evictions": self.stats.evictions,
-                "invalidations": self.stats.invalidations,
-                "total_entries": self.stats.total_entries,
-                "total_size_bytes": self.stats.total_size_bytes,
-                "average_access_time": self.stats.average_access_time,
-                "file_dependencies": len(self._file_dependencies)
-            }
+        additional_stats = {
+            "file_dependencies": self.dependencies.get_dependency_count()
+        }
+
+        return self.statistics.get_stats_dict(additional_stats)
 
     def _calculate_size(self, value: SearchResult) -> int:
         """Calculate the approximate size of a search result."""
@@ -350,65 +329,9 @@ class CacheManager:
             # Fallback estimation
             return len(str(value)) * 2  # Rough estimate
 
-    def _add_file_dependencies(self, key: str, file_paths: builtins.set[str]) -> None:
-        """Add file dependencies for a cache key."""
-        with self._dependency_lock:
-            for file_path in file_paths:
-                if file_path not in self._file_dependencies:
-                    self._file_dependencies[file_path] = set()
-                self._file_dependencies[file_path].add(key)
-
-    def _remove_file_dependencies(self, key: str) -> None:
-        """Remove file dependencies for a cache key."""
-        with self._dependency_lock:
-            files_to_remove = []
-            for file_path, keys in self._file_dependencies.items():
-                keys.discard(key)
-                if not keys:
-                    files_to_remove.append(file_path)
-
-            for file_path in files_to_remove:
-                del self._file_dependencies[file_path]
-
-    def _record_hit(self) -> None:
-        """Record a cache hit."""
-        with self._stats_lock:
-            self.stats.hits += 1
-
-    def _record_miss(self) -> None:
-        """Record a cache miss."""
-        with self._stats_lock:
-            self.stats.misses += 1
-
-    def _update_access_time(self, elapsed: float) -> None:
-        """Update average access time."""
-        with self._stats_lock:
-            total_requests = self.stats.hits + self.stats.misses
-            if total_requests > 0:
-                self.stats.average_access_time = (
-                    (self.stats.average_access_time * (total_requests - 1) + elapsed) /
-                    total_requests
-                )
-
-    def _start_cleanup_thread(self) -> None:
-        """Start the automatic cleanup thread."""
-        def cleanup_worker() -> None:
-            while not self._cleanup_stop_event.wait(self.cleanup_interval):
-                try:
-                    self.cleanup_expired()
-                except Exception as e:
-                    self.logger.error(f"Error in cleanup thread: {e}")
-
-        self._cleanup_thread = threading.Thread(
-            target=cleanup_worker, daemon=True)
-        self._cleanup_thread.start()
-
     def shutdown(self) -> None:
         """Shutdown the cache manager and cleanup resources."""
-        if self._cleanup_thread:
-            self._cleanup_stop_event.set()
-            self._cleanup_thread.join(timeout=5.0)
-
+        self.cleanup_manager.shutdown()
         self.logger.info("Cache manager shutdown complete")
 
     def __enter__(self) -> CacheManager:

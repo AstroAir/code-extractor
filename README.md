@@ -178,8 +178,17 @@ for repo_name, repo_results in results.repository_results.items():
 ├── tests/                 # Test suite
 ├── docs/                  # Documentation
 ├── scripts/               # Build and development scripts
-└── configs/               # Configuration files
+├── configs/               # Configuration files
+└── .venv/                 # Virtual environment (development)
 ```
+
+### Clean Project Organization
+
+The project maintains a clean structure with:
+- **No cache directories**: All cache files (`.mypy_cache`, `.pytest_cache`, etc.) are automatically regenerated
+- **Single virtual environment**: Uses `.venv/` for consistent development environment
+- **No build artifacts**: Build outputs are excluded and regenerated as needed
+- **Organized source code**: Clear separation between core library, tools, and documentation
 
 ### MCP Servers
 
@@ -279,7 +288,7 @@ pysearch find --pattern "config|settings" --semantic --include "**/*.py"
 pysearch find \
   --path src tests \
   --include "**/*.py" \
-  --exclude "*/.venv/*" "*/build/*" \
+  --exclude "**/.venv/**" "**/build/**" \
   --pattern "def .*_handler" \
   --regex \
   --context 4 \

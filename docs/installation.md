@@ -473,7 +473,7 @@ pip list | grep pysearch
 # Uninstall pysearch
 pip uninstall pysearch
 
-# Remove cache directories
+# Remove cache directories (automatically regenerated)
 rm -rf ~/.cache/pysearch
 rm -rf ./.pysearch-cache
 
@@ -482,6 +482,7 @@ rm -rf ~/.config/pysearch
 
 # Remove virtual environment (if used)
 rm -rf pysearch-env
+rm -rf .venv  # If using project's virtual environment
 ```
 
 ### Clean Development Environment
@@ -493,11 +494,15 @@ pip uninstall pysearch
 # Remove pre-commit hooks
 pre-commit uninstall
 
-# Clean build artifacts
+# Clean build artifacts and cache files
 make clean
 
 # Remove development dependencies
 pip uninstall -r requirements-dev.txt
+
+# Note: Cache directories (.mypy_cache, .pytest_cache, etc.)
+# are automatically cleaned by 'make clean' and will be
+# regenerated when needed
 ```
 
 ---

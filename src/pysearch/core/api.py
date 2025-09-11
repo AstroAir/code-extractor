@@ -37,38 +37,28 @@ Example:
 
 from __future__ import annotations
 
-import os
-import threading
 import time
-from collections.abc import Callable
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
-from ..indexing.cache_manager import CacheManager
 from .config import SearchConfig
-from ..analysis.dependency_analysis import DependencyAnalyzer, DependencyGraph, DependencyMetrics
-from ..indexing.metadata import MetadataIndexer, IndexQuery
-from ..utils.error_handling import ErrorCollector, create_error_report, handle_file_error
-from ..utils.file_watcher import FileEvent, WatchManager
-from ..analysis.graphrag.engine import GraphRAGEngine
-from .history import SearchHistory, SearchHistoryEntry
+from .history import SearchHistory
+from .integrations.advanced_search import AdvancedSearchManager
+from .integrations.cache_integration import CacheIntegrationManager
+from .integrations.dependency_integration import DependencyIntegrationManager
+from .integrations.enhanced_indexing_integration import EnhancedIndexingIntegrationManager
+from .integrations.file_watching import FileWatchingManager
+from .integrations.graphrag_integration import GraphRAGIntegrationManager
+from .integrations.multi_repo_integration import MultiRepoIntegrationManager
+from .integrations.parallel_processing import ParallelSearchManager
+from .types import GraphRAGQuery, OutputFormat, Query, SearchItem, SearchResult, SearchStats
 from ..indexing.indexer import Indexer
-from ..utils.logging_config import SearchLogger, get_logger
 from ..search.matchers import search_in_file
+from ..search.scorer import RankingStrategy, sort_items, deduplicate_overlapping_results
+from ..storage.qdrant_client import QdrantConfig
+from ..utils.error_handling import ErrorCollector
+from ..utils.logging_config import SearchLogger, get_logger
 from ..utils.metadata_filters import apply_metadata_filters, get_file_author
-from ..integrations.multi_repo import MultiRepoSearchEngine, MultiRepoSearchResult, RepositoryInfo
-from ..storage.qdrant_client import QdrantConfig, QdrantVectorStore
-from ..search.scorer import (
-    RankingStrategy,
-    cluster_results_by_similarity,
-    deduplicate_overlapping_results,
-    sort_items,
-)
-from ..search.semantic_advanced import SemanticSearchEngine
-from .types import (
-    GraphRAGQuery, GraphRAGResult, OutputFormat, Query, SearchItem, SearchResult, SearchStats
-)
 from ..utils.utils import create_file_metadata, read_text_safely
 
 
@@ -134,147 +124,56 @@ class PySearch:
             enable_graphrag: Whether to enable GraphRAG capabilities.
             enable_enhanced_indexing: Whether to enable enhanced metadata indexing.
         """
+        # Core components
         self.cfg = config or SearchConfig()
+        self.cfg.enable_graphrag = enable_graphrag
+        self.cfg.enable_enhanced_indexing = enable_enhanced_indexing
+
         self.indexer = Indexer(self.cfg)
         self.history = SearchHistory(self.cfg)
         self.logger = logger or get_logger()
         self.error_collector = ErrorCollector()
-        self.semantic_engine = SemanticSearchEngine()
-        self.dependency_analyzer = DependencyAnalyzer()
-        self.watch_manager = WatchManager()
-        self._auto_watch_enabled = False
-        self.cache_manager: CacheManager | None = None
-        self._caching_enabled = False
-        self.multi_repo_engine: MultiRepoSearchEngine | None = None
-        self._multi_repo_enabled = False
 
-        # GraphRAG and enhanced indexing components
-        self.qdrant_config = qdrant_config
-        self.enable_graphrag = enable_graphrag
-        self.enable_enhanced_indexing = enable_enhanced_indexing
-        self._graphrag_engine: GraphRAGEngine | None = None
-        self._enhanced_indexer: MetadataIndexer | None = None
-        self._vector_store: QdrantVectorStore | None = None
-        self._graphrag_initialized = False
-        self._enhanced_indexing_initialized = False
+        # Integration managers
+        self.advanced_search = AdvancedSearchManager(self.cfg)
+        self.cache_integration = CacheIntegrationManager(self.cfg)
+        self.dependency_integration = DependencyIntegrationManager(self.cfg)
+        self.file_watching = FileWatchingManager(self.cfg)
+        self.graphrag_integration = GraphRAGIntegrationManager(self.cfg, qdrant_config)
+        self.enhanced_indexing_integration = EnhancedIndexingIntegrationManager(self.cfg)
+        self.multi_repo_integration = MultiRepoIntegrationManager(self.cfg)
+        self.parallel_processing = ParallelSearchManager(self.cfg)
 
-        # In-memory caches
-        self._file_content_cache: dict[Path, tuple[float, str]] = {}
-        self._search_result_cache: dict[str, tuple[float, SearchResult]] = {}
-        self._cache_lock = threading.RLock()
-        self.cache_ttl = 300  # 5 minutes TTL
+        # Set up dependencies between managers
+        self.advanced_search.set_dependencies(self.error_collector, self.logger)
+        self.graphrag_integration.set_dependencies(self.logger, self.error_collector)
+        self.enhanced_indexing_integration.set_dependencies(self.logger, self.error_collector)
+        self.dependency_integration.set_logger(self.logger)
+        self.file_watching.set_indexer(self.indexer)
 
     async def initialize_graphrag(self) -> None:
         """Initialize GraphRAG components."""
-        if not self.enable_graphrag or self._graphrag_initialized:
-            return
-
-        try:
-            if not self._graphrag_engine:
-                self._graphrag_engine = GraphRAGEngine(
-                    self.cfg, self.qdrant_config)
-
-            await self._graphrag_engine.initialize()
-            # Set the vector store reference from the GraphRAG engine
-            self._vector_store = self._graphrag_engine.vector_store
-            self._graphrag_initialized = True
-            self.logger.info("GraphRAG engine initialized successfully")
-
-        except Exception as e:
-            self.logger.error(f"Failed to initialize GraphRAG: {e}")
-            self.error_collector.add_error(e)
+        await self.graphrag_integration.initialize()
 
     async def initialize_enhanced_indexing(self) -> None:
         """Initialize enhanced indexing components."""
-        if not self.enable_enhanced_indexing or self._enhanced_indexing_initialized:
-            return
-
-        try:
-            if not self._enhanced_indexer:
-                self._enhanced_indexer = MetadataIndexer(self.cfg)
-
-            await self._enhanced_indexer.initialize()
-            self._enhanced_indexing_initialized = True
-            self.logger.info("Enhanced indexing initialized successfully")
-
-        except Exception as e:
-            self.logger.error(f"Failed to initialize enhanced indexing: {e}")
-            self.error_collector.add_error(e)
+        await self.enhanced_indexing_integration.initialize()
 
     async def build_knowledge_graph(self, force_rebuild: bool = False) -> bool:
         """Build the GraphRAG knowledge graph."""
-        if not self.enable_graphrag:
-            self.logger.warning("GraphRAG not enabled")
-            return False
-
-        try:
-            await self.initialize_graphrag()
-            if self._graphrag_engine:
-                await self._graphrag_engine.build_knowledge_graph(force_rebuild)
-                self.logger.info("Knowledge graph built successfully")
-                return True
-        except Exception as e:
-            self.logger.error(f"Failed to build knowledge graph: {e}")
-            self.error_collector.add_error(e)
-
-        return False
+        return await self.graphrag_integration.build_knowledge_graph(force_rebuild)
 
     async def build_enhanced_index(self, include_semantic: bool = True, force_rebuild: bool = False) -> bool:
         """Build the enhanced metadata index."""
-        if not self.enable_enhanced_indexing:
-            self.logger.warning("Enhanced indexing not enabled")
-            return False
+        return await self.enhanced_indexing_integration.build_index(force_rebuild)
 
-        try:
-            await self.initialize_enhanced_indexing()
-            if self._enhanced_indexer:
-                stats = await self._enhanced_indexer.build_index(include_semantic, force_rebuild)
-                self.logger.info(
-                    f"Enhanced index built: {stats.total_files} files, {stats.total_entities} entities")
-                return True
-        except Exception as e:
-            self.logger.error(f"Failed to build enhanced index: {e}")
-            self.error_collector.add_error(e)
-
-        return False
-
-    async def graphrag_search(self, query: GraphRAGQuery) -> GraphRAGResult | None:
+    async def graphrag_search(self, query: GraphRAGQuery) -> Any | None:
         """Perform GraphRAG-based search."""
-        if not self.enable_graphrag:
-            self.logger.warning("GraphRAG not enabled")
-            return None
+        return await self.graphrag_integration.query_graph(query)
 
-        try:
-            await self.initialize_graphrag()
-            if self._graphrag_engine:
-                result = await self._graphrag_engine.query_graph(query)
-                self.logger.debug(
-                    f"GraphRAG search found {len(result.entities)} entities")
-                return result
-        except Exception as e:
-            self.logger.error(f"GraphRAG search failed: {e}")
-            self.error_collector.add_error(e)
-
-        return None
-
-    async def enhanced_index_search(self, query: IndexQuery) -> dict[str, Any] | None:
+    async def enhanced_index_search(self, query: Any) -> dict[str, Any] | None:
         """Search using the enhanced metadata index."""
-        if not self.enable_enhanced_indexing:
-            self.logger.warning("Enhanced indexing not enabled")
-            return None
-
-        try:
-            await self.initialize_enhanced_indexing()
-            if self._enhanced_indexer:
-                results = await self._enhanced_indexer.query_index(query)
-                self.logger.debug(
-                    f"Enhanced index search found {len(results.get('files', []))} files")
-                return results
-        except Exception as e:
-            self.logger.error(f"Enhanced index search failed: {e}")
-            self.error_collector.add_error(e)
-
-        return None
+        return await self.enhanced_indexing_integration.query_index(query)
 
     def _search_file(self, path: Path, query: Query) -> list[SearchItem]:
         text = self._get_cached_file_content(path)
@@ -300,56 +199,16 @@ class PySearch:
         """
         Get file content with caching based on modification time.
 
-        This method implements an in-memory cache for file contents to avoid
-        repeatedly reading the same files. Cache entries are invalidated when
-        the file's modification time changes.
+        This method delegates to the cache integration manager for file content caching.
 
         Args:
             path: Path to the file to read
 
         Returns:
-            File content as string if successful, None if file cannot be read
-            or exceeds size limits
-
-        Note:
-            The cache is automatically pruned when it exceeds 1000 entries to
-            prevent excessive memory usage.
+            File content as string if successful, empty string if file cannot be read
         """
-        try:
-            stat = path.stat()
-            current_mtime = stat.st_mtime
-
-            with self._cache_lock:
-                if path in self._file_content_cache:
-                    cached_mtime, content = self._file_content_cache[path]
-                    if cached_mtime == current_mtime:
-                        return content
-
-                # Cache miss or outdated - read file
-                try:
-                    file_content = read_text_safely(
-                        path, max_bytes=self.cfg.max_file_bytes)
-                    if file_content is not None:
-                        self._file_content_cache[path] = (
-                            current_mtime, file_content)
-                        return file_content
-                    else:
-                        self.logger.debug(f"Could not read file: {path}")
-                        return ""
-                except Exception as e:
-                    handle_file_error(
-                        path, "read", e, self.error_collector, self.logger)
-                    return ""
-                    # Limit cache size
-                    if len(self._file_content_cache) > 1000:
-                        # Remove oldest 20% of entries
-                        to_remove = list(self._file_content_cache.keys())[:200]
-                        for k in to_remove:
-                            del self._file_content_cache[k]
-
-                return content
-        except Exception:
-            return ""
+        content = self.cache_integration.get_cached_file_content(path)
+        return content if content is not None else ""
 
     def _get_cache_key(self, query: Query) -> str:
         """Generate cache key for search query."""
@@ -357,7 +216,7 @@ class PySearch:
 
     def _is_cache_valid(self, timestamp: float) -> bool:
         """Check if cache entry is still valid."""
-        return time.time() - timestamp < self.cache_ttl
+        return self.cache_integration._is_cache_valid(timestamp)
 
     def run(self, query: Query, use_cache: bool = True) -> SearchResult:
         r"""
@@ -401,22 +260,11 @@ class PySearch:
         )
 
         # Check cache first if enabled
-        if use_cache and self._caching_enabled and self.cache_manager:
-            cache_key = self._generate_cache_key(query)
-            cached_result = self.cache_manager.get(cache_key)
+        if use_cache:
+            cached_result = self.cache_integration.get_cached_result(query)
             if cached_result:
-                self.logger.debug(
-                    f"Using cached result for query: {query.pattern}")
+                self.logger.debug(f"Using cached result for query: {query.pattern}")
                 return cached_result
-
-        # Fallback to old cache system
-        cache_key = self._get_cache_key(query)
-        with self._cache_lock:
-            if cache_key in self._search_result_cache:
-                timestamp, result = self._search_result_cache[cache_key]
-                if self._is_cache_valid(timestamp):
-                    self.logger.debug("Returning cached search result")
-                    return result
 
         t0 = time.perf_counter()
 
@@ -437,9 +285,9 @@ class PySearch:
         paths = changed or list(self.indexer.iter_all_paths())
         self.logger.debug(f"Searching in {len(paths)} files")
 
-        # Adaptive parallelization based on workload
+        # Execute search using parallel processing manager
         try:
-            items = self._search_with_adaptive_parallelism(paths, query)
+            items = self.parallel_processing.search_files(paths, query, self._search_file)
         except Exception as e:
             self.logger.error(f"Error during search: {e}")
             self.error_collector.add_error(e)
@@ -482,118 +330,17 @@ class PySearch:
         except Exception as e:
             self.logger.warning(f"Could not save to history: {e}")
 
-        # Cache result in new cache manager if enabled
-        if use_cache and self._caching_enabled and self.cache_manager:
-            cache_key = self._generate_cache_key(query)
-            file_dependencies = self._get_file_dependencies(result)
-            self.cache_manager.set(
-                key=cache_key,
-                value=result,
-                file_dependencies=file_dependencies
-            )
-
-        # Cache result in old cache system
-        with self._cache_lock:
-            self._search_result_cache[cache_key] = (time.time(), result)
-            # Limit cache size
-            if len(self._search_result_cache) > 100:
-                oldest_keys = sorted(
-                    self._search_result_cache.keys(), key=lambda k: self._search_result_cache[k][0]
-                )[:20]
-                for k in oldest_keys:
-                    del self._search_result_cache[k]
+        # Cache result if enabled
+        if use_cache:
+            self.cache_integration.cache_result(query, result)
 
         return result
 
-    def _search_with_adaptive_parallelism(
-        self, paths: list[Path], query: Query
-    ) -> list[SearchItem]:
-        """Adaptive parallelization strategy based on workload size and complexity."""
-        items: list[SearchItem] = []
-        num_files = len(paths)
 
-        if not self.cfg.parallel or num_files < 10:
-            # Sequential for small workloads
-            for p in paths:
-                res = self._search_file(p, query)
-                if res:
-                    items.extend(res)
-            return items
-
-        # Choose between thread and process pool based on workload
-        cpu_count = os.cpu_count() or 4
-
-        if num_files > 1000 and not query.use_ast:  # Heavy I/O workload
-            # Use process pool for CPU-intensive work with many files
-            workers = min(cpu_count, self.cfg.workers or cpu_count)
-            try:
-                with ProcessPoolExecutor(max_workers=workers) as executor:
-                    # Batch files to reduce overhead
-                    batch_size = max(1, num_files // (workers * 4))
-                    batches = [paths[i: i + batch_size]
-                               for i in range(0, len(paths), batch_size)]
-
-                    futures = {
-                        executor.submit(_search_file_batch, batch, query): batch
-                        for batch in batches
-                    }
-
-                    for future in as_completed(futures):
-                        try:
-                            batch_results = future.result()
-                            for result in batch_results:
-                                if result:
-                                    items.extend(result)
-                        except Exception:
-                            # Fall back to thread pool on process pool failure
-                            batch = futures[future]
-                            for p in batch:
-                                res = self._search_file(p, query)
-                                if res:
-                                    items.extend(res)
-            except Exception:
-                # Fallback to thread pool
-                items = self._search_with_thread_pool(paths, query)
-        else:
-            # Use thread pool for I/O bound or smaller workloads
-            items = self._search_with_thread_pool(paths, query)
-
-        return items
-
-    def _search_with_thread_pool(self, paths: list[Path], query: Query) -> list[SearchItem]:
-        """Thread-based parallel search with optimized worker count."""
-        items: list[SearchItem] = []
-        cpu_count = os.cpu_count() or 4
-
-        # Optimize worker count based on I/O vs CPU ratio
-        if query.use_ast or query.use_regex:
-            workers = min(cpu_count * 2, self.cfg.workers or cpu_count * 2)
-        else:
-            # I/O bound
-            workers = min(cpu_count * 4, self.cfg.workers or cpu_count * 4)
-
-        workers = min(workers, len(paths))  # Don't over-provision
-
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {executor.submit(
-                self._search_file, p, query): p for p in paths}
-
-            for future in as_completed(futures):
-                try:
-                    res = future.result()
-                    if res:
-                        items.extend(res)
-                except Exception:
-                    # Log error but continue processing
-                    pass
-
-        return items
 
     def clear_caches(self) -> None:
         """Clear all internal caches."""
-        with self._cache_lock:
-            self._file_content_cache.clear()
-            self._search_result_cache.clear()
+        self.cache_integration.clear_caches()
 
     # Convenience text/regex api
     def search(
@@ -673,111 +420,21 @@ class PySearch:
         Returns:
             Dictionary containing results from all enabled search methods
         """
-        results: dict[str, Any] = {
-            "traditional": None,
-            "graphrag": None,
-            "enhanced_index": None,
-            "metadata": {
-                "pattern": pattern,
-                "timestamp": time.time(),
-                "methods_used": []
-            }
-        }
-
-        # Traditional search
-        try:
-            traditional_query = Query(pattern=pattern, **kwargs)
-            traditional_results = self.run(traditional_query)
-            results["traditional"] = {
-                "items": [
-                    {
-                        "file": str(item.file),
-                        "start_line": item.start_line,
-                        "end_line": item.end_line,
-                        "lines": item.lines,
-                        "match_spans": item.match_spans
-                    }
-                    for item in traditional_results.items
-                ],
-                "stats": {
-                    "files_scanned": traditional_results.stats.files_scanned,
-                    "files_matched": traditional_results.stats.files_matched,
-                    "items": traditional_results.stats.items,
-                    "elapsed_ms": traditional_results.stats.elapsed_ms
-                }
-            }
-            results["metadata"]["methods_used"].append("traditional")
-        except Exception as e:
-            self.logger.error(f"Traditional search failed: {e}")
-
-        # GraphRAG search
-        if use_graphrag and self.enable_graphrag:
-            try:
-                graphrag_query = GraphRAGQuery(
-                    pattern=pattern,
-                    max_hops=graphrag_max_hops,
-                    include_relationships=True
-                )
-                graphrag_results = await self.graphrag_search(graphrag_query)
-                if graphrag_results:
-                    results["graphrag"] = {
-                        "entities": [
-                            {
-                                "id": entity.id,
-                                "name": entity.name,
-                                "type": entity.entity_type.value,
-                                "file": str(entity.file_path),
-                                "line": entity.start_line,
-                                "signature": entity.signature,
-                                "docstring": entity.docstring
-                            }
-                            for entity in graphrag_results.entities
-                        ],
-                        "relationships": [
-                            {
-                                "source": rel.source_entity_id,
-                                "target": rel.target_entity_id,
-                                "type": rel.relation_type.value,
-                                "confidence": rel.confidence,
-                                "context": rel.context
-                            }
-                            for rel in graphrag_results.relationships
-                        ],
-                        "similarity_scores": graphrag_results.similarity_scores,
-                        "metadata": graphrag_results.metadata
-                    }
-                    results["metadata"]["methods_used"].append("graphrag")
-            except Exception as e:
-                self.logger.error(f"GraphRAG search failed: {e}")
-
-        # Enhanced index search
-        if use_enhanced_index and self.enable_enhanced_indexing:
-            try:
-                index_query = IndexQuery(
-                    semantic_query=pattern,
-                    include_entities=True,
-                    limit=50
-                )
-                index_results = await self.enhanced_index_search(index_query)
-                if index_results:
-                    results["enhanced_index"] = index_results
-                    results["metadata"]["methods_used"].append(
-                        "enhanced_index")
-            except Exception as e:
-                self.logger.error(f"Enhanced index search failed: {e}")
-
-        return results
+        return await self.advanced_search.hybrid_search(
+            pattern=pattern,
+            traditional_search_func=self.run,
+            graphrag_search_func=self.graphrag_search if use_graphrag else None,
+            enhanced_index_search_func=self.enhanced_index_search if use_enhanced_index else None,
+            use_graphrag=use_graphrag,
+            use_enhanced_index=use_enhanced_index,
+            graphrag_max_hops=graphrag_max_hops,
+            **kwargs
+        )
 
     async def close_async_components(self) -> None:
         """Close async components properly."""
-        if self._graphrag_engine:
-            await self._graphrag_engine.close()
-
-        if self._enhanced_indexer:
-            await self._enhanced_indexer.close()
-
-        if self._vector_store:
-            await self._vector_store.close()
+        await self.graphrag_integration.close()
+        await self.enhanced_indexing_integration.close()
 
     def search_semantic_advanced(
         self,
@@ -839,109 +496,21 @@ class PySearch:
 
         paths = changed or list(self.indexer.iter_all_paths())
 
-        # Prepare semantic engine by fitting on corpus if needed
-        if not self.semantic_engine.embedding_model.is_fitted and paths:
-            # Sample documents for training (limit to avoid memory issues)
-            sample_docs = []
-            for path in paths[:1000]:  # Limit to 1000 files for training
-                try:
-                    content = self._get_cached_file_content(path)
-                    if content:
-                        sample_docs.append(content)
-                except Exception:
-                    continue
-
-            if sample_docs:
-                self.semantic_engine.fit_corpus(sample_docs)
-
-        # Perform semantic search on all files
-        all_semantic_matches = []
-        files_processed = 0
-
-        for path in paths:
-            if files_processed >= max_results * 2:  # Process more files than needed
-                break
-
-            try:
-                content = self._get_cached_file_content(path)
-                if not content:
-                    continue
-
-                # Apply metadata filters if specified
-                metadata_filters = kwargs.get('metadata_filters')
-                if metadata_filters:
-                    file_metadata = create_file_metadata(path)
-                    if file_metadata and not apply_metadata_filters(file_metadata, metadata_filters):
-                        continue
-
-                # Perform semantic search on this file
-                semantic_matches = self.semantic_engine.search_semantic(
-                    query=query,
-                    content=content,
-                    file_path=path,
-                    threshold=threshold
-                )
-
-                all_semantic_matches.extend(semantic_matches)
-                files_processed += 1
-
-            except Exception as e:
-                handle_file_error(path, "semantic search",
-                                  e, self.error_collector)
-                continue
-
-        # Convert semantic matches to SearchItems
-        search_items = []
-        for semantic_match in all_semantic_matches:
-            search_items.append(semantic_match.item)
-
-        # Sort by semantic relevance (combined score)
-        search_items.sort(
-            key=lambda item: next(
-                (m.combined_score for m in all_semantic_matches if m.item == item), 0.0
-            ),
-            reverse=True
+        # Delegate to advanced search manager
+        return self.advanced_search.search_semantic_advanced(
+            query=query,
+            file_paths=paths,
+            get_file_content_func=self._get_cached_file_content,
+            threshold=threshold,
+            max_results=max_results,
+            **kwargs
         )
-
-        # Limit results
-        search_items = search_items[:max_results]
-
-        # Calculate statistics
-        elapsed_ms = (time.time() - start_time) * 1000
-        stats = SearchStats(
-            files_scanned=files_processed,
-            files_matched=len(set(item.file for item in search_items)),
-            items=len(search_items),
-            elapsed_ms=elapsed_ms,
-            indexed_files=total_seen,
-        )
-
-        result = SearchResult(items=search_items, stats=stats)
-
-        # Log completion
-        self.logger.log_search_complete(
-            pattern=f"semantic:{query}",
-            results_count=len(search_items),
-            elapsed_ms=elapsed_ms
-        )
-
-        # Add to history
-        semantic_query = Query(
-            pattern=f"semantic:{query}",
-            use_regex=False,
-            use_semantic=True,
-            filters=None,
-            metadata_filters=None
-        )
-        self.history.add_search(semantic_query, result)
-
-        return result
 
     def analyze_dependencies(
         self,
         directory: Path | None = None,
         recursive: bool = True
-    ) -> DependencyGraph:
+    ) -> Any:
         """
         Analyze code dependencies and build a dependency graph.
 
@@ -970,29 +539,9 @@ class PySearch:
             >>> if cycles:
             ...     print(f"Warning: {len(cycles)} circular dependencies found")
         """
-        if directory is None:
-            if self.cfg.paths:
-                directory = Path(self.cfg.paths[0])
-            else:
-                directory = Path.cwd()
+        return self.dependency_integration.analyze_dependencies(directory, recursive)
 
-        self.logger.info(f"Starting dependency analysis for: {directory}")
-        start_time = time.time()
-
-        # Perform dependency analysis
-        graph = self.dependency_analyzer.analyze_directory(
-            directory, recursive)
-
-        elapsed_ms = (time.time() - start_time) * 1000
-        self.logger.info(
-            f"Dependency analysis completed: {len(graph.nodes)} modules, "
-            f"{sum(len(edges) for edges in graph.edges.values())} dependencies, "
-            f"time={elapsed_ms:.2f}ms"
-        )
-
-        return graph
-
-    def get_dependency_metrics(self, graph: DependencyGraph | None = None) -> DependencyMetrics:
+    def get_dependency_metrics(self, graph: Any | None = None) -> Any:
         """
         Calculate comprehensive dependency metrics.
 
@@ -1013,17 +562,12 @@ class PySearch:
             ...     for module in metrics.highly_coupled_modules:
             ...         print(f"  - {module}")
         """
-        if graph is None:
-            graph = self.analyze_dependencies()
-
-        # Update analyzer's graph and calculate metrics
-        self.dependency_analyzer.graph = graph
-        return self.dependency_analyzer.calculate_metrics()
+        return self.dependency_integration.get_dependency_metrics(graph)
 
     def find_dependency_impact(
         self,
         module: str,
-        graph: DependencyGraph | None = None
+        graph: Any | None = None
     ) -> dict[str, Any]:
         """
         Analyze the impact of changes to a specific module.
@@ -1048,16 +592,11 @@ class PySearch:
             >>> for dep in impact['direct_dependents']:
             ...     print(f"  - {dep}")
         """
-        if graph is None:
-            graph = self.analyze_dependencies()
-
-        # Update analyzer's graph and perform impact analysis
-        self.dependency_analyzer.graph = graph
-        return self.dependency_analyzer.find_impact_analysis(module)
+        return self.dependency_integration.find_dependency_impact(module, graph)
 
     def suggest_refactoring_opportunities(
         self,
-        graph: DependencyGraph | None = None
+        graph: Any | None = None
     ) -> list[dict[str, Any]]:
         """
         Suggest refactoring opportunities based on dependency analysis.
@@ -1082,12 +621,7 @@ class PySearch:
             ...     print(f"  Rationale: {suggestion['rationale']}")
             ...     print()
         """
-        if graph is None:
-            graph = self.analyze_dependencies()
-
-        # Update analyzer's graph and get suggestions
-        self.dependency_analyzer.graph = graph
-        return self.dependency_analyzer.suggest_refactoring_opportunities()
+        return self.dependency_integration.suggest_refactoring_opportunities(graph)
 
     def enable_auto_watch(
         self,
@@ -1119,44 +653,7 @@ class PySearch:
             >>> # Enable with custom settings for high-frequency changes
             >>> engine.enable_auto_watch(debounce_delay=1.0, batch_size=100)
         """
-        if self._auto_watch_enabled:
-            self.logger.warning("Auto-watch already enabled")
-            return True
-
-        try:
-            # Create watchers for all configured paths
-            for i, path in enumerate(self.cfg.paths):
-                watcher_name = f"path_{i}"
-                success = self.watch_manager.add_watcher(
-                    name=watcher_name,
-                    path=path,
-                    config=self.cfg,
-                    indexer=self.indexer,
-                    debounce_delay=debounce_delay,
-                    batch_size=batch_size,
-                    max_batch_delay=max_batch_delay
-                )
-
-                if not success:
-                    self.logger.error(
-                        f"Failed to create watcher for path: {path}")
-                    return False
-
-            # Start all watchers
-            started = self.watch_manager.start_all()
-            if started == len(self.cfg.paths):
-                self._auto_watch_enabled = True
-                self.logger.info(f"Auto-watch enabled for {started} paths")
-                return True
-            else:
-                self.logger.error(
-                    f"Only {started}/{len(self.cfg.paths)} watchers started")
-                self.watch_manager.stop_all()
-                return False
-
-        except Exception as e:
-            self.logger.error(f"Failed to enable auto-watch: {e}")
-            return False
+        return self.file_watching.enable_auto_watch(debounce_delay, batch_size, max_batch_delay)
 
     def disable_auto_watch(self) -> None:
         """
@@ -1169,15 +666,7 @@ class PySearch:
             >>> engine.disable_auto_watch()
             >>> print("Auto-watch disabled - manual index refresh required")
         """
-        if not self._auto_watch_enabled:
-            return
-
-        try:
-            self.watch_manager.stop_all()
-            self._auto_watch_enabled = False
-            self.logger.info("Auto-watch disabled")
-        except Exception as e:
-            self.logger.error(f"Error disabling auto-watch: {e}")
+        self.file_watching.disable_auto_watch()
 
     def is_auto_watch_enabled(self) -> bool:
         """
@@ -1186,7 +675,7 @@ class PySearch:
         Returns:
             True if auto-watch is enabled, False otherwise
         """
-        return self._auto_watch_enabled
+        return self.file_watching.is_auto_watch_enabled()
 
     def get_watch_stats(self) -> dict[str, Any]:
         """

@@ -1,390 +1,46 @@
 """
-Enhanced code indexing engine with tag-based management and content addressing.
+Enhanced indexing engine for coordinating all indexing operations.
 
-This module implements the core enhanced indexing engine that coordinates multiple
-index types using Continue's tag-based approach with content addressing for
-efficient incremental updates and cross-branch caching.
+This module provides the main EnhancedIndexingEngine class that serves as the
+high-level interface for enhanced indexing operations, managing multiple index
+types and providing comprehensive progress tracking.
 
 Classes:
-    EnhancedCodebaseIndex: Abstract base for all index types
-    IndexCoordinator: Coordinates multiple index types
     EnhancedIndexingEngine: Main indexing engine
-    IndexLock: Prevents concurrent indexing operations
 
 Features:
-    - Tag-based index management (directory + branch + artifact)
-    - Content-addressed caching with SHA256 hashes
-    - Multiple index types (snippets, full-text, chunks, vectors)
-    - Incremental updates with smart diffing
-    - Global cache for cross-branch content sharing
-    - Batch processing for memory efficiency
+    - High-level indexing interface
+    - Multiple index type coordination
     - Progress tracking with pause/resume capability
-    - Robust error handling and recovery
+    - Automatic index discovery and loading
+    - Error handling and recovery
+    - File discovery and processing
 
 Example:
     Basic enhanced indexing:
-        >>> from pysearch.enhanced_indexing_engine import EnhancedIndexingEngine
+        >>> from pysearch.indexing.advanced.engine import EnhancedIndexingEngine
         >>> from pysearch.config import SearchConfig
         >>>
         >>> config = SearchConfig(paths=["./src"])
         >>> engine = EnhancedIndexingEngine(config)
         >>> await engine.refresh_index()
-
-    Advanced usage with custom indexes:
-        >>> from pysearch.enhanced_indexing_engine import IndexCoordinator
-        >>> coordinator = IndexCoordinator(config)
-        >>> coordinator.add_index(CustomCodebaseIndex())
-        >>> await coordinator.refresh_all_indexes()
 """
 
 from __future__ import annotations
 
 import asyncio
-import os
-import time
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
+import subprocess
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
+from .coordinator import IndexCoordinator
+from ...analysis.content_addressing import IndexTag, IndexingProgressUpdate
 from ...core.config import SearchConfig
-from ...analysis.content_addressing import (
-    ContentAddress,
-    GlobalCacheManager,
-    IndexTag,
-    IndexingProgressUpdate,
-    MarkCompleteCallback,
-    PathAndCacheKey,
-    RefreshIndexResults,
-)
 from ...utils.error_handling import ErrorCollector
 from ...utils.logging_config import get_logger
-from ...utils.utils import iter_files, file_meta, read_text_safely
+from ...utils.utils import file_meta, iter_files, read_text_safely
 
 logger = get_logger()
-
-
-class EnhancedCodebaseIndex(ABC):
-    """
-    Abstract base class for all enhanced index types.
-
-    This interface defines the contract that all index implementations must follow
-    to participate in the enhanced indexing system.
-    """
-
-    @property
-    @abstractmethod
-    def artifact_id(self) -> str:
-        """Unique identifier for this index type."""
-        pass
-
-    @property
-    @abstractmethod
-    def relative_expected_time(self) -> float:
-        """Relative time cost for this index type (1.0 = baseline)."""
-        pass
-
-    @abstractmethod
-    async def update(
-        self,
-        tag: IndexTag,
-        results: RefreshIndexResults,
-        mark_complete: MarkCompleteCallback,
-        repo_name: Optional[str] = None,
-    ) -> AsyncGenerator[IndexingProgressUpdate, None]:
-        """
-        Update the index with new/changed/deleted files.
-
-        Args:
-            tag: Index tag identifying the specific index instance
-            results: Files to compute/delete/add_tag/remove_tag
-            mark_complete: Callback to mark operations as complete
-            repo_name: Optional repository name for context
-
-        Yields:
-            Progress updates during the indexing operation
-        """
-        # This is an abstract async generator method
-        if False:  # pragma: no cover
-            yield
-
-    @abstractmethod
-    async def retrieve(
-        self,
-        query: str,
-        tag: IndexTag,
-        limit: int = 50,
-        **kwargs: Any,
-    ) -> List[Any]:
-        """
-        Retrieve results from this index.
-
-        Args:
-            query: Search query
-            tag: Index tag to search within
-            limit: Maximum number of results
-            **kwargs: Additional search parameters
-
-        Returns:
-            List of search results
-        """
-        pass
-
-
-class IndexLock:
-    """
-    Prevents concurrent indexing operations across multiple processes.
-
-    Uses file-based locking to coordinate indexing operations and prevent
-    SQLite concurrent write errors.
-    """
-
-    def __init__(self, cache_dir: Path):
-        self.lock_file = cache_dir / "indexing.lock"
-        self.cache_dir = cache_dir
-
-    async def acquire(self, directories: List[str], timeout: float = 300.0) -> bool:
-        """
-        Acquire indexing lock.
-
-        Args:
-            directories: List of directories being indexed
-            timeout: Maximum time to wait for lock
-
-        Returns:
-            True if lock acquired, False if timeout
-        """
-        start_time = time.time()
-
-        while time.time() - start_time < timeout:
-            try:
-                if not self.lock_file.exists():
-                    # Create lock file
-                    lock_data = {
-                        "directories": directories,
-                        "timestamp": time.time(),
-                        "pid": os.getpid(),
-                    }
-
-                    # Atomic write
-                    temp_file = self.lock_file.with_suffix(".tmp")
-                    temp_file.write_text(str(lock_data))
-                    temp_file.rename(self.lock_file)
-
-                    return True
-                else:
-                    # Check if existing lock is stale
-                    try:
-                        existing_lock_data: dict[str, Any] = eval(
-                            self.lock_file.read_text())
-                        timestamp = float(existing_lock_data["timestamp"])
-                        if time.time() - timestamp > 600:  # 10 minutes
-                            logger.warning("Removing stale indexing lock")
-                            self.lock_file.unlink()
-                            continue
-                    except Exception:
-                        # Corrupted lock file, remove it
-                        self.lock_file.unlink()
-                        continue
-
-                # Wait before retrying
-                await asyncio.sleep(1.0)
-
-            except Exception as e:
-                logger.error(f"Error acquiring index lock: {e}")
-                await asyncio.sleep(1.0)
-
-        return False
-
-    async def release(self) -> None:
-        """Release the indexing lock."""
-        try:
-            if self.lock_file.exists():
-                self.lock_file.unlink()
-        except Exception as e:
-            logger.error(f"Error releasing index lock: {e}")
-
-    async def update_timestamp(self) -> None:
-        """Update lock timestamp to prevent stale lock detection."""
-        try:
-            if self.lock_file.exists():
-                lock_data = eval(self.lock_file.read_text())
-                lock_data["timestamp"] = time.time()
-                self.lock_file.write_text(str(lock_data))
-        except Exception as e:
-            logger.error(f"Error updating lock timestamp: {e}")
-
-
-class IndexCoordinator:
-    """
-    Coordinates multiple index types for comprehensive code indexing.
-
-    This class manages the lifecycle of multiple index implementations,
-    ensuring they work together efficiently and handle updates correctly.
-    """
-
-    def __init__(self, config: SearchConfig):
-        self.config = config
-        self.indexes: List[EnhancedCodebaseIndex] = []
-        self.global_cache = GlobalCacheManager(config.resolve_cache_dir())
-        self.error_collector = ErrorCollector()
-        self.lock = IndexLock(config.resolve_cache_dir())
-
-    def add_index(self, index: EnhancedCodebaseIndex) -> None:
-        """Add an index to the coordinator."""
-        self.indexes.append(index)
-        logger.info(f"Added index: {index.artifact_id}")
-
-    def remove_index(self, artifact_id: str) -> bool:
-        """Remove an index by artifact ID."""
-        for i, index in enumerate(self.indexes):
-            if index.artifact_id == artifact_id:
-                del self.indexes[i]
-                logger.info(f"Removed index: {artifact_id}")
-                return True
-        return False
-
-    def get_index(self, artifact_id: str) -> Optional[EnhancedCodebaseIndex]:
-        """Get an index by artifact ID."""
-        for index in self.indexes:
-            if index.artifact_id == artifact_id:
-                return index
-        return None
-
-    async def refresh_all_indexes(
-        self,
-        tag: IndexTag,
-        current_files: Dict[str, Any],
-        read_file: Callable[[str], str],
-        repo_name: Optional[str] = None,
-    ) -> AsyncGenerator[IndexingProgressUpdate, None]:
-        """
-        Refresh all indexes with incremental updates.
-
-        Args:
-            tag: Index tag for this refresh operation
-            current_files: Current file state
-            read_file: Function to read file contents
-            repo_name: Optional repository name
-
-        Yields:
-            Progress updates during indexing
-        """
-        if not self.indexes:
-            yield IndexingProgressUpdate(
-                progress=1.0,
-                description="No indexes configured",
-                status="done"
-            )
-            return
-
-        # Acquire lock to prevent concurrent indexing
-        directories = [tag.directory]
-        if not await self.lock.acquire(directories):
-            yield IndexingProgressUpdate(
-                progress=0.0,
-                description="Failed to acquire indexing lock",
-                status="failed"
-            )
-            return
-
-        try:
-            # Calculate total expected time for progress tracking
-            total_expected_time = sum(
-                idx.relative_expected_time for idx in self.indexes)
-            completed_time = 0.0
-
-            for index in self.indexes:
-                index_tag = IndexTag(
-                    directory=tag.directory,
-                    branch=tag.branch,
-                    artifact_id=index.artifact_id
-                )
-
-                yield IndexingProgressUpdate(
-                    progress=completed_time / total_expected_time,
-                    description=f"Planning updates for {index.artifact_id}",
-                    status="indexing"
-                )
-
-                try:
-                    # Calculate what needs to be updated for this index
-                    from ...analysis.content_addressing import ContentAddressedIndexer
-                    indexer = ContentAddressedIndexer(self.config)
-                    refresh_results = await indexer.calculate_refresh_results(
-                        index_tag, current_files, read_file
-                    )
-
-                    # Create mark_complete callback for this index
-                    def mark_complete_wrapper(
-                        items: List[PathAndCacheKey],
-                        result_type: str,
-                    ) -> None:
-                        # Schedule async operations to run in the background
-                        async def _async_mark_complete() -> None:
-                            await indexer.mark_complete(items, result_type, index_tag)
-
-                            # Update global cache
-                            for item in items:
-                                if result_type == "compute":
-                                    # Store in global cache (implementation depends on index type)
-                                    pass
-                                elif result_type == "delete":
-                                    await self.global_cache.remove_tag(
-                                        item.cache_key, index.artifact_id, index_tag
-                                    )
-
-                        # Create task but don't await it (fire and forget)
-                        asyncio.create_task(_async_mark_complete())
-
-                    # Update this index
-                    index_progress = 0.0
-                    async for update in index.update(
-                        index_tag, refresh_results, mark_complete_wrapper, repo_name
-                    ):
-                        # Scale progress to overall progress
-                        overall_progress = (
-                            completed_time +
-                            (update.progress * index.relative_expected_time)
-                        ) / total_expected_time
-
-                        yield IndexingProgressUpdate(
-                            progress=overall_progress,
-                            description=f"{index.artifact_id}: {update.description}",
-                            status=update.status,
-                            warnings=update.warnings,
-                            debug_info=update.debug_info
-                        )
-                        index_progress = update.progress
-
-                    completed_time += index.relative_expected_time
-
-                except Exception as e:
-                    logger.error(
-                        f"Error updating index {index.artifact_id}: {e}")
-                    self.error_collector.add_error(
-                        e, file_path=Path(index.artifact_id))
-
-                    # Continue with other indexes
-                    completed_time += index.relative_expected_time
-                    yield IndexingProgressUpdate(
-                        progress=completed_time / total_expected_time,
-                        description=f"Error in {index.artifact_id}: {str(e)}",
-                        status="indexing",
-                        warnings=[f"{index.artifact_id}: {str(e)}"]
-                    )
-
-            # Final completion
-            yield IndexingProgressUpdate(
-                progress=1.0,
-                description="Indexing complete",
-                status="done",
-                warnings=[str(
-                    error) for error in self.error_collector.errors] if self.error_collector.errors else None
-            )
-
-        finally:
-            await self.lock.release()
 
 
 class EnhancedIndexingEngine:

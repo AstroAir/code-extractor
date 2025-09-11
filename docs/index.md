@@ -98,6 +98,7 @@ print(f"Found {len(results.items)} matches")
 ### Help & Support
 - [FAQ](faq.md) - Frequently asked questions
 - [Troubleshooting](troubleshooting.md) - Common issues and solutions
+- [Maintenance Guide](maintenance.md) - Project cleanup and maintenance procedures
 - [Examples](../examples/README.md) - Comprehensive examples
 
 ## Use Cases

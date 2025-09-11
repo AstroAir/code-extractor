@@ -433,7 +433,9 @@ top -p $(pgrep -f pysearch)
      --exclude "**/.venv/**" \
      --exclude "**/.git/**" \
      --exclude "**/node_modules/**" \
-     --exclude "**/__pycache__/**"
+     --exclude "**/__pycache__/**" \
+     --exclude "**/.mypy_cache/**" \
+     --exclude "**/.pytest_cache/**"
    ```
 
 2. **Enable parallel processing**:
@@ -794,6 +796,63 @@ For feature requests:
 ---
 
 ## Contributing to Troubleshooting
+
+### Cache and Cleanup Issues
+
+**Issue**: Unexpected behavior after project cleanup or cache corruption
+
+**Diagnosis**:
+
+```bash
+# Check for remaining cache directories
+ls -la | grep -E "\.(mypy|pytest|pysearch)"
+
+# Check cache sizes
+du -sh .mypy_cache .pytest_cache .pysearch-cache 2>/dev/null || echo "No cache directories found"
+```
+
+**Solutions**:
+
+1. **Clean all caches**:
+
+   ```bash
+   # Use project's clean command
+   make clean
+
+   # Or manually clean
+   rm -rf .mypy_cache .pytest_cache .pysearch-cache
+   rm -rf .coverage coverage.xml
+   find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+   ```
+
+2. **Regenerate caches**:
+
+   ```bash
+   # Regenerate type checking cache
+   make type
+
+   # Regenerate test cache
+   make test
+
+   # Let pysearch regenerate its cache
+   pysearch find --pattern "import" --path .
+   ```
+
+3. **Check virtual environment**:
+
+   ```bash
+   # Ensure using correct virtual environment
+   which python
+   which pysearch
+
+   # Should point to .venv/bin/ if using project environment
+   ```
+
+**Note**: All cache directories are automatically regenerated when needed. The project maintains a clean structure with no unnecessary cache files.
+
+---
+
+## Contributing to This Guide
 
 Help improve this guide by:
 

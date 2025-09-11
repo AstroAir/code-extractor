@@ -2,6 +2,18 @@
 
 The indexing module handles file indexing, caching, and metadata management for efficient search operations.
 
+## Recent Refactoring (2025-08-15)
+
+This module has been refactored to improve maintainability and follow the single responsibility principle. Large files have been broken down into focused, modular components while preserving all existing functionality and public APIs.
+
+### Refactored Components
+
+- **Metadata Package** (`metadata/`): Split 848-line file into focused modules
+- **Advanced Package** (`advanced/`): Split 689-line file into specialized modules
+- **Cache Package** (`cache/`): Refactored 421-line file with better separation of concerns
+
+All files now follow the 300-line coding standard while maintaining backward compatibility.
+
 ## Responsibilities
 
 - **File Indexing**: Efficient file scanning and metadata extraction
@@ -11,10 +23,12 @@ The indexing module handles file indexing, caching, and metadata management for 
 
 ## Key Files
 
-- `indexer.py` - Basic file indexing with incremental updates
-- `metadata.py` - Metadata indexing and querying (renamed from `indexer_metadata.py`)
-- `cache_manager.py` - Caching system for performance optimization
-- `advanced/` - Advanced indexing features and algorithms
+- `indexer.py` - Basic file indexing with incremental updates (291 lines)
+- `metadata.py` - Backward compatibility module importing from `metadata/` package
+- `metadata/` - Modular metadata indexing system (models, database, indexer, analysis)
+- `cache_manager.py` - Backward compatibility for cache management
+- `cache/` - Modular cache management package (manager, dependencies, cleanup, statistics)
+- `advanced/` - Modular advanced indexing (base, locking, coordinator, engine)
 - `legacy_indexer.py` - Backward compatibility module (deprecated)
 - `indexes/` - Specialized index implementations
 

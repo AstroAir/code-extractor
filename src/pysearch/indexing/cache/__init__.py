@@ -11,6 +11,11 @@ Public API:
     CacheBackend: Abstract base for cache backends
     MemoryCache: In-memory cache implementation
     DiskCache: Persistent disk-based cache
+
+Internal modules:
+    cleanup: Cache cleanup and maintenance functionality
+    dependencies: File dependency tracking
+    statistics: Cache statistics tracking and management
 """
 
 from .backends import CacheBackend, DiskCache, MemoryCache
@@ -19,7 +24,7 @@ from .models import CacheEntry, CacheStats
 
 __all__ = [
     "CacheManager",
-    "CacheEntry", 
+    "CacheEntry",
     "CacheStats",
     "CacheBackend",
     "MemoryCache",
