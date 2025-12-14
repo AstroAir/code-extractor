@@ -50,7 +50,7 @@ jobs:
         run: make mcp-servers
       - name: Upload coverage to artifact
         if: ${{ matrix.python-version == '3.12' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-xml
           path: coverage.xml
