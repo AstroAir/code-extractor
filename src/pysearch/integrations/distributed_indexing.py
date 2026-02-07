@@ -286,7 +286,7 @@ class IndexingWorker:
         """
         from pathlib import Path
 
-        from ..utils.utils import file_meta, iter_files
+        from ..utils.helpers import file_meta, iter_files
 
         directory = item.data["directory"]
         logger.debug(f"Worker {self.worker_id} discovering files in {directory}")
@@ -319,7 +319,7 @@ class IndexingWorker:
         """
         from pathlib import Path
 
-        from ..utils.utils import read_text_safely
+        from ..utils.helpers import read_text_safely
 
         file_path = item.data["file_path"]
         logger.debug(f"Worker {self.worker_id} extracting content from {file_path}")

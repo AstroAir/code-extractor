@@ -53,7 +53,7 @@ from ..core.config import SearchConfig
 from ..core.types import Language
 from ..utils.error_handling import ErrorCollector
 from ..utils.logging_config import get_logger
-from ..utils.utils import file_meta, read_text_safely
+from ..utils.helpers import file_meta, read_text_safely
 
 logger = get_logger()
 

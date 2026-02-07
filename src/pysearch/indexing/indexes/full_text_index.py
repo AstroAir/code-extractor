@@ -23,7 +23,7 @@ from ...analysis.content_addressing import (
 )
 from ...analysis.language_detection import detect_language
 from ...utils.logging_config import get_logger
-from ...utils.utils import read_text_safely
+from ...utils.helpers import read_text_safely
 from ..advanced.base import CodebaseIndex
 
 logger = get_logger()

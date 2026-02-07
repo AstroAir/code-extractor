@@ -546,7 +546,7 @@ class ChunkingEngine:
         """
         if content is None:
             try:
-                from ...utils.utils import read_text_safely
+                from ...utils.helpers import read_text_safely
 
                 content = read_text_safely(Path(file_path))
                 if content is None:

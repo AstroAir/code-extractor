@@ -449,7 +449,7 @@ class SearchCoordinator:
             all_items = all_items[:max_results]
 
         # Create aggregated stats
-        from .types import SearchStats
+        from ..core.types import SearchStats
 
         aggregated_stats = SearchStats(
             files_scanned=total_files_scanned,
@@ -623,7 +623,7 @@ class MultiRepoSearchEngine:
             ...     max_results=500
             ... )
         """
-        from .types import Query
+        from ..core.types import Query
 
         query = Query(
             pattern=pattern,
@@ -686,7 +686,7 @@ class MultiRepoSearchEngine:
             if pattern is None:
                 raise ValueError("Either query or pattern must be provided")
 
-            from .types import Query
+            from ..core.types import Query
 
             query = Query(pattern=pattern, **query_kwargs)
 

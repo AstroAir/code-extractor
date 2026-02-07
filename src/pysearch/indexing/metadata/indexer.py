@@ -27,7 +27,7 @@ from ...analysis.graphrag.core import EntityExtractor
 from ...analysis.language_detection import detect_language
 from ...core.config import SearchConfig
 from ...search.semantic_advanced import SemanticEmbedding
-from ...utils.utils import read_text_safely
+from ...utils.helpers import read_text_safely
 from ..indexer import Indexer
 from .analysis import (
     calculate_entity_complexity,

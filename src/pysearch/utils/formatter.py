@@ -57,7 +57,7 @@ from rich.console import Console
 from rich.syntax import Syntax
 
 from ..core.types import OutputFormat, SearchResult
-from .utils import highlight_spans
+from .helpers import highlight_spans
 
 # File extension to Pygments lexer name mapping
 _EXTENSION_LEXER_MAP: dict[str, str] = {

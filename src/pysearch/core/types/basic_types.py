@@ -41,7 +41,38 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
-from ...languages import Language
+class Language(str, Enum):
+    """Supported programming languages for syntax-aware processing."""
+
+    PYTHON = "python"
+    JAVASCRIPT = "javascript"
+    TYPESCRIPT = "typescript"
+    JAVA = "java"
+    C = "c"
+    CPP = "cpp"
+    CSHARP = "csharp"
+    GO = "go"
+    RUST = "rust"
+    PHP = "php"
+    RUBY = "ruby"
+    KOTLIN = "kotlin"
+    SWIFT = "swift"
+    SCALA = "scala"
+    R = "r"
+    MATLAB = "matlab"
+    SHELL = "shell"
+    POWERSHELL = "powershell"
+    SQL = "sql"
+    HTML = "html"
+    CSS = "css"
+    XML = "xml"
+    JSON = "json"
+    YAML = "yaml"
+    TOML = "toml"
+    MARKDOWN = "markdown"
+    DOCKERFILE = "dockerfile"
+    MAKEFILE = "makefile"
+    UNKNOWN = "unknown"
 
 
 class OutputFormat(str, Enum):

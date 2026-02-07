@@ -37,7 +37,7 @@ from ...analysis.content_addressing import IndexingProgressUpdate, IndexTag
 from ...core.config import SearchConfig
 from ...utils.error_handling import ErrorCollector
 from ...utils.logging_config import get_logger
-from ...utils.utils import file_meta, iter_files, read_text_safely
+from ...utils.helpers import file_meta, iter_files, read_text_safely
 from .coordinator import IndexCoordinator
 
 logger = get_logger()

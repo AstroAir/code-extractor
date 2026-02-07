@@ -17,7 +17,7 @@ class _Benchmark(Protocol):
 
 from pysearch.indexing.indexer import Indexer
 from pysearch.search.matchers import find_text_regex_matches
-from pysearch.utils.utils import iter_files
+from pysearch.utils.helpers import iter_files
 
 
 def _write(p: Path, content: str) -> None:

@@ -45,7 +45,7 @@ from typing import Any
 
 from ..analysis.language_detection import detect_language
 from ..core.types import Language, SearchItem
-from ..utils.utils import split_lines_keepends
+from ..utils.helpers import split_lines_keepends
 
 
 @dataclass

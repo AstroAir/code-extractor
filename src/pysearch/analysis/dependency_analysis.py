@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.types import Language
-from ..utils.utils import read_text_safely
+from ..utils.helpers import read_text_safely
 from .language_detection import detect_language
 
 

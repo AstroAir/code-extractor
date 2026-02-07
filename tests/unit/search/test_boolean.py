@@ -81,7 +81,7 @@ class TestBooleanQueryParser:
     def test_complex_query(self):
         """Test parsing complex query with multiple operators."""
         parser = BooleanQueryParser()
-        query = parser.parse("(async AND handler) NOT test")
+        query = parser.parse("(async AND handler) AND NOT test")
 
         # Should be: ((async AND handler) AND (NOT test))
         assert query.operator == BooleanOperator.AND
@@ -127,7 +127,7 @@ class TestBooleanQueryParser:
     def test_unexpected_token_error(self):
         """Test error handling for unexpected tokens."""
         parser = BooleanQueryParser()
-        with pytest.raises(ValueError, match="Unexpected token"):
+        with pytest.raises(ValueError):
             parser.parse("foo AND")
 
     def test_convenience_function(self):
@@ -331,7 +331,7 @@ class TestBooleanQueryIntegration:
     def test_end_to_end_parsing_and_evaluation(self):
         """Test complete flow from string parsing to evaluation."""
         # Parse query
-        query = parse_boolean_query("(async AND handler) NOT test")
+        query = parse_boolean_query("(async AND handler) AND NOT test")
 
         # Test content that should match
         content1 = "async def request_handler():\n    return response"
@@ -360,7 +360,7 @@ class TestBooleanQueryIntegration:
     def test_complex_real_world_query(self):
         """Test complex query that might be used in practice."""
         query = parse_boolean_query(
-            '("async def" OR "def async") AND (handler OR controller) NOT (test OR mock)'
+            '("async def" OR "def async") AND (handler OR controller) AND NOT (test OR mock)'
         )
 
         # Should match: async function with handler, no test

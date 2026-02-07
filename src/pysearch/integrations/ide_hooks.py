@@ -28,7 +28,7 @@ from ..utils.logging_config import get_logger
 if TYPE_CHECKING:
     from ..core.api import PySearch
 
-from .types import Query, SearchResult
+from ..core.types import Query, SearchResult
 
 logger = get_logger()
 

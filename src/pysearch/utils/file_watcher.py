@@ -94,7 +94,7 @@ except ImportError:
 from ..core.config import SearchConfig
 from ..indexing.indexer import Indexer
 from .logging_config import get_logger
-from .utils import matches_patterns
+from .helpers import matches_patterns
 
 
 class EventType(Enum):

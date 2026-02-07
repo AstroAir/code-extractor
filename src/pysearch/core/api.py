@@ -58,18 +58,18 @@ from ..utils.error_handling import ErrorCollector, create_error_report
 from ..utils.file_watcher import FileEvent
 from ..utils.logging_config import SearchLogger, get_logger
 from ..utils.metadata_filters import apply_metadata_filters, get_file_author
-from ..utils.utils import create_file_metadata
+from ..utils.helpers import create_file_metadata
 from .config import SearchConfig
 from .history import SearchHistory
 from .history.history_core import SearchHistoryEntry
-from .integrations.hybrid_search import HybridSearchManager
-from .integrations.cache_integration import CacheIntegrationManager
-from .integrations.dependency_integration import DependencyIntegrationManager
-from .integrations.indexing_integration import IndexingIntegrationManager
-from .integrations.file_watching import FileWatchingManager
-from .integrations.graphrag_integration import GraphRAGIntegrationManager
-from .integrations.multi_repo_integration import MultiRepoIntegrationManager
-from .integrations.parallel_processing import ParallelSearchManager
+from .managers.hybrid_search import HybridSearchManager
+from .managers.cache_integration import CacheIntegrationManager
+from .managers.dependency_integration import DependencyIntegrationManager
+from .managers.indexing_integration import IndexingIntegrationManager
+from .managers.file_watching import FileWatchingManager
+from .managers.graphrag_integration import GraphRAGIntegrationManager
+from .managers.multi_repo_integration import MultiRepoIntegrationManager
+from .managers.parallel_processing import ParallelSearchManager
 from .types import (
     CountResult,
     GraphRAGQuery,

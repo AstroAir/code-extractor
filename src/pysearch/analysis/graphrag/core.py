@@ -62,7 +62,7 @@ from ...core.types import (
     Language,
     RelationType,
 )
-from ...utils.utils import read_text_safely
+from ...utils.helpers import read_text_safely
 from ..dependency_analysis import DependencyAnalyzer
 from ..language_detection import detect_language
 

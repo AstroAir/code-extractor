@@ -65,7 +65,7 @@ from ...core.types import (
 )
 from ...search.semantic_advanced import SemanticEmbedding
 from ...storage.qdrant_client import QdrantConfig, QdrantVectorStore
-from ...utils.utils import read_text_safely
+from ...utils.helpers import read_text_safely
 from .core import EntityExtractor, RelationshipMapper
 
 logger = logging.getLogger(__name__)

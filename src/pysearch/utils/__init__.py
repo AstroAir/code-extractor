@@ -27,7 +27,7 @@ from .error_handling import (
 from .formatter import format_result, render_highlight_console
 from .logging_config import configure_logging, disable_logging, enable_debug_logging, get_logger
 from .metadata_filters import apply_metadata_filters, create_metadata_filters, get_file_author
-from .utils import (
+from .helpers import (
     FileMeta,
     build_pathspec,
     create_file_metadata,
