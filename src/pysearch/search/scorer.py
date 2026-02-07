@@ -7,8 +7,8 @@ from enum import Enum
 from pathlib import Path
 
 from ..core.config import SearchConfig
-from .semantic import semantic_similarity_score
 from ..core.types import SearchItem
+from .semantic import semantic_similarity_score
 
 
 class RankingStrategy(str, Enum):
@@ -93,8 +93,7 @@ def score_item(
         if len(item.match_spans) > 1:
             # MatchSpan is (line_index, (start_col, end_col))
             # Extract column positions to analyze horizontal distribution
-            span_positions = [span[1][0]
-                              for span in item.match_spans]  # start_col positions
+            span_positions = [span[1][0] for span in item.match_spans]  # start_col positions
             span_range = max(span_positions) - min(span_positions)
             if span_range > 0:
                 # Normalize by line length to get distribution ratio
@@ -103,16 +102,13 @@ def score_item(
                 density_score += distribution_bonus
 
     # Code structure analysis
-    structure_bonus = _analyze_code_structure(
-        item, query_text) * weights.code_structure
+    structure_bonus = _analyze_code_structure(item, query_text) * weights.code_structure
 
     # Enhanced file type scoring with language detection
-    file_type_score = _calculate_file_type_score(
-        item.file) * weights.file_type_bonus
+    file_type_score = _calculate_file_type_score(item.file) * weights.file_type_bonus
 
     # Position scoring with context awareness
-    position_score = _calculate_position_score(
-        item, block_length) * weights.position_bonus
+    position_score = _calculate_position_score(item, block_length) * weights.position_bonus
 
     # Enhanced semantic similarity
     # Use lightweight semantic analysis to find conceptually related content
@@ -121,15 +117,13 @@ def score_item(
     if query_text and item.lines:
         content = "\n".join(item.lines)
         semantic_score = (
-            semantic_similarity_score(
-                content, query_text) * weights.semantic_similarity
+            semantic_similarity_score(content, query_text) * weights.semantic_similarity
         )
 
     # File popularity and importance
     # Boost scores for files that appear frequently in search results
     # or have characteristics indicating importance (e.g., main files, configs)
-    popularity_score = _calculate_popularity_score(
-        item.file, all_files) * weights.file_popularity
+    popularity_score = _calculate_popularity_score(item.file, all_files) * weights.file_popularity
 
     # Directory depth penalty (prefer files closer to root)
     # Files deeper in the directory structure are often less important
@@ -158,46 +152,67 @@ def score_item(
 
 def _analyze_code_structure(item: SearchItem, query_text: str) -> float:
     """Analyze code structure to give bonus for matches in important locations."""
-    if not item.lines:
+    if not item.lines or not query_text:
         return 0.0
 
     content = "\n".join(item.lines)
     structure_bonus = 0.0
+    escaped_query = re.escape(query_text)
 
     # Function/method definition bonus
-    if re.search(
-        r"^\s*(def|function|func)\s+\w*" + re.escape(query_text),
-        content,
-        re.MULTILINE | re.IGNORECASE,
-    ):
-        structure_bonus += 0.5
+    try:
+        if re.search(
+            r"^\s*(def|function|func)\s+\w*" + escaped_query,
+            content,
+            re.MULTILINE | re.IGNORECASE,
+        ):
+            structure_bonus += 0.5
+    except re.error:
+        pass
 
     # Class definition bonus
-    if re.search(
-        r"^\s*(class|interface|struct)\s+\w*" + re.escape(query_text),
-        content,
-        re.MULTILINE | re.IGNORECASE,
-    ):
-        structure_bonus += 0.6
+    try:
+        if re.search(
+            r"^\s*(class|interface|struct)\s+\w*" + escaped_query,
+            content,
+            re.MULTILINE | re.IGNORECASE,
+        ):
+            structure_bonus += 0.6
+    except re.error:
+        pass
 
     # Variable/constant definition bonus
-    if re.search(
-        r"^\s*\w*" + re.escape(query_text) +
-        r"\w*\s*[=:]", content, re.MULTILINE | re.IGNORECASE
-    ):
-        structure_bonus += 0.3
+    try:
+        if re.search(
+            r"^\s*\w*" + escaped_query + r"\w*\s*[=:]",
+            content,
+            re.MULTILINE | re.IGNORECASE,
+        ):
+            structure_bonus += 0.3
+    except re.error:
+        pass
 
     # Import/include statement bonus
-    if re.search(
-        r"^\s*(import|include|require|from)\s+.*" + re.escape(query_text),
-        content,
-        re.MULTILINE | re.IGNORECASE,
-    ):
-        structure_bonus += 0.4
+    try:
+        if re.search(
+            r"^\s*(import|include|require|from)\s+.*" + escaped_query,
+            content,
+            re.MULTILINE | re.IGNORECASE,
+        ):
+            structure_bonus += 0.4
+    except re.error:
+        pass
 
     # Comment/documentation bonus (lower priority)
-    if re.search(r"^\s*[#/*]+.*" + re.escape(query_text), content, re.MULTILINE | re.IGNORECASE):
-        structure_bonus += 0.2
+    try:
+        if re.search(
+            r"^\s*[#/*]+.*" + escaped_query,
+            content,
+            re.MULTILINE | re.IGNORECASE,
+        ):
+            structure_bonus += 0.2
+    except re.error:
+        pass
 
     return min(1.0, structure_bonus)
 
@@ -348,8 +363,7 @@ def _sort_by_relevance(
         score = score_item(item, cfg, query_text, all_files)
         scored_items.append((score, item))
 
-    scored_items.sort(
-        key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
+    scored_items.sort(key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
     return [item for _, item in scored_items]
 
 
@@ -365,8 +379,7 @@ def _sort_by_frequency(
         combined_score = frequency_score * 2.0 + relevance_score * 0.5
         scored_items.append((combined_score, item))
 
-    scored_items.sort(
-        key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
+    scored_items.sort(key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
     return [item for _, item in scored_items]
 
 
@@ -375,20 +388,28 @@ def _sort_by_recency(
 ) -> list[SearchItem]:
     """Sort by file modification time (most recent first)."""
     scored_items = []
+
+    # Collect all mtimes first to normalize properly
+    mtimes: list[float] = []
     for item in items:
         try:
-            mtime = item.file.stat().st_mtime
-            recency_score = mtime / 1000000  # Normalize timestamp
+            mtimes.append(item.file.stat().st_mtime)
         except (OSError, AttributeError):
-            recency_score = 0.0
+            mtimes.append(0.0)
 
+    # Normalize timestamps to 0.0-1.0 range for fair combination with relevance
+    min_mtime = min(mtimes) if mtimes else 0.0
+    max_mtime = max(mtimes) if mtimes else 0.0
+    mtime_range = max_mtime - min_mtime if max_mtime > min_mtime else 1.0
+
+    for i, item in enumerate(items):
+        recency_score = (mtimes[i] - min_mtime) / mtime_range
         relevance_score = score_item(item, cfg, query_text, all_files)
         # Combine recency and relevance
         combined_score = recency_score * 0.3 + relevance_score * 0.7
         scored_items.append((combined_score, item))
 
-    scored_items.sort(
-        key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
+    scored_items.sort(key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
     return [item for _, item in scored_items]
 
 
@@ -406,8 +427,7 @@ def _sort_by_popularity(
         combined_score = popularity_score * 0.6 + relevance_score * 0.4
         scored_items.append((combined_score, item))
 
-    scored_items.sort(
-        key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
+    scored_items.sort(key=lambda x: (-x[0], x[1].file.as_posix(), x[1].start_line))
     return [item for _, item in scored_items]
 
 
@@ -417,16 +437,24 @@ def _sort_hybrid(
     """Hybrid sorting that combines multiple factors intelligently."""
     scored_items = []
 
-    # Calculate various scores for each item
+    # Collect all mtimes first to normalize properly
+    raw_mtimes: list[float] = []
     for item in items:
+        try:
+            raw_mtimes.append(item.file.stat().st_mtime)
+        except (OSError, AttributeError):
+            raw_mtimes.append(0.0)
+
+    min_mtime = min(raw_mtimes) if raw_mtimes else 0.0
+    max_mtime = max(raw_mtimes) if raw_mtimes else 0.0
+    mtime_range = max_mtime - min_mtime if max_mtime > min_mtime else 1.0
+
+    # Calculate various scores for each item
+    for i, item in enumerate(items):
         relevance_score = score_item(item, cfg, query_text, all_files)
         frequency_score = len(item.match_spans)
 
-        try:
-            mtime = item.file.stat().st_mtime
-            recency_score = mtime / 1000000
-        except (OSError, AttributeError):
-            recency_score = 0.0
+        recency_score = (raw_mtimes[i] - min_mtime) / mtime_range
 
         popularity_score = _calculate_popularity_score(item.file, all_files)
 
@@ -494,7 +522,7 @@ def cluster_results_by_similarity(
         used_items.add(i)
 
         # Find similar items
-        for j, other_item in enumerate(items[i + 1:], i + 1):
+        for j, other_item in enumerate(items[i + 1 :], i + 1):
             if j in used_items:
                 continue
 
@@ -557,7 +585,7 @@ def deduplicate_overlapping_results(
     grouped = group_results_by_file(items)
     deduplicated = []
 
-    for file_path, file_items in grouped.items():
+    for _file_path, file_items in grouped.items():
         # Sort by score (assuming items are already sorted)
         current_items: list[SearchItem] = []
 

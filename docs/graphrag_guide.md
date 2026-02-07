@@ -112,9 +112,7 @@ services:
 
 ```python
 import asyncio
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.types import GraphRAGQuery, EntityType
+from pysearch import PySearch, SearchConfig, GraphRAGQuery, EntityType
 
 async def basic_graphrag_example():
     # Configure with GraphRAG enabled
@@ -123,29 +121,29 @@ async def basic_graphrag_example():
         enable_graphrag=True,
         enable_enhanced_indexing=True
     )
-    
+
     # Initialize search engine
     search = PySearch(config=config, enable_graphrag=True)
-    
+
     # Build knowledge graph
     await search.build_knowledge_graph()
-    
+
     # Perform GraphRAG query
     query = GraphRAGQuery(
         pattern="database connection",
         entity_types=[EntityType.FUNCTION, EntityType.CLASS],
         max_hops=2
     )
-    
+
     results = await search.graphrag_search(query)
-    
+
     # Process results
     for entity in results.entities:
         print(f"Found: {entity.name} ({entity.entity_type})")
         print(f"File: {entity.file_path}:{entity.start_line}")
         if entity.docstring:
             print(f"Doc: {entity.docstring[:100]}...")
-    
+
     await search.close_async_components()
 
 # Run the example
@@ -185,18 +183,18 @@ async def hybrid_search_example():
 ### Basic Configuration
 
 ```python
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig
 
 config = SearchConfig(
     # Basic paths
     paths=["./src", "./lib"],
     include=["**/*.py", "**/*.js"],
     exclude=["**/node_modules/**"],
-    
+
     # Enable GraphRAG features
     enable_graphrag=True,
     enable_enhanced_indexing=True,
-    
+
     # GraphRAG parameters
     graphrag_max_hops=2,
     graphrag_min_confidence=0.7,

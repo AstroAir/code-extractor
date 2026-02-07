@@ -18,8 +18,7 @@ Features:
 from __future__ import annotations
 
 import threading
-import time
-from typing import Any, Dict
+from typing import Any
 
 from .models import CacheStats
 
@@ -27,12 +26,12 @@ from .models import CacheStats
 class CacheStatistics:
     """
     Manages cache performance statistics and metrics.
-    
+
     This class provides thread-safe tracking of cache operations and
     performance metrics for monitoring and optimization.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.stats = CacheStats()
         self._stats_lock = threading.RLock()
 
@@ -49,7 +48,7 @@ class CacheStatistics:
     def record_eviction(self, count: int = 1) -> None:
         """
         Record cache evictions.
-        
+
         Args:
             count: Number of entries evicted
         """
@@ -59,7 +58,7 @@ class CacheStatistics:
     def record_invalidation(self, count: int = 1) -> None:
         """
         Record cache invalidations.
-        
+
         Args:
             count: Number of entries invalidated
         """
@@ -69,7 +68,7 @@ class CacheStatistics:
     def update_access_time(self, elapsed: float) -> None:
         """
         Update average access time with a new measurement.
-        
+
         Args:
             elapsed: Time taken for the cache operation
         """
@@ -77,14 +76,13 @@ class CacheStatistics:
             total_requests = self.stats.hits + self.stats.misses
             if total_requests > 0:
                 self.stats.average_access_time = (
-                    (self.stats.average_access_time * (total_requests - 1) + elapsed) /
-                    total_requests
-                )
+                    self.stats.average_access_time * (total_requests - 1) + elapsed
+                ) / total_requests
 
     def update_entry_count(self, count: int) -> None:
         """
         Update the total number of cache entries.
-        
+
         Args:
             count: Current number of cache entries
         """
@@ -94,7 +92,7 @@ class CacheStatistics:
     def update_size(self, size_bytes: int) -> None:
         """
         Update the total cache size.
-        
+
         Args:
             size_bytes: Current cache size in bytes
         """
@@ -104,7 +102,7 @@ class CacheStatistics:
     def add_size(self, size_bytes: int) -> None:
         """
         Add to the total cache size.
-        
+
         Args:
             size_bytes: Size to add in bytes
         """
@@ -114,7 +112,7 @@ class CacheStatistics:
     def subtract_size(self, size_bytes: int) -> None:
         """
         Subtract from the total cache size.
-        
+
         Args:
             size_bytes: Size to subtract in bytes
         """
@@ -124,7 +122,7 @@ class CacheStatistics:
     def get_hit_rate(self) -> float:
         """
         Calculate and return the current hit rate.
-        
+
         Returns:
             Hit rate as a percentage (0.0 to 100.0)
         """
@@ -134,20 +132,20 @@ class CacheStatistics:
                 return 0.0
             return (self.stats.hits / total_requests) * 100.0
 
-    def get_stats_dict(self, additional_stats: Dict[str, Any] = None) -> Dict[str, Any]:
+    def get_stats_dict(self, additional_stats: dict[str, Any] | None = None) -> dict[str, Any]:
         """
         Get all statistics as a dictionary.
-        
+
         Args:
             additional_stats: Additional statistics to include
-            
+
         Returns:
             Dictionary containing all cache statistics
         """
         with self._stats_lock:
             # Update hit rate before returning
             self.stats.update_hit_rate()
-            
+
             stats_dict = {
                 "hits": self.stats.hits,
                 "misses": self.stats.misses,
@@ -158,10 +156,10 @@ class CacheStatistics:
                 "total_size_bytes": self.stats.total_size_bytes,
                 "average_access_time": self.stats.average_access_time,
             }
-            
+
             if additional_stats:
                 stats_dict.update(additional_stats)
-                
+
             return stats_dict
 
     def reset_stats(self) -> None:
@@ -172,14 +170,14 @@ class CacheStatistics:
     def get_performance_summary(self) -> str:
         """
         Get a human-readable performance summary.
-        
+
         Returns:
             Formatted string with key performance metrics
         """
         with self._stats_lock:
             total_requests = self.stats.hits + self.stats.misses
             hit_rate = self.get_hit_rate()
-            
+
             return (
                 f"Cache Performance: "
                 f"{total_requests} requests, "

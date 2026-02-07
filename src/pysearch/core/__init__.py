@@ -12,16 +12,26 @@ depend on, ensuring a clean separation of concerns and maintainable architecture
 """
 
 from .api import PySearch
-from .config import SearchConfig
+from .config import RankStrategy, SearchConfig
 from .history import SearchHistory
 from .types import (
     ASTFilters,
+    BooleanOperator,
+    BooleanQuery,
+    CodeEntity,
+    CountResult,
+    EntityRelationship,
+    EntityType,
     FileMetadata,
+    GraphRAGQuery,
+    GraphRAGResult,
+    KnowledgeGraph,
     Language,
     MatchSpan,
     MetadataFilters,
     OutputFormat,
     Query,
+    RelationType,
     SearchItem,
     SearchResult,
     SearchStats,
@@ -32,7 +42,8 @@ __all__ = [
     "PySearch",
     "SearchConfig",
     "SearchHistory",
-    # Data types
+    "RankStrategy",
+    # Basic data types
     "OutputFormat",
     "SearchItem",
     "SearchStats",
@@ -43,4 +54,15 @@ __all__ = [
     "Language",
     "FileMetadata",
     "MetadataFilters",
+    "CountResult",
+    "BooleanOperator",
+    "BooleanQuery",
+    # GraphRAG types
+    "EntityType",
+    "RelationType",
+    "CodeEntity",
+    "EntityRelationship",
+    "KnowledgeGraph",
+    "GraphRAGQuery",
+    "GraphRAGResult",
 ]

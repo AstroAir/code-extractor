@@ -8,23 +8,27 @@ Continue's basic vector indexing with multiple providers and advanced features.
 
 from __future__ import annotations
 
-import asyncio
-import json
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any
 
-from ..advanced.chunking import ChunkingEngine, ChunkingConfig, ChunkingStrategy
-from ...analysis.content_addressing import IndexTag, IndexingProgressUpdate, MarkCompleteCallback, PathAndCacheKey, RefreshIndexResults
-from ..advanced.engine import EnhancedCodebaseIndex
+from ...analysis.content_addressing import (
+    IndexingProgressUpdate,
+    IndexTag,
+    MarkCompleteCallback,
+    PathAndCacheKey,  # noqa: F401
+    RefreshIndexResults,
+)
 from ...storage.vector_db import EmbeddingConfig, VectorIndexManager
-from ...analysis.language_detection import detect_language
 from ...utils.logging_config import get_logger
 from ...utils.utils import read_text_safely
+from ..advanced.base import CodebaseIndex
+from ..advanced.chunking import ChunkingConfig, ChunkingEngine, ChunkingStrategy
 
 logger = get_logger()
 
 
-class EnhancedVectorIndex(EnhancedCodebaseIndex):
+class VectorIndex(CodebaseIndex):
     """
     Enhanced vector index with semantic search capabilities.
 
@@ -48,7 +52,7 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
         # Initialize chunking engine
         chunking_config = ChunkingConfig(
             strategy=ChunkingStrategy.HYBRID,
-            max_chunk_size=getattr(config, 'chunk_size', 1000),
+            max_chunk_size=getattr(config, "chunk_size", 1000),
             min_chunk_size=50,
             overlap_size=100,
             respect_boundaries=True,
@@ -57,17 +61,16 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
 
         # Initialize vector database
         embedding_config = EmbeddingConfig(
-            provider=getattr(config, 'embedding_provider', 'openai'),
-            model_name=getattr(config, 'embedding_model',
-                               'text-embedding-ada-002'),
-            batch_size=getattr(config, 'embedding_batch_size', 100),
-            api_key=getattr(config, 'openai_api_key', None),
+            provider=getattr(config, "embedding_provider", "openai"),
+            model_name=getattr(config, "embedding_model", "text-embedding-ada-002"),
+            batch_size=getattr(config, "embedding_batch_size", 100),
+            api_key=getattr(config, "openai_api_key", None),
         )
 
         self.vector_manager = VectorIndexManager(
             self.cache_dir / "vectors",
             embedding_config,
-            provider=getattr(config, 'vector_db_provider', 'lancedb')
+            provider=getattr(config, "vector_db_provider", "lancedb"),
         )
 
     async def update(
@@ -75,21 +78,25 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
         tag: IndexTag,
         results: RefreshIndexResults,
         mark_complete: MarkCompleteCallback,
-        repo_name: Optional[str] = None,
+        repo_name: str | None = None,
     ) -> AsyncGenerator[IndexingProgressUpdate, None]:
         """Update the vector index."""
         collection_name = self.vector_manager.get_collection_name(tag)
 
         # Process compute operations (new files)
-        total_operations = len(results.compute) + len(results.delete) + \
-            len(results.add_tag) + len(results.remove_tag)
+        total_operations = (
+            len(results.compute)
+            + len(results.delete)
+            + len(results.add_tag)
+            + len(results.remove_tag)
+        )
         completed_operations = 0
 
         for item in results.compute:
             yield IndexingProgressUpdate(
                 progress=completed_operations / max(total_operations, 1),
                 description=f"Generating embeddings for {Path(item.path).name}",
-                status="indexing"
+                status="indexing",
             )
 
             try:
@@ -115,7 +122,7 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
             yield IndexingProgressUpdate(
                 progress=completed_operations / max(total_operations, 1),
                 description=f"Adding tag for {Path(item.path).name}",
-                status="indexing"
+                status="indexing",
             )
 
             try:
@@ -136,7 +143,7 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
             yield IndexingProgressUpdate(
                 progress=completed_operations / max(total_operations, 1),
                 description=f"Removing tag for {Path(item.path).name}",
-                status="indexing"
+                status="indexing",
             )
 
             try:
@@ -157,7 +164,7 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
             yield IndexingProgressUpdate(
                 progress=completed_operations / max(total_operations, 1),
                 description=f"Deleting vectors for {Path(item.path).name}",
-                status="indexing"
+                status="indexing",
             )
 
             try:
@@ -173,9 +180,7 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
                 completed_operations += 1
 
         yield IndexingProgressUpdate(
-            progress=1.0,
-            description="Vector indexing complete",
-            status="done"
+            progress=1.0, description="Vector indexing complete", status="done"
         )
 
     async def retrieve(
@@ -184,7 +189,7 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
         tag: IndexTag,
         limit: int = 50,
         **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Retrieve semantically similar code chunks."""
         collection_name = self.vector_manager.get_collection_name(tag)
 
@@ -213,19 +218,21 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
             # Convert to standard format
             formatted_results = []
             for result in results:
-                formatted_results.append({
-                    "chunk_id": result.chunk_id,
-                    "content": result.content,
-                    "file_path": result.file_path,
-                    "start_line": result.start_line,
-                    "end_line": result.end_line,
-                    "similarity_score": result.similarity_score,
-                    "language": result.metadata.get("language"),
-                    "chunk_type": result.metadata.get("chunk_type"),
-                    "entity_name": result.metadata.get("entity_name"),
-                    "complexity_score": result.metadata.get("complexity_score", 0.0),
-                    "quality_score": result.metadata.get("quality_score", 0.0),
-                })
+                formatted_results.append(
+                    {
+                        "chunk_id": result.chunk_id,
+                        "content": result.content,
+                        "file_path": result.file_path,
+                        "start_line": result.start_line,
+                        "end_line": result.end_line,
+                        "similarity_score": result.similarity_score,
+                        "language": result.metadata.get("language"),
+                        "chunk_type": result.metadata.get("chunk_type"),
+                        "entity_name": result.metadata.get("entity_name"),
+                        "complexity_score": result.metadata.get("complexity_score", 0.0),
+                        "quality_score": result.metadata.get("quality_score", 0.0),
+                    }
+                )
 
             return formatted_results
 
@@ -238,8 +245,8 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
         chunk_content: str,
         tag: IndexTag,
         limit: int = 10,
-        exclude_chunk_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        exclude_chunk_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Find chunks similar to the given content."""
         collection_name = self.vector_manager.get_collection_name(tag)
 
@@ -257,12 +264,14 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
             for result in results:
                 if exclude_chunk_id and result.chunk_id == exclude_chunk_id:
                     continue
-                filtered_results.append({
-                    "chunk_id": result.chunk_id,
-                    "content": result.content,
-                    "file_path": result.file_path,
-                    "similarity_score": result.similarity_score,
-                })
+                filtered_results.append(
+                    {
+                        "chunk_id": result.chunk_id,
+                        "content": result.content,
+                        "file_path": result.file_path,
+                        "similarity_score": result.similarity_score,
+                    }
+                )
 
                 if len(filtered_results) >= limit:
                     break
@@ -273,7 +282,7 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
             logger.error(f"Error finding similar chunks: {e}")
             return []
 
-    async def get_statistics(self, tag: IndexTag) -> Dict[str, Any]:
+    async def get_statistics(self, tag: IndexTag) -> dict[str, Any]:
         """Get statistics for this vector index."""
         collection_name = self.vector_manager.get_collection_name(tag)
 
@@ -302,10 +311,10 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
 
     async def rerank_results(
         self,
-        results: List[Dict[str, Any]],
+        results: list[dict[str, Any]],
         query: str,
-        boost_factors: Optional[Dict[str, float]] = None,
-    ) -> List[Dict[str, Any]]:
+        boost_factors: dict[str, float] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Re-rank search results using additional signals.
 
@@ -334,15 +343,12 @@ class EnhancedVectorIndex(EnhancedCodebaseIndex):
 
             # Quality boost
             quality_score = result.get("quality_score", 0.0)
-            enhanced_score += quality_score * \
-                boost_factors.get("quality_score", 0.0)
+            enhanced_score += quality_score * boost_factors.get("quality_score", 0.0)
 
             # Complexity boost (moderate complexity preferred)
             complexity_score = result.get("complexity_score", 0.0)
-            complexity_boost = 1.0 - \
-                abs(complexity_score - 0.5) * 2  # Peak at 0.5
-            enhanced_score += complexity_boost * \
-                boost_factors.get("complexity_score", 0.0)
+            complexity_boost = 1.0 - abs(complexity_score - 0.5) * 2  # Peak at 0.5
+            enhanced_score += complexity_boost * boost_factors.get("complexity_score", 0.0)
 
             # Exact match boost
             if query.lower() in result.get("content", "").lower():

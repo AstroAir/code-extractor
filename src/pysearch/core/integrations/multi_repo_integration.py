@@ -36,7 +36,7 @@ class MultiRepoIntegrationManager:
 
     def __init__(self, config: SearchConfig) -> None:
         self.config = config
-        self.multi_repo_engine = None
+        self.multi_repo_engine: Any = None
         self._multi_repo_enabled = False
 
     def enable_multi_repo(self, repositories: list[dict[str, Any]] | None = None) -> bool:
@@ -54,13 +54,13 @@ class MultiRepoIntegrationManager:
 
         try:
             from ...integrations.multi_repo import MultiRepoSearchEngine
-            
-            self.multi_repo_engine = MultiRepoSearchEngine(self.config)
-            
-            if repositories:
+
+            self.multi_repo_engine = MultiRepoSearchEngine()
+
+            if repositories and self.multi_repo_engine:
                 for repo_config in repositories:
                     self.multi_repo_engine.add_repository(**repo_config)
-            
+
             self._multi_repo_enabled = True
             return True
 
@@ -72,13 +72,8 @@ class MultiRepoIntegrationManager:
         if not self._multi_repo_enabled:
             return
 
-        try:
-            if self.multi_repo_engine:
-                self.multi_repo_engine.close()
-                self.multi_repo_engine = None
-            self._multi_repo_enabled = False
-        except Exception:
-            pass
+        self.multi_repo_engine = None
+        self._multi_repo_enabled = False
 
     def is_multi_repo_enabled(self) -> bool:
         """Check if multi-repository search is enabled."""
@@ -100,7 +95,7 @@ class MultiRepoIntegrationManager:
             return False
 
         try:
-            return self.multi_repo_engine.add_repository(name, path, **kwargs)
+            return self.multi_repo_engine.add_repository(name, path, **kwargs)  # type: ignore[no-any-return]
         except Exception:
             return False
 
@@ -118,22 +113,22 @@ class MultiRepoIntegrationManager:
             return False
 
         try:
-            return self.multi_repo_engine.remove_repository(name)
+            return self.multi_repo_engine.remove_repository(name)  # type: ignore[no-any-return]
         except Exception:
             return False
 
-    def list_repositories(self) -> list[dict[str, Any]]:
+    def list_repositories(self) -> list[str]:
         """
-        Get list of configured repositories.
+        Get list of configured repository names.
 
         Returns:
-            List of repository configurations
+            List of repository names
         """
         if not self.multi_repo_engine:
             return []
 
         try:
-            return self.multi_repo_engine.list_repositories()
+            return self.multi_repo_engine.list_repositories()  # type: ignore[no-any-return]
         except Exception:
             return []
 
@@ -152,7 +147,10 @@ class MultiRepoIntegrationManager:
             return None
 
         try:
-            return self.multi_repo_engine.search(query, repositories)
+            return self.multi_repo_engine.search_repositories(
+                repositories=repositories,
+                query=query,
+            )
         except Exception:
             return None
 
@@ -167,13 +165,13 @@ class MultiRepoIntegrationManager:
             return {}
 
         try:
-            return self.multi_repo_engine.get_stats()
+            return self.multi_repo_engine.get_search_statistics()  # type: ignore[no-any-return]
         except Exception:
             return {}
 
     def sync_repositories(self) -> dict[str, bool]:
         """
-        Synchronize all repositories (update indexes, etc.).
+        Synchronize all repositories (refresh status and health).
 
         Returns:
             Dictionary mapping repository names to sync success status
@@ -182,7 +180,12 @@ class MultiRepoIntegrationManager:
             return {}
 
         try:
-            return self.multi_repo_engine.sync_all()
+            self.multi_repo_engine.repository_manager.refresh_all_status()
+            results: dict[str, bool] = {}
+            for name in self.multi_repo_engine.list_repositories():
+                repo = self.multi_repo_engine.get_repository_info(name)
+                results[name] = repo.health_status == "healthy" if repo else False
+            return results
         except Exception:
             return {}
 
@@ -197,6 +200,6 @@ class MultiRepoIntegrationManager:
             return {}
 
         try:
-            return self.multi_repo_engine.get_health_status()
+            return self.multi_repo_engine.get_health_status()  # type: ignore[no-any-return]
         except Exception:
             return {}

@@ -82,16 +82,13 @@ class SessionManager:
 
         if self.sessions_file.exists():
             try:
-                data = json.loads(
-                    self.sessions_file.read_text(encoding="utf-8"))
+                data = json.loads(self.sessions_file.read_text(encoding="utf-8"))
                 sessions = data.get("sessions", {})
                 for session_id, session_data in sessions.items():
                     if "primary_paths" in session_data and session_data["primary_paths"]:
-                        session_data["primary_paths"] = set(
-                            session_data["primary_paths"])
+                        session_data["primary_paths"] = set(session_data["primary_paths"])
                     if "primary_languages" in session_data and session_data["primary_languages"]:
-                        session_data["primary_languages"] = set(
-                            session_data["primary_languages"])
+                        session_data["primary_languages"] = set(session_data["primary_languages"])
 
                     session = SearchSession(**session_data)
                     self._sessions[session_id] = session
@@ -108,18 +105,14 @@ class SessionManager:
             for session_id, session in self._sessions.items():
                 session_dict = asdict(session)
                 if session_dict.get("primary_paths"):
-                    session_dict["primary_paths"] = list(
-                        session_dict["primary_paths"])
+                    session_dict["primary_paths"] = list(session_dict["primary_paths"])
                 if session_dict.get("primary_languages"):
-                    session_dict["primary_languages"] = list(
-                        session_dict["primary_languages"])
+                    session_dict["primary_languages"] = list(session_dict["primary_languages"])
                 sessions_data[session_id] = session_dict
 
-            data = {"version": 1, "last_updated": time.time(),
-                    "sessions": sessions_data}
+            data = {"version": 1, "last_updated": time.time(), "sessions": sessions_data}
             tmp_file = self.sessions_file.with_suffix(".tmp")
-            tmp_file.write_text(json.dumps(
-                data, ensure_ascii=False), encoding="utf-8")
+            tmp_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             tmp_file.replace(self.sessions_file)
         except Exception:
             pass
@@ -127,7 +120,7 @@ class SessionManager:
     def get_or_create_session(self, current_time: float) -> SearchSession:
         """Get current session or create a new one."""
         self.load()
-        
+
         # Check if we need a new session (timeout or no current session)
         if (
             self._current_session is None
@@ -139,10 +132,8 @@ class SessionManager:
                 self._current_session.end_time = self._last_search_time
 
             # Create new session
-            session_id = hashlib.md5(
-                f"{current_time}".encode()).hexdigest()[:8]
-            self._current_session = SearchSession(
-                session_id=session_id, start_time=current_time)
+            session_id = hashlib.md5(f"{current_time}".encode()).hexdigest()[:8]
+            self._current_session = SearchSession(session_id=session_id, start_time=current_time)
             self._sessions[session_id] = self._current_session
 
         return self._current_session
@@ -177,32 +168,9 @@ class SessionManager:
 
     def _extract_languages_from_results(self, result: SearchResult) -> set[str]:
         """Extract programming languages from search results."""
-        languages = set()
+        from . import extract_languages_from_results
 
-        for item in result.items[:20]:  # Check top 20 results
-            ext = item.file.suffix.lower()
-            if ext == ".py":
-                languages.add("python")
-            elif ext in [".js", ".jsx"]:
-                languages.add("javascript")
-            elif ext in [".ts", ".tsx"]:
-                languages.add("typescript")
-            elif ext == ".java":
-                languages.add("java")
-            elif ext in [".c", ".h"]:
-                languages.add("c")
-            elif ext in [".cpp", ".cc", ".cxx", ".hpp"]:
-                languages.add("cpp")
-            elif ext == ".go":
-                languages.add("go")
-            elif ext == ".rs":
-                languages.add("rust")
-            elif ext == ".rb":
-                languages.add("ruby")
-            elif ext == ".php":
-                languages.add("php")
-
-        return languages
+        return extract_languages_from_results(result)
 
     def get_current_session(self) -> SearchSession | None:
         """Get the current search session."""
@@ -212,8 +180,7 @@ class SessionManager:
     def get_sessions(self, limit: int | None = None) -> list[SearchSession]:
         """Get search sessions, most recent first."""
         self.load()
-        sessions = sorted(self._sessions.values(),
-                          key=lambda s: s.start_time, reverse=True)
+        sessions = sorted(self._sessions.values(), key=lambda s: s.start_time, reverse=True)
         return sessions[:limit] if limit else sessions
 
     def get_session_by_id(self, session_id: str) -> SearchSession | None:
@@ -233,8 +200,7 @@ class SessionManager:
         self.load()
         cutoff_time = time.time() - (days * 24 * 60 * 60)
 
-        recent_sessions = [
-            s for s in self._sessions.values() if s.start_time >= cutoff_time]
+        recent_sessions = [s for s in self._sessions.values() if s.start_time >= cutoff_time]
 
         if not recent_sessions:
             return {
@@ -245,10 +211,7 @@ class SessionManager:
             }
 
         total_searches = sum(s.total_searches for s in recent_sessions)
-        total_duration = sum(
-            (s.end_time or time.time()) - s.start_time 
-            for s in recent_sessions
-        )
+        total_duration = sum((s.end_time or time.time()) - s.start_time for s in recent_sessions)
 
         # Find most active session
         most_active = max(recent_sessions, key=lambda s: s.total_searches)
@@ -268,16 +231,17 @@ class SessionManager:
         """Remove sessions older than specified days."""
         self.load()
         cutoff_time = time.time() - (days * 24 * 60 * 60)
-        
+
         old_sessions = [
-            session_id for session_id, session in self._sessions.items()
+            session_id
+            for session_id, session in self._sessions.items()
             if session.start_time < cutoff_time
         ]
-        
+
         for session_id in old_sessions:
             del self._sessions[session_id]
-        
+
         if old_sessions:
             self.save_sessions()
-        
+
         return len(old_sessions)

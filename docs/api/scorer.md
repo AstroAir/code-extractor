@@ -67,8 +67,8 @@ The scorer module provides result ranking and scoring functionality to prioritiz
 ### Basic Scoring
 
 ```python
-from pysearch.scorer import score_item, sort_items
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig
+from pysearch.search.scorer import score_item, sort_items
 
 config = SearchConfig(
     ast_weight=2.0,

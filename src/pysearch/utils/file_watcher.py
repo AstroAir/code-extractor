@@ -50,42 +50,46 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+
+# Define fallback classes first
+class _FallbackFileSystemEvent:
+    def __init__(self, src_path: str):
+        self.src_path = src_path
+        self.is_directory = False
+
+
+class _FallbackFileSystemEventHandler:
+    pass
+
+
+class _FallbackObserver:
+    def __init__(self, timeout: float = 1.0) -> None:
+        self.timeout = timeout
+
+    def schedule(self, handler: Any, path: str, recursive: bool = True) -> None:
+        pass
+
+    def start(self) -> None:
+        pass
+
+    def stop(self) -> None:
+        pass
+
+    def join(self, timeout: float | None = None) -> None:
+        pass
+
+
 try:
     from watchdog.events import FileSystemEvent, FileSystemEventHandler
     from watchdog.observers import Observer
+
     WATCHDOG_AVAILABLE = True
 except ImportError:
     WATCHDOG_AVAILABLE = False
-    # Fallback classes for when watchdog is not available
-
-    class _FallbackFileSystemEvent:
-        def __init__(self, src_path: str):
-            self.src_path = src_path
-            self.is_directory = False
-
-    class _FallbackFileSystemEventHandler:
-        pass
-
-    class _FallbackObserver:
-        def __init__(self) -> None:
-            pass
-
-        def schedule(self, handler: Any, path: str, recursive: bool = True) -> None:
-            pass
-
-        def start(self) -> None:
-            pass
-
-        def stop(self) -> None:
-            pass
-
-        def join(self) -> None:
-            pass
-
-    # Assign fallback classes to the expected names
-    FileSystemEvent = _FallbackFileSystemEvent  # type: ignore
-    FileSystemEventHandler = _FallbackFileSystemEventHandler  # type: ignore
-    Observer = _FallbackObserver  # type: ignore
+    # Use fallback classes with same names
+    FileSystemEvent = _FallbackFileSystemEvent  # type: ignore[misc,assignment]
+    FileSystemEventHandler = _FallbackFileSystemEventHandler  # type: ignore[misc,assignment]
+    Observer = _FallbackObserver  # type: ignore[assignment]
 
 from ..core.config import SearchConfig
 from ..indexing.indexer import Indexer
@@ -95,6 +99,7 @@ from .utils import matches_patterns
 
 class EventType(Enum):
     """Types of file system events."""
+
     CREATED = "created"
     MODIFIED = "modified"
     DELETED = "deleted"
@@ -126,7 +131,7 @@ class ChangeProcessor:
         indexer: Indexer,
         batch_size: int = 50,
         debounce_delay: float = 0.5,
-        max_batch_delay: float = 5.0
+        max_batch_delay: float = 5.0,
     ):
         self.indexer = indexer
         self.batch_size = batch_size
@@ -162,8 +167,8 @@ class ChangeProcessor:
 
             # Check if we should process immediately
             should_process_now = (
-                len(self._pending_events) >= self.batch_size or
-                time.time() - self._last_batch_time >= self.max_batch_delay
+                len(self._pending_events) >= self.batch_size
+                or time.time() - self._last_batch_time >= self.max_batch_delay
             )
 
             if should_process_now:
@@ -171,8 +176,7 @@ class ChangeProcessor:
             else:
                 # Set up debounce timer
                 self._debounce_timer = threading.Timer(
-                    self.debounce_delay,
-                    self._process_pending_events
+                    self.debounce_delay, self._process_pending_events
                 )
                 self._debounce_timer.start()
 
@@ -201,9 +205,7 @@ class ChangeProcessor:
         self.batches_processed += 1
         self.last_processing_time = processing_time
 
-        self.logger.debug(
-            f"Processed {len(events)} file events in {processing_time:.3f}s"
-        )
+        self.logger.debug(f"Processed {len(events)} file events in {processing_time:.3f}s")
 
     def _process_event_batch(self, events: list[FileEvent]) -> None:
         """Process a batch of file events."""
@@ -258,9 +260,8 @@ class ChangeProcessor:
             "pending_events": len(self._pending_events),
             "last_processing_time": self.last_processing_time,
             "average_batch_size": (
-                self.events_processed / self.batches_processed
-                if self.batches_processed > 0 else 0
-            )
+                self.events_processed / self.batches_processed if self.batches_processed > 0 else 0
+            ),
         }
 
 
@@ -275,7 +276,7 @@ class PySearchEventHandler(FileSystemEventHandler):
         self,
         config: SearchConfig,
         change_processor: ChangeProcessor,
-        custom_handler: Callable[[list[FileEvent]], None] | None = None
+        custom_handler: Callable[[list[FileEvent]], None] | None = None,
     ):
         super().__init__()
         self.config = config
@@ -322,7 +323,7 @@ class PySearchEventHandler(FileSystemEventHandler):
         src_path: str,
         event_type: EventType,
         is_directory: bool = False,
-        dest_path: str | None = None
+        dest_path: str | None = None,
     ) -> FileEvent | None:
         """Create a FileEvent from file system event data."""
         path = Path(src_path)
@@ -341,15 +342,13 @@ class PySearchEventHandler(FileSystemEventHandler):
             event_type=event_type,
             timestamp=timestamp,
             is_directory=is_directory,
-            old_path=Path(dest_path) if dest_path else None
+            old_path=Path(dest_path) if dest_path else None,
         )
 
     def on_created(self, event: FileSystemEvent) -> None:
         """Handle file/directory creation events."""
         file_event = self._create_file_event(
-            str(event.src_path),
-            EventType.CREATED,
-            event.is_directory
+            str(event.src_path), EventType.CREATED, event.is_directory
         )
         if file_event:
             self._process_event(file_event)
@@ -357,9 +356,7 @@ class PySearchEventHandler(FileSystemEventHandler):
     def on_modified(self, event: FileSystemEvent) -> None:
         """Handle file/directory modification events."""
         file_event = self._create_file_event(
-            str(event.src_path),
-            EventType.MODIFIED,
-            event.is_directory
+            str(event.src_path), EventType.MODIFIED, event.is_directory
         )
         if file_event:
             self._process_event(file_event)
@@ -367,9 +364,7 @@ class PySearchEventHandler(FileSystemEventHandler):
     def on_deleted(self, event: FileSystemEvent) -> None:
         """Handle file/directory deletion events."""
         file_event = self._create_file_event(
-            str(event.src_path),
-            EventType.DELETED,
-            event.is_directory
+            str(event.src_path), EventType.DELETED, event.is_directory
         )
         if file_event:
             self._process_event(file_event)
@@ -377,12 +372,9 @@ class PySearchEventHandler(FileSystemEventHandler):
     def on_moved(self, event: FileSystemEvent) -> None:
         """Handle file/directory move events."""
         # Handle move as delete + create
-        if hasattr(event, 'dest_path'):
+        if hasattr(event, "dest_path"):
             file_event = self._create_file_event(
-                str(event.dest_path),
-                EventType.MOVED,
-                event.is_directory,
-                str(event.src_path)
+                str(event.dest_path), EventType.MOVED, event.is_directory, str(event.src_path)
             )
             if file_event:
                 self._process_event(file_event)
@@ -416,7 +408,7 @@ class FileWatcher:
         indexer: Indexer | None = None,
         change_handler: Callable[[list[FileEvent]], None] | None = None,
         recursive: bool = True,
-        **processor_kwargs: Any
+        **processor_kwargs: Any,
     ):
         """
         Initialize file watcher.
@@ -451,9 +443,7 @@ class FileWatcher:
 
         self._change_processor = ChangeProcessor(indexer, **processor_kwargs)
         self._event_handler = PySearchEventHandler(
-            self.config,
-            self._change_processor,
-            change_handler
+            self.config, self._change_processor, change_handler
         )
         self._observer = Observer()
 
@@ -495,9 +485,7 @@ class FileWatcher:
 
             # Schedule the watch
             self._watch_handle = self._observer.schedule(
-                self._event_handler,
-                str(self.path),
-                recursive=self.recursive
+                self._event_handler, str(self.path), recursive=self.recursive
             )
 
             # Start the observer
@@ -505,8 +493,7 @@ class FileWatcher:
             self._is_watching = True
             self._start_time = time.time()
 
-            self.logger.info(
-                f"Started watching: {self.path} (recursive={self.recursive})")
+            self.logger.info(f"Started watching: {self.path} (recursive={self.recursive})")
             return True
 
         except Exception as e:
@@ -537,10 +524,16 @@ class FileWatcher:
         """
         Restart the file watcher.
 
+        Creates a fresh observer since watchdog observers cannot be restarted
+        after being stopped.
+
         Returns:
             True if restart was successful, False otherwise
         """
         self.stop()
+        # Create a fresh observer since a stopped observer cannot be restarted
+        if WATCHDOG_AVAILABLE and self._event_handler is not None:
+            self._observer = Observer()
         return self.start()
 
     def get_stats(self) -> dict[str, Any]:
@@ -555,7 +548,7 @@ class FileWatcher:
             "is_watching": self.is_watching,
             "path": str(self.path),
             "recursive": self.recursive,
-            "uptime": 0.0
+            "uptime": 0.0,
         }
 
         if self._start_time and self._is_watching:
@@ -588,12 +581,7 @@ class WatchManager:
         self.watchers: dict[str, FileWatcher] = {}
         self.logger = get_logger()
 
-    def add_watcher(
-        self,
-        name: str,
-        path: Path | str,
-        **kwargs: Any
-    ) -> bool:
+    def add_watcher(self, name: str, path: Path | str, **kwargs: Any) -> bool:
         """
         Add a new file watcher.
 

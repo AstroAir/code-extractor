@@ -8,14 +8,14 @@ search operations, fuzzy search, ranking, and error handling.
 import tempfile
 from pathlib import Path
 
-from pysearch import PySearch
-from pysearch import SearchConfig
 from pysearch import (
     ASTFilters,
     Language,
     MetadataFilters,
     OutputFormat,
+    PySearch,
     Query,
+    SearchConfig,
 )
 
 

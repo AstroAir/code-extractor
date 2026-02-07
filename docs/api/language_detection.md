@@ -338,19 +338,18 @@ def is_searchable_text_file(path):
 ### Language-Aware Search Configuration
 
 ```python
-from pysearch.config import SearchConfig
-from pysearch.types import Language
+from pysearch import SearchConfig, Language
 
 def create_language_config(languages):
     """Create search config for specific languages."""
-    
+
     extensions = []
     for lang in languages:
         extensions.extend(get_language_extensions(lang))
-    
+
     # Create include patterns
     include_patterns = [f"**/*{ext}" for ext in extensions]
-    
+
     return SearchConfig(
         include=include_patterns,
         languages=set(languages)

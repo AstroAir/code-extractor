@@ -8,10 +8,8 @@ a simplified interface for IDE/editor integration.
 import tempfile
 from pathlib import Path
 
-from pysearch import PySearch
-from pysearch import SearchConfig
+from pysearch import OutputFormat, PySearch, Query, SearchConfig
 from pysearch.integrations.ide_hooks import ide_query
-from pysearch import OutputFormat, Query
 
 
 class TestIDEHooks:

@@ -39,24 +39,21 @@ class DependencyIntegrationManager:
 
     def __init__(self, config: SearchConfig) -> None:
         self.config = config
-        self.dependency_analyzer = None
+        self.dependency_analyzer: Any = None
         self._logger = None
 
     def _ensure_dependency_analyzer(self) -> None:
         """Lazy load the dependency analyzer to avoid circular imports."""
         if self.dependency_analyzer is None:
             from ...analysis.dependency_analysis import DependencyAnalyzer
+
             self.dependency_analyzer = DependencyAnalyzer()
 
     def set_logger(self, logger: Any) -> None:
         """Set logger for dependency analysis operations."""
         self._logger = logger
 
-    def analyze_dependencies(
-        self,
-        directory: Path | None = None,
-        recursive: bool = True
-    ) -> Any:
+    def analyze_dependencies(self, directory: Path | None = None, recursive: bool = True) -> Any:
         """
         Analyze code dependencies and build a dependency graph.
 
@@ -87,15 +84,21 @@ class DependencyIntegrationManager:
         start_time = None
         try:
             import time
+
             start_time = time.time()
         except ImportError:
             pass
 
         # Perform dependency analysis
-        graph = self.dependency_analyzer.analyze_directory(directory, recursive)
+        if self.dependency_analyzer:
+            graph = self.dependency_analyzer.analyze_directory(directory, recursive)
+        else:
+            # Return empty graph structure if analyzer not available
+            graph = type("Graph", (), {"nodes": [], "edges": {}})()
 
         if self._logger and start_time:
             import time
+
             elapsed_ms = (time.time() - start_time) * 1000
             self._logger.info(
                 f"Dependency analysis completed: {len(graph.nodes)} modules, "
@@ -121,14 +124,12 @@ class DependencyIntegrationManager:
             graph = self.analyze_dependencies()
 
         # Update analyzer's graph and calculate metrics
-        self.dependency_analyzer.graph = graph
-        return self.dependency_analyzer.calculate_metrics()
+        if self.dependency_analyzer:
+            self.dependency_analyzer.graph = graph
+            return self.dependency_analyzer.calculate_metrics()
+        return {}
 
-    def find_dependency_impact(
-        self,
-        module: str,
-        graph: Any | None = None
-    ) -> dict[str, Any]:
+    def find_dependency_impact(self, module: str, graph: Any | None = None) -> dict[str, Any]:
         """
         Analyze the impact of changes to a specific module.
 
@@ -148,13 +149,12 @@ class DependencyIntegrationManager:
             graph = self.analyze_dependencies()
 
         # Update analyzer's graph and perform impact analysis
-        self.dependency_analyzer.graph = graph
-        return self.dependency_analyzer.find_impact_analysis(module)
+        if self.dependency_analyzer:
+            self.dependency_analyzer.graph = graph
+            return self.dependency_analyzer.find_impact_analysis(module)  # type: ignore[no-any-return]
+        return {}
 
-    def suggest_refactoring_opportunities(
-        self,
-        graph: Any | None = None
-    ) -> list[dict[str, Any]]:
+    def suggest_refactoring_opportunities(self, graph: Any | None = None) -> list[dict[str, Any]]:
         """
         Suggest refactoring opportunities based on dependency analysis.
 
@@ -176,8 +176,10 @@ class DependencyIntegrationManager:
             graph = self.analyze_dependencies()
 
         # Update analyzer's graph and get suggestions
-        self.dependency_analyzer.graph = graph
-        return self.dependency_analyzer.suggest_refactoring_opportunities()
+        if self.dependency_analyzer:
+            self.dependency_analyzer.graph = graph
+            return self.dependency_analyzer.suggest_refactoring_opportunities()  # type: ignore[no-any-return]
+        return []
 
     def detect_circular_dependencies(self, graph: Any | None = None) -> list[list[str]]:
         """
@@ -196,6 +198,7 @@ class DependencyIntegrationManager:
 
         try:
             from ...analysis.dependency_analysis import CircularDependencyDetector
+
             detector = CircularDependencyDetector(graph)
             return detector.find_cycles()
         except Exception:
@@ -218,28 +221,33 @@ class DependencyIntegrationManager:
 
         try:
             coupling_metrics = {}
-            
+
             for module in graph.nodes:
                 # Calculate afferent coupling (incoming dependencies)
-                afferent = len([
-                    source for source, targets in graph.edges.items()
-                    if module in targets and source != module
-                ])
-                
+                # graph.edges values are lists of DependencyEdge objects
+                afferent = len(
+                    [
+                        source
+                        for source, edges in graph.edges.items()
+                        if source != module
+                        and any(edge.target == module for edge in edges)
+                    ]
+                )
+
                 # Calculate efferent coupling (outgoing dependencies)
                 efferent = len(graph.edges.get(module, []))
-                
+
                 # Calculate instability (Ce / (Ca + Ce))
                 total_coupling = afferent + efferent
                 instability = efferent / total_coupling if total_coupling > 0 else 0
-                
+
                 coupling_metrics[module] = {
                     "afferent_coupling": afferent,
                     "efferent_coupling": efferent,
                     "instability": instability,
-                    "total_coupling": total_coupling
+                    "total_coupling": total_coupling,
                 }
-            
+
             return coupling_metrics
         except Exception:
             return {}
@@ -261,18 +269,23 @@ class DependencyIntegrationManager:
 
         try:
             dead_modules = []
-            
+
             for module in graph.nodes:
                 # Check if module has no incoming dependencies (not imported by others)
+                # graph.edges values are lists of DependencyEdge objects
                 has_incoming = any(
-                    module in targets
-                    for targets in graph.edges.values()
+                    any(edge.target == module for edge in edges)
+                    for edges in graph.edges.values()
                 )
-                
+
                 # Skip entry points and main modules
-                if not has_incoming and not module.endswith('__main__') and 'main' not in module.lower():
+                if (
+                    not has_incoming
+                    and not module.endswith("__main__")
+                    and "main" not in module.lower()
+                ):
                     dead_modules.append(module)
-            
+
             return dead_modules
         except Exception:
             return []
@@ -303,35 +316,35 @@ class DependencyIntegrationManager:
     def _export_to_dot(self, graph: Any) -> str:
         """Export graph to DOT format for Graphviz."""
         lines = ["digraph dependencies {"]
-        
-        for source, targets in graph.edges.items():
-            for target in targets:
-                lines.append(f'  "{source}" -> "{target}";')
-        
+
+        for source, edges in graph.edges.items():
+            for edge in edges:
+                lines.append(f'  "{source}" -> "{edge.target}";')
+
         lines.append("}")
         return "\n".join(lines)
 
     def _export_to_json(self, graph: Any) -> str:
         """Export graph to JSON format."""
         import json
-        
+
         graph_data = {
             "nodes": list(graph.nodes),
             "edges": [
-                {"source": source, "target": target}
-                for source, targets in graph.edges.items()
-                for target in targets
-            ]
+                {"source": source, "target": edge.target, "weight": edge.weight}
+                for source, edges in graph.edges.items()
+                for edge in edges
+            ],
         }
-        
+
         return json.dumps(graph_data, indent=2)
 
     def _export_to_csv(self, graph: Any) -> str:
         """Export graph to CSV format."""
-        lines = ["source,target"]
-        
-        for source, targets in graph.edges.items():
-            for target in targets:
-                lines.append(f'"{source}","{target}"')
-        
+        lines = ["source,target,weight"]
+
+        for source, edges in graph.edges.items():
+            for edge in edges:
+                lines.append(f'"{source}","{edge.target}",{edge.weight}')
+
         return "\n".join(lines)

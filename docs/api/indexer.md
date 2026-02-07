@@ -36,8 +36,8 @@ The indexer provides efficient file scanning and caching capabilities with incre
 ### Basic Indexing
 
 ```python
-from pysearch.indexer import Indexer
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig
+from pysearch.indexing import Indexer
 
 config = SearchConfig(
     paths=["./src"],

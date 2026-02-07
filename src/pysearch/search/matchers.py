@@ -99,6 +99,11 @@ def _is_match_in_string_or_comment(
     """
     Check if a match is in a string literal, comment, or docstring.
 
+    Uses a simplified but more robust approach:
+    - Detects ``#`` comments while ignoring ``#`` inside string literals
+    - Handles single/double quotes and triple-quoted strings
+    - Recognizes raw strings (r"...", r'...')
+
     Returns:
         Tuple of (is_in_string, is_in_comment, is_in_docstring)
     """
@@ -108,32 +113,68 @@ def _is_match_in_string_or_comment(
 
     line = lines[line_index]
 
-    # Check for comment (simple heuristic)
-    comment_pos = line.find("#")
-    if comment_pos != -1 and start_col >= comment_pos:
+    # Walk through the line character by character to determine the state
+    # at the match position.  This handles quotes inside comments and
+    # comments inside strings correctly.
+    in_string: str | None = None  # None, "'", '"', "'''", '"""'
+    i = 0
+    while i < len(line) and i < start_col:
+        ch = line[i]
+
+        if in_string is None:
+            # Not inside a string – check for comment
+            if ch == "#":
+                # Everything from here is a comment
+                return False, True, False
+
+            # Check for triple-quote opening
+            triple = line[i : i + 3]
+            if triple in ('"""', "'''"):
+                in_string = triple
+                i += 3
+                continue
+
+            # Check for single-quote opening (skip raw-string prefix)
+            if ch in ('"', "'"):
+                in_string = ch
+                i += 1
+                continue
+
+            # Skip raw-string prefix characters before a quote
+            if ch in ("r", "R", "b", "B", "f", "F", "u", "U") and i + 1 < len(line):
+                next_ch = line[i + 1]
+                if next_ch in ('"', "'"):
+                    # This is a prefix; let the next iteration handle the quote
+                    i += 1
+                    continue
+        else:
+            # Inside a string – look for closing delimiter
+            if ch == "\\" and i + 1 < len(line):
+                i += 2  # skip escaped character
+                continue
+
+            if len(in_string) == 3:
+                # Triple-quoted string
+                if line[i : i + 3] == in_string:
+                    in_string = None
+                    i += 3
+                    continue
+            else:
+                if ch == in_string:
+                    in_string = None
+                    i += 1
+                    continue
+
+        i += 1
+
+    if in_string is not None:
+        is_docstring = len(in_string) == 3
+        return True, False, is_docstring
+
+    # Not inside a string at start_col – one more check: is start_col
+    # itself the start of a comment?
+    if start_col < len(line) and line[start_col] == "#":
         return False, True, False
-
-    # Simple string detection - check if the match is between quotes
-    # Look for quotes before and after the match position
-    before_match = line[:start_col]
-    after_match = line[end_col:]
-
-    # Count quotes before the match
-    single_quotes_before = before_match.count("'") - before_match.count("\\'")
-    double_quotes_before = before_match.count('"') - before_match.count('\\"')
-
-    # If odd number of quotes before, we're inside a string
-    if single_quotes_before % 2 == 1:
-        # Check if it's a triple quote (docstring)
-        if before_match.endswith("''") or after_match.startswith("''"):
-            return True, False, True
-        return True, False, False
-
-    if double_quotes_before % 2 == 1:
-        # Check if it's a triple quote (docstring)
-        if before_match.endswith('""') or after_match.startswith('""'):
-            return True, False, True
-        return True, False, False
 
     return False, False, False
 
@@ -157,8 +198,7 @@ def find_text_regex_matches(text: str, pattern: str, use_regex: bool) -> list[Te
             start_abs, end_abs = m.span()
             li, col_start = _offset_to_line_col(line_starts, start_abs)
             col_end = col_start + (end_abs - start_abs)
-            matches.append(
-                TextMatch(line_index=li, start_col=col_start, end_col=col_end))
+            matches.append(TextMatch(line_index=li, start_col=col_start, end_col=col_end))
     else:
         # simple substring search line by line
         lines = split_lines_keepends(text)
@@ -168,8 +208,7 @@ def find_text_regex_matches(text: str, pattern: str, use_regex: bool) -> list[Te
                 j = line.find(pattern, start)
                 if j == -1:
                     break
-                matches.append(
-                    TextMatch(line_index=i, start_col=j, end_col=j + len(pattern)))
+                matches.append(TextMatch(line_index=i, start_col=j, end_col=j + len(pattern)))
                 # Ensure we always advance position to prevent infinite loops
                 start = j + max(1, len(pattern))
     return matches
@@ -183,8 +222,7 @@ def group_matches_into_blocks(matches: list[TextMatch]) -> list[tuple[int, int, 
     """
     if not matches:
         return []
-    matches_sorted = sorted(matches, key=lambda m: (
-        m.line_index, m.start_col, m.end_col))
+    matches_sorted = sorted(matches, key=lambda m: (m.line_index, m.start_col, m.end_col))
 
     grouped: list[list[TextMatch]] = []
     bucket: list[TextMatch] = [matches_sorted[0]]
@@ -327,8 +365,29 @@ def search_in_file(
     if query.filters:
         ast_blocks = find_ast_blocks(text, query.filters)
 
-    # Text/regex matches
-    tms = find_text_regex_matches(text, query.pattern, query.use_regex)
+    # Semantic search mode: use concept-based pattern expansion
+    if query.use_semantic and query.pattern:
+        from .semantic import expand_semantic_query
+
+        semantic_patterns = expand_semantic_query(query.pattern)
+        all_tms: list[TextMatch] = []
+        for sem_pattern in semantic_patterns:
+            try:
+                sem_matches = find_text_regex_matches(text, sem_pattern, use_regex=True)
+                all_tms.extend(sem_matches)
+            except Exception:
+                continue
+        # Deduplicate by (line_index, start_col, end_col)
+        seen: set[tuple[int, int, int]] = set()
+        tms: list[TextMatch] = []
+        for tm in all_tms:
+            key = (tm.line_index, tm.start_col, tm.end_col)
+            if key not in seen:
+                seen.add(key)
+                tms.append(tm)
+    else:
+        # Text/regex matches
+        tms = find_text_regex_matches(text, query.pattern, query.use_regex)
 
     # Filter matches based on search_strings, search_comments, search_docstrings
     if tms:
@@ -367,13 +426,11 @@ def search_in_file(
 
     if query.filters and ast_blocks:
         # 仅保留与 AST 块相交的文本匹配组
-        grouped = [g for g in grouped if any(
-            in_any_block(li) for li, _ in g[2])]
+        grouped = [g for g in grouped if any(in_any_block(li) for li, _ in g[2])]
 
     # Build items from grouped matches
     for start_l, end_l, spans_struct in grouped:
-        ctx_s, ctx_e, slice_lines = extract_context(
-            lines, start_l, end_l, window=query.context)
+        ctx_s, ctx_e, slice_lines = extract_context(lines, start_l, end_l, window=query.context)
         # Rebase spans to context slice line indexes
         spans_rebased: list[tuple[int, tuple[int, int]]] = []
         for li, (a, b) in spans_struct:
@@ -392,8 +449,7 @@ def search_in_file(
     # If only AST blocks, return their context windows as items
     if not tms and ast_blocks:
         for s, e in ast_blocks:
-            ctx_s, ctx_e, slice_lines = extract_context(
-                lines, s, e, window=query.context)
+            ctx_s, ctx_e, slice_lines = extract_context(lines, s, e, window=query.context)
             items.append(
                 SearchItem(
                     file=path,

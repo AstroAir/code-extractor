@@ -20,7 +20,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from mcp.servers.mcp_server import (
     FuzzySearchConfig,
     MultiPatternQuery,
@@ -29,9 +28,10 @@ from mcp.servers.mcp_server import (
     SearchOperator,
 )
 from mcp.shared.composition import SearchComposer
-from mcp.shared.progress import ProgressAwareSearchServer
 from mcp.shared.prompts import MCPPromptManager, PromptCategory
 from mcp.shared.resources import MCPResourceManager
+
+from mcp.shared.progress import ProgressAwareSearchServer
 
 
 class TestMCPFeatures:
@@ -243,9 +243,7 @@ function sqlInjection(userInput) {
     @pytest.mark.asyncio
     async def test_file_statistics(self, mcp_server, temp_test_files):
         """Test comprehensive file statistics."""
-        stats = await mcp_server.get_file_statistics(
-            paths=[temp_test_files], include_analysis=True
-        )
+        stats = await mcp_server.get_file_statistics(paths=[temp_test_files], include_analysis=True)
 
         assert isinstance(stats, dict)
         assert "total_files" in stats
@@ -373,7 +371,7 @@ function sqlInjection(userInput) {
         assert len(session.queries) == 0
 
         # Perform a search with session
-        result = await mcp_server.search_text(
+        await mcp_server.search_text(
             pattern="test", paths=["./src"], session_id=session.session_id
         )
 
@@ -417,7 +415,7 @@ function sqlInjection(userInput) {
 
         # Test ranking performance
         start_time = time.time()
-        ranked_results = await mcp_server.search_with_ranking(
+        await mcp_server.search_with_ranking(
             pattern="class", paths=["./src"], max_results=20
         )
         ranking_time = time.time() - start_time
@@ -432,7 +430,7 @@ async def run_enhanced_tests():
     print("=" * 60)
 
     mcp_server = PySearchMCPServer()
-    progress_server = ProgressAwareSearchServer()
+    ProgressAwareSearchServer()
     resource_manager = MCPResourceManager(mcp_server)
     prompt_manager = MCPPromptManager()
     search_composer = SearchComposer(mcp_server)

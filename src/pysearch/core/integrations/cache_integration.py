@@ -41,14 +41,14 @@ class CacheIntegrationManager:
 
     def __init__(self, config: SearchConfig) -> None:
         self.config = config
-        self.cache_manager = None
+        self.cache_manager: Any = None
         self._caching_enabled = False
-        
+
         # In-memory caches for backward compatibility
         self._file_content_cache: dict[Path, tuple[float, str]] = {}
         self._search_result_cache: dict[str, tuple[float, SearchResult]] = {}
         self._cache_lock = threading.RLock()
-        self.cache_ttl = 300  # 5 minutes TTL
+        self.cache_ttl: float = 300.0  # 5 minutes TTL
 
     def enable_caching(
         self,
@@ -56,7 +56,7 @@ class CacheIntegrationManager:
         cache_dir: Path | str | None = None,
         max_size: int = 1000,
         default_ttl: float = 3600,
-        compression: bool = False
+        compression: bool = False,
     ) -> bool:
         """
         Enable search result caching for improved performance.
@@ -79,8 +79,8 @@ class CacheIntegrationManager:
             return True
 
         try:
-            from ...indexing.cache_manager import CacheManager
-            
+            from ...indexing.cache import CacheManager
+
             if backend == "disk" and cache_dir is None:
                 cache_dir = self.config.resolve_cache_dir() / "search_cache"
 
@@ -89,7 +89,7 @@ class CacheIntegrationManager:
                 cache_dir=Path(cache_dir) if cache_dir else None,
                 max_size=max_size,
                 default_ttl=default_ttl,
-                compression=compression
+                compression=compression,
             )
 
             self._caching_enabled = True
@@ -122,7 +122,7 @@ class CacheIntegrationManager:
 
         try:
             cache_key = self._generate_cache_key(query)
-            return self.cache_manager.get(cache_key)
+            return self.cache_manager.get(cache_key)  # type: ignore[no-any-return]
         except Exception:
             return None
 
@@ -138,17 +138,16 @@ class CacheIntegrationManager:
         try:
             cache_key = self._generate_cache_key(query)
             file_dependencies = self._get_file_dependencies(result)
-            self.cache_manager.set(
-                key=cache_key,
-                value=result,
-                file_dependencies=file_dependencies
-            )
+            self.cache_manager.set(key=cache_key, value=result, file_dependencies=file_dependencies)
         except Exception:
             pass
 
     def _generate_cache_key(self, query: Query) -> str:
         """Generate cache key for search query."""
-        return f"{query.pattern}:{query.use_regex}:{query.use_ast}:{query.context}:{hash(str(query.filters))}:{hash(str(query.metadata_filters))}"
+        return (
+            f"{query.pattern}:{query.use_regex}:{query.use_ast}:{query.context}:"
+            f"{hash(str(query.filters))}:{hash(str(query.metadata_filters))}"
+        )
 
     def _get_file_dependencies(self, result: SearchResult) -> list[Path]:
         """Extract file dependencies from search result."""
@@ -157,7 +156,7 @@ class CacheIntegrationManager:
     def _get_legacy_cached_result(self, query: Query) -> SearchResult | None:
         """Get cached result using legacy cache system."""
         cache_key = self._generate_cache_key(query)
-        
+
         with self._cache_lock:
             if cache_key in self._search_result_cache:
                 timestamp, result = self._search_result_cache[cache_key]
@@ -166,21 +165,20 @@ class CacheIntegrationManager:
                 else:
                     # Remove expired entry
                     del self._search_result_cache[cache_key]
-        
+
         return None
 
     def _cache_legacy_result(self, query: Query, result: SearchResult) -> None:
         """Cache result using legacy cache system."""
         cache_key = self._generate_cache_key(query)
-        
+
         with self._cache_lock:
             self._search_result_cache[cache_key] = (time.time(), result)
-            
+
             # Limit cache size
             if len(self._search_result_cache) > 100:
                 oldest_keys = sorted(
-                    self._search_result_cache.keys(),
-                    key=lambda k: self._search_result_cache[k][0]
+                    self._search_result_cache.keys(), key=lambda k: self._search_result_cache[k][0]
                 )[:20]
                 for k in oldest_keys:
                     del self._search_result_cache[k]
@@ -217,19 +215,18 @@ class CacheIntegrationManager:
                 # Cache miss or outdated - read file
                 try:
                     from ...utils.utils import read_text_safely
-                    file_content = read_text_safely(
-                        path, max_bytes=self.config.max_file_bytes)
+
+                    file_content = read_text_safely(path, max_bytes=self.config.max_file_bytes)
                     if file_content is not None:
-                        self._file_content_cache[path] = (
-                            current_mtime, file_content)
-                        
+                        self._file_content_cache[path] = (current_mtime, file_content)
+
                         # Limit cache size
                         if len(self._file_content_cache) > 1000:
                             # Remove oldest 20% of entries
                             to_remove = list(self._file_content_cache.keys())[:200]
                             for k in to_remove:
                                 del self._file_content_cache[k]
-                        
+
                         return file_content
                     else:
                         return None
@@ -255,7 +252,11 @@ class CacheIntegrationManager:
         """Get cache statistics."""
         stats = {
             "enabled": self._caching_enabled,
-            "backend": "memory" if not self.cache_manager else getattr(self.cache_manager, 'backend', 'unknown'),
+            "backend": (
+                "memory"
+                if not self.cache_manager
+                else getattr(self.cache_manager, "backend", "unknown")
+            ),
             "file_content_cache_size": len(self._file_content_cache),
             "search_result_cache_size": len(self._search_result_cache),
         }
@@ -286,7 +287,7 @@ class CacheIntegrationManager:
     def set_cache_ttl(self, ttl: float) -> None:
         """Set cache time-to-live in seconds."""
         self.cache_ttl = ttl
-        
+
         if self.cache_manager:
             try:
                 self.cache_manager.set_default_ttl(ttl)
@@ -298,11 +299,11 @@ class CacheIntegrationManager:
         if self.cache_manager:
             try:
                 stats = self.cache_manager.get_stats()
-                hits = stats.get('hits', 0)
-                misses = stats.get('misses', 0)
+                hits = stats.get("hits", 0)
+                misses = stats.get("misses", 0)
                 total = hits + misses
                 return (hits / total * 100) if total > 0 else 0.0
             except Exception:
                 pass
-        
+
         return 0.0

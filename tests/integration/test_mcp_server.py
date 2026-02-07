@@ -9,9 +9,7 @@ error handling, and integration capabilities.
 import asyncio
 
 import pytest
-
-from mcp.servers.basic_mcp_server import ConfigResponse, SearchResponse
-from mcp.servers.mcp_server import PySearchMCPServer
+from mcp.servers.pysearch_mcp_server import PySearchEngine, ConfigResponse, SearchResponse
 
 
 class TestPySearchMCPServer:
@@ -130,7 +128,7 @@ class TestPySearchMCPServer:
         # Test with invalid regex pattern
         try:
             await server.search_regex(pattern="[invalid", paths=["./src"])
-            assert False, "Should have raised an exception"
+            raise AssertionError("Should have raised an exception")
         except Exception as e:
             assert "invalid" in str(e).lower() or "error" in str(e).lower()
 

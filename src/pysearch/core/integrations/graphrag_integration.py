@@ -38,11 +38,11 @@ class GraphRAGIntegrationManager:
         self.config = config
         self.qdrant_config = qdrant_config
         self.enable_graphrag = config.enable_graphrag
-        self._graphrag_engine = None
-        self._vector_store = None
+        self._graphrag_engine: Any = None
+        self._vector_store: Any = None
         self._graphrag_initialized = False
-        self._logger = None
-        self._error_collector = None
+        self._logger: Any = None
+        self._error_collector: Any = None
 
     def set_dependencies(self, logger: Any, error_collector: Any) -> None:
         """Set dependencies for logging and error handling."""
@@ -57,13 +57,15 @@ class GraphRAGIntegrationManager:
         try:
             if not self._graphrag_engine:
                 from ...analysis.graphrag.engine import GraphRAGEngine
+
                 self._graphrag_engine = GraphRAGEngine(self.config, self.qdrant_config)
 
-            await self._graphrag_engine.initialize()
-            # Set the vector store reference from the GraphRAG engine
-            self._vector_store = self._graphrag_engine.vector_store
+            if self._graphrag_engine:
+                await self._graphrag_engine.initialize()
+                # Set the vector store reference from the GraphRAG engine
+                self._vector_store = self._graphrag_engine.vector_store
             self._graphrag_initialized = True
-            
+
             if self._logger:
                 self._logger.info("GraphRAG engine initialized successfully")
 
@@ -139,7 +141,7 @@ class GraphRAGIntegrationManager:
             return {}
 
         try:
-            return self._graphrag_engine.get_stats()
+            return self._graphrag_engine.get_stats()  # type: ignore[no-any-return]
         except Exception:
             return {}
 
@@ -149,7 +151,7 @@ class GraphRAGIntegrationManager:
             return {}
 
         try:
-            return self._vector_store.get_stats()
+            return self._vector_store.get_stats()  # type: ignore[no-any-return]
         except Exception:
             return {}
 
@@ -185,7 +187,7 @@ class GraphRAGIntegrationManager:
             return []
 
         try:
-            return await self._graphrag_engine.find_similar_entities(entity_id, limit)
+            return await self._graphrag_engine.find_similar_entities(entity_id, limit)  # type: ignore[no-any-return]
         except Exception as e:
             if self._logger:
                 self._logger.error(f"Failed to find similar entities: {e}")
@@ -197,7 +199,7 @@ class GraphRAGIntegrationManager:
             return {}
 
         try:
-            return await self._graphrag_engine.get_entity_context(entity_id, max_hops)
+            return await self._graphrag_engine.get_entity_context(entity_id, max_hops)  # type: ignore[no-any-return]
         except Exception as e:
             if self._logger:
                 self._logger.error(f"Failed to get entity context: {e}")
@@ -235,7 +237,7 @@ class GraphRAGIntegrationManager:
             return ""
 
         try:
-            return await self._graphrag_engine.export_graph(format)
+            return await self._graphrag_engine.export_graph(format)  # type: ignore[no-any-return]
         except Exception as e:
             if self._logger:
                 self._logger.error(f"Failed to export graph: {e}")

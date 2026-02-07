@@ -31,7 +31,7 @@ def get_file_author(path: Path) -> str | None:
         import pwd
 
         stat_info = path.stat()
-        if hasattr(pwd, 'getpwuid'):
+        if hasattr(pwd, "getpwuid"):
             owner = pwd.getpwuid(stat_info.st_uid)
             return str(owner.pw_name)
     except (ImportError, KeyError, OSError, AttributeError):

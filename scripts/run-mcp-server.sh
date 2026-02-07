@@ -10,9 +10,8 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Available servers
 declare -A SERVERS=(
     ["basic"]="mcp/servers/basic_mcp_server.py"
-    ["main"]="mcp/servers/mcp_server.py"
-    ["fastmcp"]="mcp/servers/fastmcp_server.py"
-    ["pysearch"]="mcp/servers/pysearch_mcp_server.py"
+    ["fastmcp"]="mcp/servers/enhanced_fastmcp_server_simple.py"
+    ["enhanced"]="mcp/servers/enhanced_fastmcp_server_simple.py"
 )
 
 show_help() {
@@ -23,11 +22,11 @@ show_help() {
         echo "  $server - ${SERVERS[$server]}"
     done
     echo ""
-    echo "If no server is specified, the main server will be used."
+    echo "If no server is specified, the fastmcp server will be used (recommended)."
 }
 
 # Parse arguments
-SERVER_NAME="${1:-main}"
+SERVER_NAME="${1:-fastmcp}"
 
 if [[ "$SERVER_NAME" == "-h" || "$SERVER_NAME" == "--help" ]]; then
     show_help

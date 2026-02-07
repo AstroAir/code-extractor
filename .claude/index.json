@@ -1,0 +1,336 @@
+{
+  "generated_at": "2026-01-19T00:00:00Z",
+  "project": {
+    "name": "pysearch",
+    "description": "High-performance, context-aware search engine for Python codebases",
+    "version": "0.1.0",
+    "type": "Python Project",
+    "repository": "https://github.com/your-org/pysearch"
+  },
+  "root_documentation": "CLAUDE.md",
+  "modules": [
+    {
+      "path": "src/pysearch/core",
+      "name": "Core",
+      "description": "Main API, configuration, and type definitions",
+      "documentation": "src/pysearch/core/CLAUDE.md",
+      "entry_points": ["src/pysearch/core/api.py", "src/pysearch/core/config.py"],
+      "key_files": [
+        "src/pysearch/core/api.py",
+        "src/pysearch/core/config.py",
+        "src/pysearch/core/types/__init__.py",
+        "src/pysearch/core/history/__init__.py",
+        "src/pysearch/core/integrations/__init__.py"
+      ],
+      "submodules": [
+        {
+          "path": "src/pysearch/core/types",
+          "name": "Core Types",
+          "documentation": "src/pysearch/core/types/CLAUDE.md",
+          "entry_points": ["basic_types.py", "graphrag_types.py"],
+          "key_interfaces": ["Query", "SearchResult", "SearchItem", "CodeEntity", "KnowledgeGraph"],
+          "coverage": "complete"
+        },
+        {
+          "path": "src/pysearch/core/history",
+          "name": "Core History",
+          "documentation": "src/pysearch/core/history/CLAUDE.md",
+          "entry_points": ["history_core.py", "history_sessions.py", "history_bookmarks.py", "history_analytics.py"],
+          "key_interfaces": ["SearchHistory", "SessionManager", "BookmarkManager", "AnalyticsManager"],
+          "coverage": "complete"
+        },
+        {
+          "path": "src/pysearch/core/integrations",
+          "name": "Core Integrations",
+          "documentation": "src/pysearch/core/integrations/CLAUDE.md",
+          "entry_points": ["advanced_search.py", "cache_integration.py", "dependency_integration.py", "enhanced_indexing_integration.py", "file_watching.py", "graphrag_integration.py", "multi_repo_integration.py", "parallel_processing.py"],
+          "key_interfaces": ["AdvancedSearchManager", "CacheIntegrationManager", "DependencyIntegrationManager", "EnhancedIndexingManager", "FileWatchingManager", "GraphRAGIntegrationManager", "MultiRepoManager", "ParallelProcessingManager"],
+          "coverage": "complete"
+        }
+      ],
+      "has_tests": true,
+      "test_directory": "tests/unit/core/"
+    },
+    {
+      "path": "src/pysearch/indexing",
+      "name": "Indexing",
+      "description": "File indexing, caching, and metadata management",
+      "documentation": "src/pysearch/indexing/CLAUDE.md",
+      "entry_points": ["src/pysearch/indexing/indexer.py"],
+      "key_files": [
+        "src/pysearch/indexing/indexer.py",
+        "src/pysearch/indexing/cache_manager.py",
+        "src/pysearch/indexing/cache/",
+        "src/pysearch/indexing/metadata/",
+        "src/pysearch/indexing/advanced/",
+        "src/pysearch/indexing/indexes/"
+      ],
+      "submodules": [
+        {
+          "path": "src/pysearch/indexing/cache",
+          "name": "Cache",
+          "documentation": "src/pysearch/indexing/cache/CLAUDE.md",
+          "entry_points": ["manager.py", "backends.py", "models.py", "dependencies.py", "cleanup.py", "statistics.py"],
+          "key_interfaces": ["CacheManager", "CacheBackend", "MemoryCache", "DiskCache"],
+          "coverage": "complete"
+        },
+        {
+          "path": "src/pysearch/indexing/metadata",
+          "name": "Metadata",
+          "documentation": "src/pysearch/indexing/metadata/CLAUDE.md",
+          "entry_points": ["database.py", "indexer.py", "models.py", "analysis.py"],
+          "key_interfaces": ["MetadataIndex", "MetadataIndexer", "EntityMetadata", "FileMetadata"],
+          "coverage": "complete"
+        },
+        {
+          "path": "src/pysearch/indexing/indexes",
+          "name": "Indexes",
+          "documentation": "src/pysearch/indexing/indexes/CLAUDE.md",
+          "entry_points": ["code_snippets_index.py", "full_text_index.py", "chunk_index.py", "vector_index.py"],
+          "key_interfaces": ["EnhancedCodeSnippetsIndex", "EnhancedFullTextIndex", "EnhancedChunkIndex", "EnhancedVectorIndex"],
+          "coverage": "complete"
+        },
+        {
+          "path": "src/pysearch/indexing/advanced",
+          "name": "Advanced Indexing",
+          "documentation": "src/pysearch/indexing/advanced/CLAUDE.md",
+          "entry_points": ["engine.py", "coordinator.py", "base.py", "locking.py", "chunking.py", "integration.py"],
+          "key_interfaces": ["EnhancedIndexingEngine", "IndexCoordinator", "EnhancedCodebaseIndex", "IndexLock", "ChunkingEngine", "EnhancedSearchEngine"],
+          "coverage": "complete"
+        }
+      ],
+      "has_tests": true,
+      "test_directory": "tests/unit/core/"
+    },
+    {
+      "path": "src/pysearch/analysis",
+      "name": "Analysis",
+      "description": "Code analysis and language detection",
+      "documentation": "src/pysearch/analysis/CLAUDE.md",
+      "entry_points": [
+        "src/pysearch/analysis/dependency_analysis.py",
+        "src/pysearch/analysis/language_detection.py"
+      ],
+      "key_files": [
+        "src/pysearch/analysis/dependency_analysis.py",
+        "src/pysearch/analysis/language_detection.py",
+        "src/pysearch/analysis/language_support.py",
+        "src/pysearch/analysis/content_addressing.py",
+        "src/pysearch/analysis/graphrag/"
+      ],
+      "submodules": [
+        {
+          "path": "src/pysearch/analysis/graphrag",
+          "name": "GraphRAG",
+          "documentation": "src/pysearch/analysis/graphrag/CLAUDE.md",
+          "entry_points": ["core.py", "engine.py"],
+          "key_interfaces": ["EntityExtractor", "RelationshipMapper", "GraphRAGEngine", "KnowledgeGraph"],
+          "coverage": "complete"
+        }
+      ],
+      "has_tests": true,
+      "test_directory": "tests/integration/"
+    },
+    {
+      "path": "src/pysearch/search",
+      "name": "Search",
+      "description": "Pattern matching and search algorithms",
+      "documentation": "src/pysearch/search/CLAUDE.md",
+      "entry_points": ["src/pysearch/search/matchers.py"],
+      "key_files": [
+        "src/pysearch/search/matchers.py",
+        "src/pysearch/search/fuzzy.py",
+        "src/pysearch/search/semantic.py",
+        "src/pysearch/search/semantic_advanced.py",
+        "src/pysearch/search/scorer.py",
+        "src/pysearch/search/boolean.py"
+      ],
+      "submodules": [],
+      "has_tests": true,
+      "test_directory": "tests/unit/core/"
+    },
+    {
+      "path": "src/pysearch/cli",
+      "name": "CLI",
+      "description": "Command-line interface",
+      "documentation": "src/pysearch/cli/CLAUDE.md",
+      "entry_points": ["src/pysearch/cli/main.py"],
+      "key_files": [
+        "src/pysearch/cli/main.py",
+        "src/pysearch/cli/__init__.py"
+      ],
+      "submodules": [],
+      "has_tests": true,
+      "test_directory": "tests/unit/cli/"
+    },
+    {
+      "path": "src/pysearch/utils",
+      "name": "Utils",
+      "description": "Utility functions and helpers",
+      "documentation": "src/pysearch/utils/CLAUDE.md",
+      "key_files": [
+        "src/pysearch/utils/formatter.py",
+        "src/pysearch/utils/error_handling.py",
+        "src/pysearch/utils/file_watcher.py",
+        "src/pysearch/utils/logging_config.py",
+        "src/pysearch/utils/metadata_filters.py",
+        "src/pysearch/utils/performance_monitoring.py"
+      ],
+      "submodules": [],
+      "has_tests": true,
+      "test_directory": "tests/unit/core/"
+    },
+    {
+      "path": "src/pysearch/storage",
+      "name": "Storage",
+      "description": "Vector database and storage backends",
+      "documentation": "src/pysearch/storage/CLAUDE.md",
+      "entry_points": ["src/pysearch/storage/qdrant_client.py"],
+      "key_files": [
+        "src/pysearch/storage/qdrant_client.py",
+        "src/pysearch/storage/vector_db.py"
+      ],
+      "submodules": [],
+      "has_tests": true,
+      "test_directory": "tests/integration/"
+    },
+    {
+      "path": "src/pysearch/integrations",
+      "name": "Integrations",
+      "description": "External system integrations",
+      "documentation": "src/pysearch/integrations/CLAUDE.md",
+      "key_files": [
+        "src/pysearch/integrations/multi_repo.py",
+        "src/pysearch/integrations/distributed_indexing.py",
+        "src/pysearch/integrations/ide_hooks.py"
+      ],
+      "submodules": [],
+      "has_tests": true,
+      "test_directory": "tests/integration/"
+    },
+    {
+      "path": "mcp",
+      "name": "MCP Servers",
+      "description": "Model Context Protocol server implementations",
+      "documentation": "mcp/CLAUDE.md",
+      "entry_points": [
+        "mcp/servers/basic_mcp_server.py",
+        "mcp/servers/enhanced_fastmcp_server_simple.py"
+      ],
+      "key_files": [
+        "mcp/servers/basic_mcp_server.py",
+        "mcp/servers/enhanced_fastmcp_server_simple.py",
+        "mcp/shared/progress.py",
+        "mcp/shared/session_manager.py",
+        "mcp/shared/resource_manager.py",
+        "mcp/shared/validation.py"
+      ],
+      "submodules": [],
+      "has_tests": true,
+      "test_directory": "tests/integration/"
+    }
+  ],
+  "coverage": {
+    "total_files_estimated": 150,
+    "scanned_files": 120,
+    "coverage_percentage": 80,
+    "modules_with_submodule_docs": 3,
+    "submodules_documented": 8,
+    "ignored_patterns": [
+      ".venv/**",
+      ".git/**",
+      ".github/**",
+      "dist/**",
+      "build/**",
+      ".next/**",
+      "__pycache__/**",
+      "*.lock",
+      "*.log",
+      "*.bin",
+      "*.pdf",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.gif",
+      "*.mp4",
+      "*.zip",
+      "*.tar",
+      "*.gz"
+    ],
+    "ignore_source": ".gitignore"
+  },
+  "gaps": {
+    "missing_submodule_docs": [
+      "src/pysearch/search/fuzzy",
+      "src/pysearch/search/matchers",
+      "src/pysearch/search/scorer",
+      "src/pysearch/search/semantic_advanced",
+      "src/pysearch/storage/qdrant_client",
+      "src/pysearch/storage/vector_db",
+      "src/pysearch/integrations/distributed_indexing",
+      "src/pysearch/integrations/multi_repo"
+    ],
+    "recommended_next_scan": [
+      "src/pysearch/search/fuzzy.py",
+      "src/pysearch/search/matchers.py",
+      "src/pysearch/search/scorer.py",
+      "src/pysearch/search/semantic_advanced.py",
+      "src/pysearch/storage/qdrant_client.py",
+      "src/pysearch/storage/vector_db.py",
+      "src/pysearch/integrations/distributed_indexing.py",
+      "src/pysearch/integrations/multi_repo.py"
+    ]
+  },
+  "key_directories": {
+    "source": "src/pysearch/",
+    "tests": "tests/",
+    "docs": "docs/",
+    "scripts": "scripts/",
+    "mcp": "mcp/",
+    "config": {
+      "main": "pyproject.toml",
+      "makefile": "Makefile",
+      "gitignore": ".gitignore"
+    }
+  },
+  "development_commands": {
+    "setup": "make dev",
+    "test": "make test",
+    "lint": "make lint",
+    "format": "make format",
+    "typecheck": "make type",
+    "validate": "make validate",
+    "clean": "make clean",
+    "docs": "make docs"
+  },
+  "dependencies": {
+    "core": [
+      "rich>=13.7.1",
+      "orjson>=3.10.7",
+      "regex>=2024.5.15",
+      "pathspec>=0.12.1",
+      "click>=8.1.7",
+      "pydantic>=2.7.0"
+    ],
+    "dev": [
+      "pytest",
+      "pytest-cov",
+      "coverage[toml]",
+      "mypy",
+      "ruff",
+      "black"
+    ],
+    "optional": {
+      "semantic": [
+        "sentence-transformers>=2.2.0",
+        "transformers>=4.30.0",
+        "torch>=2.0.0"
+      ],
+      "vector": [
+        "qdrant-client>=1.7.0",
+        "faiss-cpu>=1.7.0"
+      ]
+    }
+  },
+  "truncated": false
+}

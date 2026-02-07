@@ -18,10 +18,11 @@ Features:
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import time
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 
 from ...utils.logging_config import get_logger
 
@@ -40,7 +41,7 @@ class IndexLock:
         self.lock_file = cache_dir / "indexing.lock"
         self.cache_dir = cache_dir
 
-    async def acquire(self, directories: List[str], timeout: float = 300.0) -> bool:
+    async def acquire(self, directories: list[str], timeout: float = 300.0) -> bool:
         """
         Acquire indexing lock.
 
@@ -65,15 +66,16 @@ class IndexLock:
 
                     # Atomic write
                     temp_file = self.lock_file.with_suffix(".tmp")
-                    temp_file.write_text(str(lock_data))
+                    temp_file.write_text(json.dumps(lock_data), encoding="utf-8")
                     temp_file.rename(self.lock_file)
 
                     return True
                 else:
                     # Check if existing lock is stale
                     try:
-                        existing_lock_data: dict[str, Any] = eval(
-                            self.lock_file.read_text())
+                        existing_lock_data: dict[str, Any] = json.loads(
+                            self.lock_file.read_text(encoding="utf-8")
+                        )
                         timestamp = float(existing_lock_data["timestamp"])
                         if time.time() - timestamp > 600:  # 10 minutes
                             logger.warning("Removing stale indexing lock")
@@ -105,8 +107,8 @@ class IndexLock:
         """Update lock timestamp to prevent stale lock detection."""
         try:
             if self.lock_file.exists():
-                lock_data = eval(self.lock_file.read_text())
+                lock_data = json.loads(self.lock_file.read_text(encoding="utf-8"))
                 lock_data["timestamp"] = time.time()
-                self.lock_file.write_text(str(lock_data))
+                self.lock_file.write_text(json.dumps(lock_data), encoding="utf-8")
         except Exception as e:
             logger.error(f"Error updating lock timestamp: {e}")

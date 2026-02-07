@@ -11,5 +11,7 @@ GraphRAG combines graph-based analysis with retrieval-augmented generation
 to provide intelligent code search and understanding capabilities.
 """
 
-# GraphRAG exports will be added during reorganization
-__all__: list[str] = []
+# Import main classes
+from .core import EntityExtractor, RelationshipMapper
+
+__all__ = ["EntityExtractor", "RelationshipMapper"]

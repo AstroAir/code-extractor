@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pysearch import PySearch, SearchConfig, ASTFilters, OutputFormat, Query
+from pysearch import ASTFilters, OutputFormat, PySearch, Query, SearchConfig
 
 SAMPLE = """
 def foo():

@@ -7,27 +7,23 @@ including edge cases, error classification, recovery mechanisms, and advanced fe
 
 from __future__ import annotations
 
-import sys
 import time
 from pathlib import Path
-from typing import Any
-from unittest.mock import Mock, patch
-
-import pytest
+from unittest.mock import Mock
 
 from pysearch.utils.error_handling import (
+    ConfigurationError,
+    EncodingError,
     ErrorCategory,
     ErrorCollector,
     ErrorInfo,
     ErrorSeverity,
-    SearchError,
     FileAccessError,
-    PermissionError,
-    EncodingError,
     ParsingError,
-    ConfigurationError,
-    handle_file_error,
+    PermissionError,
+    SearchError,
     create_error_report,
+    handle_file_error,
 )
 
 
@@ -68,7 +64,7 @@ class TestErrorInfo:
         error_info = ErrorInfo(
             category=ErrorCategory.FILE_ACCESS,
             severity=ErrorSeverity.HIGH,
-            message="Test error message"
+            message="Test error message",
         )
 
         assert error_info.category == ErrorCategory.FILE_ACCESS
@@ -97,7 +93,7 @@ class TestErrorInfo:
             exception_type="SyntaxError",
             traceback_str="Traceback...",
             context=test_context,
-            suggestions=test_suggestions
+            suggestions=test_suggestions,
         )
 
         assert error_info.category == ErrorCategory.PARSING
@@ -114,9 +110,7 @@ class TestErrorInfo:
         """Test that ErrorInfo gets a default timestamp."""
         before = time.time()
         error_info = ErrorInfo(
-            category=ErrorCategory.UNKNOWN,
-            severity=ErrorSeverity.LOW,
-            message="Test"
+            category=ErrorCategory.UNKNOWN, severity=ErrorSeverity.LOW, message="Test"
         )
         after = time.time()
 
@@ -151,7 +145,7 @@ class TestSearchError:
             severity=ErrorSeverity.HIGH,
             file_path=test_path,
             suggestions=test_suggestions,
-            context=test_context
+            context=test_context,
         )
 
         assert error.message == "Custom error"
@@ -213,10 +207,7 @@ class TestSpecificErrorTypes:
         additional_context = {"extra": "info"}
 
         error = EncodingError(
-            "Encoding failed",
-            test_path,
-            encoding="latin-1",
-            context=additional_context
+            "Encoding failed", test_path, encoding="latin-1", context=additional_context
         )
 
         assert error.context["encoding"] == "latin-1"
@@ -307,10 +298,10 @@ class TestErrorCollectorBasic:
         collector.add_error(
             error,
             category=ErrorCategory.FILE_ACCESS,  # Override
-            severity=ErrorSeverity.CRITICAL,     # Override
+            severity=ErrorSeverity.CRITICAL,  # Override
             file_path=test_path,
             context={"extra": "info"},
-            suggestions=["Try this"]
+            suggestions=["Try this"],
         )
 
         # Original error category should be preserved for SearchError
@@ -437,9 +428,17 @@ class TestErrorCollectorAdvanced:
         """Test getting error summary statistics."""
         collector = ErrorCollector()
 
-        collector.add_error(Exception("File error"), category=ErrorCategory.FILE_ACCESS, severity=ErrorSeverity.HIGH)
-        collector.add_error(Exception("Parse error"), category=ErrorCategory.PARSING, severity=ErrorSeverity.MEDIUM)
-        collector.add_error(Exception("Critical error"), category=ErrorCategory.UNKNOWN, severity=ErrorSeverity.CRITICAL)
+        collector.add_error(
+            Exception("File error"), category=ErrorCategory.FILE_ACCESS, severity=ErrorSeverity.HIGH
+        )
+        collector.add_error(
+            Exception("Parse error"), category=ErrorCategory.PARSING, severity=ErrorSeverity.MEDIUM
+        )
+        collector.add_error(
+            Exception("Critical error"),
+            category=ErrorCategory.UNKNOWN,
+            severity=ErrorSeverity.CRITICAL,
+        )
 
         summary = collector.get_summary()
 
@@ -458,6 +457,7 @@ class TestErrorCollectorAdvanced:
 
         # Test various exception types
         import builtins
+
         test_cases = [
             (FileNotFoundError("File not found"), ErrorCategory.FILE_ACCESS),
             (builtins.PermissionError("Permission denied"), ErrorCategory.PERMISSION),
@@ -526,6 +526,7 @@ class TestHandleFileError:
 
         # Use built-in PermissionError to avoid conflict
         import builtins
+
         exception = builtins.PermissionError("Permission denied")
 
         handle_file_error(test_path, "write", exception, collector)
@@ -636,7 +637,7 @@ class TestCreateErrorReport:
             "Critical failure",
             severity=ErrorSeverity.CRITICAL,
             file_path=test_path,
-            suggestions=["Fix this immediately", "Check logs"]
+            suggestions=["Fix this immediately", "Check logs"],
         )
         collector.add_error(critical_error)
 

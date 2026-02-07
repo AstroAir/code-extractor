@@ -22,8 +22,7 @@ The main PySearch class provides the primary interface for programmatic access t
 ### Basic Search
 
 ```python
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
+from pysearch import PySearch, SearchConfig
 
 # Create configuration
 config = SearchConfig(
@@ -54,7 +53,7 @@ filters = ASTFilters(
 query = Query(
     pattern="def",
     use_ast=True,
-    ast_filters=filters,
+    filters=filters,
     context=5
 )
 
@@ -64,7 +63,7 @@ results = engine.run(query)
 ### Multi-Repository Search
 
 ```python
-from pysearch.multi_repo import MultiRepoSearchEngine
+from pysearch.integrations.multi_repo import MultiRepoSearchEngine
 
 # Search across multiple repositories
 multi_engine = MultiRepoSearchEngine()

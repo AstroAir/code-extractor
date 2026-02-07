@@ -44,7 +44,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from .types import Language, OutputFormat
 
@@ -56,8 +56,7 @@ class RankStrategy(str, Enum):
 @dataclass(slots=True)
 class SearchConfig:
     # Scope
-    paths: list[str] = field(default_factory=lambda: ["."], metadata={
-                             "help": "Root search paths."})
+    paths: list[str] = field(default_factory=lambda: ["."], metadata={"help": "Root search paths."})
     include: list[str] | None = None  # None = auto-detect based on languages
     exclude: list[str] | None = None  # None = use defaults
 
@@ -100,17 +99,17 @@ class SearchConfig:
     graphrag_semantic_threshold: float = 0.7
     graphrag_context_window: int = 5
 
-    # Metadata Indexing Configuration (formerly Enhanced Indexing)
-    enable_enhanced_indexing: bool = False
-    enhanced_indexing_include_semantic: bool = True
-    enhanced_indexing_complexity_analysis: bool = True
-    enhanced_indexing_dependency_tracking: bool = True
+    # Metadata Indexing Configuration
+    enable_metadata_indexing: bool = False
+    metadata_indexing_include_semantic: bool = True
+    metadata_indexing_complexity_analysis: bool = True
+    metadata_indexing_dependency_tracking: bool = True
 
-    # Enhanced Indexing Engine Configuration
+    # Indexing Engine Configuration
     embedding_provider: str = "openai"  # "openai", "huggingface", "local"
     embedding_model: str = "text-embedding-ada-002"
     embedding_batch_size: int = 100
-    embedding_api_key: Optional[str] = None
+    embedding_api_key: str | None = None
     vector_db_provider: str = "lancedb"  # "lancedb", "qdrant", "chroma"
     chunk_size: int = 1000
     chunk_overlap: int = 100
@@ -132,8 +131,7 @@ class SearchConfig:
     qdrant_batch_size: int = 100
 
     def resolve_cache_dir(self) -> Path:
-        base = Path(self.paths[0]).resolve(
-        ) if self.paths else Path(".").resolve()
+        base = Path(self.paths[0]).resolve() if self.paths else Path(".").resolve()
         return self.cache_dir or (base / ".pysearch-cache")
 
     def get_include_patterns(self) -> list[str]:
@@ -189,8 +187,7 @@ class SearchConfig:
                 patterns.append(f"**/*{ext}")
 
         # Add special filename patterns
-        special_files = ["**/Dockerfile",
-                         "**/Makefile", "**/Rakefile", "**/Gemfile"]
+        special_files = ["**/Dockerfile", "**/Makefile", "**/Rakefile", "**/Gemfile"]
         patterns.extend(special_files)
 
         return patterns
@@ -201,6 +198,7 @@ class SearchConfig:
             return None
 
         from ..storage.qdrant_client import QdrantConfig
+
         return QdrantConfig(
             host=self.qdrant_host,
             port=self.qdrant_port,
@@ -210,7 +208,7 @@ class SearchConfig:
             collection_name=self.qdrant_collection_name,
             vector_size=self.qdrant_vector_size,
             distance_metric=self.qdrant_distance_metric,
-            batch_size=self.qdrant_batch_size
+            batch_size=self.qdrant_batch_size,
         )
 
     def get_graphrag_query_defaults(self) -> dict[str, Any]:
@@ -219,35 +217,29 @@ class SearchConfig:
             "max_hops": self.graphrag_max_hops,
             "min_confidence": self.graphrag_min_confidence,
             "semantic_threshold": self.graphrag_semantic_threshold,
-            "context_window": self.graphrag_context_window
+            "context_window": self.graphrag_context_window,
         }
 
-    def is_advanced_features_enabled(self) -> bool:
-        """Check if any advanced features are enabled."""
-        return (
-            self.enable_graphrag or
-            self.enable_enhanced_indexing or
-            self.qdrant_enabled
-        )
+    def is_optional_features_enabled(self) -> bool:
+        """Check if any optional features are enabled."""
+        return self.enable_graphrag or self.enable_metadata_indexing or self.qdrant_enabled
 
-    def validate_advanced_config(self) -> list[str]:
-        """Validate advanced feature configuration and return any issues."""
+    def validate_optional_config(self) -> list[str]:
+        """Validate optional feature configuration and return any issues."""
         issues = []
 
-        if self.enable_graphrag and not self.enable_enhanced_indexing:
-            issues.append("GraphRAG requires enhanced indexing to be enabled")
+        if self.enable_graphrag and not self.enable_metadata_indexing:
+            issues.append("GraphRAG requires metadata indexing to be enabled")
 
         if self.enable_graphrag and not self.qdrant_enabled:
-            issues.append(
-                "GraphRAG works best with Qdrant vector database enabled")
+            issues.append("GraphRAG works best with Qdrant vector database enabled")
 
         if self.qdrant_enabled:
             if self.qdrant_vector_size <= 0:
                 issues.append("Qdrant vector size must be positive")
 
             if self.qdrant_distance_metric not in ["Cosine", "Dot", "Euclid"]:
-                issues.append(
-                    "Qdrant distance metric must be one of: Cosine, Dot, Euclid")
+                issues.append("Qdrant distance metric must be one of: Cosine, Dot, Euclid")
 
             if self.qdrant_batch_size <= 0:
                 issues.append("Qdrant batch size must be positive")
@@ -256,12 +248,10 @@ class SearchConfig:
             issues.append("GraphRAG max hops must be at least 1")
 
         if not (0.0 <= self.graphrag_min_confidence <= 1.0):
-            issues.append(
-                "GraphRAG min confidence must be between 0.0 and 1.0")
+            issues.append("GraphRAG min confidence must be between 0.0 and 1.0")
 
         if not (0.0 <= self.graphrag_semantic_threshold <= 1.0):
-            issues.append(
-                "GraphRAG semantic threshold must be between 0.0 and 1.0")
+            issues.append("GraphRAG semantic threshold must be between 0.0 and 1.0")
 
         return issues
 

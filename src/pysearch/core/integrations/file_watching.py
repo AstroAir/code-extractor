@@ -39,14 +39,15 @@ class FileWatchingManager:
 
     def __init__(self, config: SearchConfig) -> None:
         self.config = config
-        self.watch_manager = None
+        self.watch_manager: Any = None
         self._auto_watch_enabled = False
-        self._indexer = None
+        self._indexer: Any = None
 
     def _ensure_watch_manager(self) -> None:
         """Lazy load the watch manager to avoid circular imports."""
         if self.watch_manager is None:
             from ...utils.file_watcher import WatchManager
+
             self.watch_manager = WatchManager()
 
     def set_indexer(self, indexer: Any) -> None:
@@ -54,10 +55,7 @@ class FileWatchingManager:
         self._indexer = indexer
 
     def enable_auto_watch(
-        self,
-        debounce_delay: float = 0.5,
-        batch_size: int = 50,
-        max_batch_delay: float = 5.0
+        self, debounce_delay: float = 0.5, batch_size: int = 50, max_batch_delay: float = 5.0
     ) -> bool:
         """
         Enable automatic file watching for real-time index updates.
@@ -83,26 +81,31 @@ class FileWatchingManager:
             # Create watchers for all configured paths
             for i, path in enumerate(self.config.paths):
                 watcher_name = f"path_{i}"
-                success = self.watch_manager.add_watcher(
-                    name=watcher_name,
-                    path=path,
-                    config=self.config,
-                    indexer=self._indexer,
-                    debounce_delay=debounce_delay,
-                    batch_size=batch_size,
-                    max_batch_delay=max_batch_delay
-                )
+                if self.watch_manager:
+                    success = self.watch_manager.add_watcher(
+                        name=watcher_name,
+                        path=path,
+                        config=self.config,
+                        indexer=self._indexer,
+                        debounce_delay=debounce_delay,
+                        batch_size=batch_size,
+                        max_batch_delay=max_batch_delay,
+                    )
 
                 if not success:
                     return False
 
             # Start all watchers
-            started = self.watch_manager.start_all()
+            if self.watch_manager:
+                started = self.watch_manager.start_all()
+            else:
+                started = 0
             if started == len(self.config.paths):
                 self._auto_watch_enabled = True
                 return True
             else:
-                self.watch_manager.stop_all()
+                if self.watch_manager:
+                    self.watch_manager.stop_all()
                 return False
 
         except Exception:
@@ -145,7 +148,7 @@ class FileWatchingManager:
             return {}
 
         try:
-            return self.watch_manager.get_all_stats()
+            return self.watch_manager.get_all_stats()  # type: ignore[no-any-return]
         except Exception:
             return {}
 
@@ -154,7 +157,7 @@ class FileWatchingManager:
         name: str,
         path: Path | str,
         change_handler: Callable[[list[Any]], None],
-        **kwargs: Any
+        **kwargs: Any,
     ) -> bool:
         """
         Add a custom file watcher with a specific change handler.
@@ -174,13 +177,15 @@ class FileWatchingManager:
         self._ensure_watch_manager()
 
         try:
-            return self.watch_manager.add_watcher(
-                name=name,
-                path=path,
-                config=self.config,
-                change_handler=change_handler,
-                **kwargs
-            )
+            if self.watch_manager:
+                return self.watch_manager.add_watcher(  # type: ignore[no-any-return]
+                    name=name,
+                    path=path,
+                    config=self.config,
+                    change_handler=change_handler,
+                    **kwargs,
+                )
+            return False
         except Exception:
             return False
 
@@ -198,7 +203,7 @@ class FileWatchingManager:
             return False
 
         try:
-            return self.watch_manager.remove_watcher(name)
+            return self.watch_manager.remove_watcher(name)  # type: ignore[no-any-return]
         except Exception:
             return False
 
@@ -213,7 +218,7 @@ class FileWatchingManager:
             return []
 
         try:
-            return self.watch_manager.list_watchers()
+            return self.watch_manager.list_watchers()  # type: ignore[no-any-return]
         except Exception:
             return []
 
@@ -247,12 +252,13 @@ class FileWatchingManager:
             return {}
 
         try:
-            return self.watch_manager.get_watcher_status(name)
+            return self.watch_manager.get_watcher_status(name)  # type: ignore[no-any-return]
         except Exception:
             return {}
 
-    def set_watch_filters(self, include_patterns: list[str] | None = None, 
-                         exclude_patterns: list[str] | None = None) -> None:
+    def set_watch_filters(
+        self, include_patterns: list[str] | None = None, exclude_patterns: list[str] | None = None
+    ) -> None:
         """
         Set file patterns to include or exclude from watching.
 
@@ -295,22 +301,18 @@ class FileWatchingManager:
 
         try:
             stats = self.watch_manager.get_all_stats()
-            
+
             # Calculate aggregate metrics
             total_events = sum(
-                watcher_stats.get('events_processed', 0) 
-                for watcher_stats in stats.values()
+                watcher_stats.get("events_processed", 0) for watcher_stats in stats.values()
             )
-            
-            total_errors = sum(
-                watcher_stats.get('errors', 0) 
-                for watcher_stats in stats.values()
-            )
-            
+
+            total_errors = sum(watcher_stats.get("errors", 0) for watcher_stats in stats.values())
+
             avg_processing_time = 0.0
             if stats:
                 processing_times = [
-                    watcher_stats.get('avg_processing_time', 0.0)
+                    watcher_stats.get("avg_processing_time", 0.0)
                     for watcher_stats in stats.values()
                 ]
                 avg_processing_time = sum(processing_times) / len(processing_times)
@@ -321,7 +323,7 @@ class FileWatchingManager:
                 "total_errors": total_errors,
                 "average_processing_time": avg_processing_time,
                 "error_rate": total_errors / total_events if total_events > 0 else 0.0,
-                "individual_watchers": stats
+                "individual_watchers": stats,
             }
         except Exception:
             return {}

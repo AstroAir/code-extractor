@@ -44,8 +44,8 @@ Comprehensive search history tracking, analytics, and query management system.
 ### Basic History Tracking
 
 ```python
-from pysearch.history import SearchHistory
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig, Query
+from pysearch.core.history import SearchHistory
 
 # Initialize history
 config = SearchConfig()

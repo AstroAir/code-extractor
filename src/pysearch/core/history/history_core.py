@@ -34,7 +34,6 @@ Example:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import time
 from collections import deque
@@ -94,22 +93,25 @@ class SearchHistory:
         self._loaded = False
 
         # Import managers for extended functionality
-        self._bookmark_manager = None
-        self._session_manager = None
-        self._analytics_manager = None
+        self._bookmark_manager: Any = None
+        self._session_manager: Any = None
+        self._analytics_manager: Any = None
 
     def _ensure_managers_loaded(self) -> None:
         """Lazy load the additional managers to avoid circular imports."""
         if self._bookmark_manager is None:
             from .history_bookmarks import BookmarkManager
+
             self._bookmark_manager = BookmarkManager(self.cfg)
 
         if self._session_manager is None:
             from .history_sessions import SessionManager
+
             self._session_manager = SessionManager(self.cfg)
 
         if self._analytics_manager is None:
             from .history_analytics import AnalyticsManager
+
             self._analytics_manager = AnalyticsManager(self.cfg)
 
     def load(self) -> None:
@@ -119,14 +121,18 @@ class SearchHistory:
 
         if self.history_file.exists():
             try:
-                data = json.loads(
-                    self.history_file.read_text(encoding="utf-8"))
+                data = json.loads(self.history_file.read_text(encoding="utf-8"))
                 entries = data.get("entries", [])
                 # Keep only recent entries
-                for entry_data in entries[-self.max_entries:]:
+                for entry_data in entries[-self.max_entries :]:
                     # Handle legacy entries without new fields
                     if "category" not in entry_data:
-                        entry_data["category"] = SearchCategory.GENERAL.value
+                        entry_data["category"] = SearchCategory.GENERAL
+                    elif isinstance(entry_data["category"], str):
+                        try:
+                            entry_data["category"] = SearchCategory(entry_data["category"])
+                        except ValueError:
+                            entry_data["category"] = SearchCategory.GENERAL
                     if "languages" in entry_data and entry_data["languages"]:
                         entry_data["languages"] = set(entry_data["languages"])
                     if "tags" in entry_data and entry_data["tags"]:
@@ -146,7 +152,10 @@ class SearchHistory:
         current_time = time.time()
 
         # Get session from session manager
-        session = self._session_manager.get_or_create_session(current_time)
+        if self._session_manager:
+            session = self._session_manager.get_or_create_session(current_time)
+        else:
+            session = None
 
         # Categorize the search
         category = self._categorize_search(query)
@@ -158,8 +167,7 @@ class SearchHistory:
         languages = self._extract_languages_from_results(result)
 
         # Extract paths
-        paths = [str(item.file.parent)
-                 for item in result.items[:10]]  # Top 10 paths
+        paths = [str(item.file.parent) for item in result.items[:10]]  # Top 10 paths
 
         entry = SearchHistoryEntry(
             timestamp=current_time,
@@ -171,7 +179,7 @@ class SearchHistory:
             items_count=result.stats.items,
             elapsed_ms=result.stats.elapsed_ms,
             filters=str(query.filters) if query.filters else None,
-            session_id=session.session_id,
+            session_id=session.session_id if session else None,
             category=category,
             languages=languages,
             paths=paths,
@@ -179,10 +187,12 @@ class SearchHistory:
         )
 
         self._history.append(entry)
-        self._session_manager.update_session(session, query, result)
+        if self._session_manager and session:
+            self._session_manager.update_session(session, query, result)
 
         self.save_history()
-        self._session_manager.save_sessions()
+        if self._session_manager:
+            self._session_manager.save_sessions()
 
     def _categorize_search(self, query: Query) -> SearchCategory:
         """Automatically categorize a search based on the query."""
@@ -254,44 +264,33 @@ class SearchHistory:
 
     def _extract_languages_from_results(self, result: SearchResult) -> set[str]:
         """Extract programming languages from search results."""
-        languages = set()
+        from . import extract_languages_from_results
 
-        for item in result.items[:20]:  # Check top 20 results
-            ext = item.file.suffix.lower()
-            if ext == ".py":
-                languages.add("python")
-            elif ext in [".js", ".jsx"]:
-                languages.add("javascript")
-            elif ext in [".ts", ".tsx"]:
-                languages.add("typescript")
-            elif ext == ".java":
-                languages.add("java")
-            elif ext in [".c", ".h"]:
-                languages.add("c")
-            elif ext in [".cpp", ".cc", ".cxx", ".hpp"]:
-                languages.add("cpp")
-            elif ext == ".go":
-                languages.add("go")
-            elif ext == ".rs":
-                languages.add("rust")
-            elif ext == ".rb":
-                languages.add("ruby")
-            elif ext == ".php":
-                languages.add("php")
-
-        return languages
+        return extract_languages_from_results(result)
 
     def save_history(self) -> None:
         """Save search history to disk."""
         try:
+            entries_data = []
+            for entry in self._history:
+                entry_dict = asdict(entry)
+                # Convert sets to lists for JSON serialization
+                if isinstance(entry_dict.get("languages"), set):
+                    entry_dict["languages"] = list(entry_dict["languages"])
+                if isinstance(entry_dict.get("tags"), set):
+                    entry_dict["tags"] = list(entry_dict["tags"])
+                # Ensure category is serialized as string value
+                if hasattr(entry_dict.get("category"), "value"):
+                    entry_dict["category"] = entry_dict["category"].value
+                entries_data.append(entry_dict)
+
             data = {
                 "version": 1,
                 "last_updated": time.time(),
-                "entries": [asdict(entry) for entry in self._history],
+                "entries": entries_data,
             }
             tmp_file = self.history_file.with_suffix(".tmp")
-            tmp_file.write_text(json.dumps(
-                data, ensure_ascii=False), encoding="utf-8")
+            tmp_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             tmp_file.replace(self.history_file)
         except Exception:
             pass
@@ -313,8 +312,7 @@ class SearchHistory:
             pattern = entry.query_pattern
             pattern_counts[pattern] = pattern_counts.get(pattern, 0) + 1
 
-        sorted_patterns = sorted(
-            pattern_counts.items(), key=lambda x: x[1], reverse=True)
+        sorted_patterns = sorted(pattern_counts.items(), key=lambda x: x[1], reverse=True)
         return sorted_patterns[:limit]
 
     def get_recent_patterns(self, days: int = 7, limit: int = 20) -> list[str]:
@@ -354,34 +352,127 @@ class SearchHistory:
     def add_bookmark(self, name: str, query: Query, result: SearchResult) -> None:
         """Add a search as a bookmark."""
         self._ensure_managers_loaded()
-        self._bookmark_manager.add_bookmark(name, query, result)
+        if self._bookmark_manager:
+            self._bookmark_manager.add_bookmark(name, query, result)
 
     def get_bookmarks(self) -> dict[str, SearchHistoryEntry]:
         """Get all bookmarks."""
         self._ensure_managers_loaded()
-        return self._bookmark_manager.get_bookmarks()
+        if self._bookmark_manager:
+            return self._bookmark_manager.get_bookmarks()  # type: ignore[no-any-return]
+        return {}
 
     def remove_bookmark(self, name: str) -> bool:
         """Remove a bookmark by name."""
         self._ensure_managers_loaded()
-        return self._bookmark_manager.remove_bookmark(name)
+        if self._bookmark_manager:
+            return self._bookmark_manager.remove_bookmark(name)  # type: ignore[no-any-return]
+        return False
 
-    def get_current_session(self):
+    def get_current_session(self) -> Any:
         """Get the current search session."""
         self._ensure_managers_loaded()
-        return self._session_manager.get_current_session()
+        if self._session_manager:
+            return self._session_manager.get_current_session()
+        return None
 
-    def get_sessions(self, limit: int | None = None):
+    def get_sessions(self, limit: int | None = None) -> Any:
         """Get search sessions, most recent first."""
         self._ensure_managers_loaded()
-        return self._session_manager.get_sessions(limit)
+        if self._session_manager:
+            return self._session_manager.get_sessions(limit)
+        return []
 
     def get_search_analytics(self, days: int = 30) -> dict[str, Any]:
         """Get comprehensive search analytics."""
         self._ensure_managers_loaded()
-        return self._analytics_manager.get_search_analytics(self._history, days)
+        if self._analytics_manager:
+            return self._analytics_manager.get_search_analytics(self._history, days)  # type: ignore[no-any-return]
+        return {}
 
     def get_pattern_suggestions(self, partial_pattern: str, limit: int = 5) -> list[str]:
         """Get pattern suggestions based on search history."""
         self._ensure_managers_loaded()
-        return self._analytics_manager.get_pattern_suggestions(self._history, partial_pattern, limit)
+        if self._analytics_manager:
+            return self._analytics_manager.get_pattern_suggestions(  # type: ignore[no-any-return]
+                self._history, partial_pattern, limit
+            )
+        return []
+
+    # Bookmark folder delegation
+    def create_folder(self, name: str, description: str | None = None) -> bool:
+        """Create a new bookmark folder."""
+        self._ensure_managers_loaded()
+        if self._bookmark_manager:
+            return self._bookmark_manager.create_folder(name, description)  # type: ignore[no-any-return]
+        return False
+
+    def delete_folder(self, name: str) -> bool:
+        """Delete a bookmark folder."""
+        self._ensure_managers_loaded()
+        if self._bookmark_manager:
+            return self._bookmark_manager.delete_folder(name)  # type: ignore[no-any-return]
+        return False
+
+    def add_bookmark_to_folder(self, bookmark_name: str, folder_name: str) -> bool:
+        """Add a bookmark to a folder."""
+        self._ensure_managers_loaded()
+        if self._bookmark_manager:
+            return self._bookmark_manager.add_bookmark_to_folder(bookmark_name, folder_name)  # type: ignore[no-any-return]
+        return False
+
+    def remove_bookmark_from_folder(self, bookmark_name: str, folder_name: str) -> bool:
+        """Remove a bookmark from a folder."""
+        self._ensure_managers_loaded()
+        if self._bookmark_manager:
+            return self._bookmark_manager.remove_bookmark_from_folder(bookmark_name, folder_name)  # type: ignore[no-any-return]
+        return False
+
+    def get_folders(self) -> dict[str, Any]:
+        """Get all bookmark folders."""
+        self._ensure_managers_loaded()
+        if self._bookmark_manager:
+            return self._bookmark_manager.get_folders()  # type: ignore[no-any-return]
+        return {}
+
+    def get_bookmarks_in_folder(self, folder_name: str) -> list[Any]:
+        """Get all bookmarks in a specific folder."""
+        self._ensure_managers_loaded()
+        if self._bookmark_manager:
+            return self._bookmark_manager.get_bookmarks_in_folder(folder_name)  # type: ignore[no-any-return]
+        return []
+
+    # Session delegation
+    def end_current_session(self) -> None:
+        """Manually end the current search session."""
+        self._ensure_managers_loaded()
+        if self._session_manager:
+            self._session_manager.end_current_session()
+
+    # Analytics delegation
+    def rate_search(self, pattern: str, rating: int) -> bool:
+        """Rate a search result (1-5 stars)."""
+        self._ensure_managers_loaded()
+        if self._analytics_manager:
+            return self._analytics_manager.rate_search(  # type: ignore[no-any-return]
+                list(self._history), pattern, rating
+            )
+        return False
+
+    def add_tags_to_search(self, pattern: str, tags: set[str]) -> bool:
+        """Add tags to a search in history."""
+        self._ensure_managers_loaded()
+        if self._analytics_manager:
+            return self._analytics_manager.add_tags_to_search(  # type: ignore[no-any-return]
+                list(self._history), pattern, tags
+            )
+        return False
+
+    def search_history_by_tags(self, tags: set[str]) -> list[SearchHistoryEntry]:
+        """Find searches by tags."""
+        self._ensure_managers_loaded()
+        if self._analytics_manager:
+            return self._analytics_manager.search_history_by_tags(  # type: ignore[no-any-return]
+                list(self._history), tags
+            )
+        return []

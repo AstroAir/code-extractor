@@ -47,8 +47,10 @@ Example:
 
 from __future__ import annotations
 
+import sys
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 import orjson
 from rich.console import Console
@@ -56,6 +58,31 @@ from rich.syntax import Syntax
 
 from ..core.types import OutputFormat, SearchResult
 from .utils import highlight_spans
+
+# File extension to Pygments lexer name mapping
+_EXTENSION_LEXER_MAP: dict[str, str] = {
+    ".py": "python", ".pyw": "python", ".pyi": "python",
+    ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript",
+    ".ts": "typescript", ".tsx": "typescript",
+    ".java": "java", ".kt": "kotlin", ".scala": "scala",
+    ".c": "c", ".h": "c",
+    ".cpp": "cpp", ".cxx": "cpp", ".cc": "cpp", ".hpp": "cpp",
+    ".cs": "csharp", ".go": "go", ".rs": "rust",
+    ".php": "php", ".rb": "ruby", ".swift": "swift",
+    ".sh": "bash", ".bash": "bash", ".zsh": "zsh",
+    ".ps1": "powershell", ".sql": "sql",
+    ".html": "html", ".htm": "html", ".css": "css",
+    ".scss": "scss", ".sass": "sass", ".less": "less",
+    ".xml": "xml", ".json": "json",
+    ".yaml": "yaml", ".yml": "yaml", ".toml": "toml",
+    ".md": "markdown", ".r": "r", ".R": "r",
+    ".m": "matlab",
+}
+
+
+def _detect_lexer(file_path: Path) -> str:
+    """Detect Pygments lexer name from file extension."""
+    return _EXTENSION_LEXER_MAP.get(file_path.suffix.lower(), "text")
 
 
 def to_json_bytes(result: SearchResult) -> bytes:
@@ -81,9 +108,7 @@ def to_json_bytes(result: SearchResult) -> bytes:
         Uses orjson for performance, which is significantly faster than
         the standard library json module for large result sets.
     """
-    from typing import Any  # Add import for type annotation
-
-    def default(obj: Any) -> Any:  # Add type annotation to function
+    def default(obj: Any) -> Any:
         if isinstance(obj, Path):
             return str(obj)
         return asdict(obj)
@@ -151,32 +176,44 @@ def format_text(result: SearchResult, highlight: bool = False) -> str:
         out.append("")
     # stats
     s = result.stats
-    out.append(
-        f"# files_scanned={s.files_scanned} files_matched={s.files_matched} items={s.items} elapsed_ms={s.elapsed_ms:.2f} indexed={s.indexed_files}"
+    stats_line = (
+        f"# files_scanned={s.files_scanned} files_matched={s.files_matched} items={s.items} "
+        f"elapsed_ms={s.elapsed_ms:.2f} indexed={s.indexed_files}"
     )
+    out.append(stats_line)
     return "\n".join(out)
 
 
-def render_highlight_console(result: SearchResult) -> None:
-    console = Console()
+def render_highlight_console(result: SearchResult, console: Console | None = None) -> None:
+    """Render search results with rich syntax highlighting to the console."""
+    if console is None:
+        console = Console()
     for it in result.items:
         code = "\n".join(it.lines)
-        # Use Python syntax highlight
-        syntax = Syntax(code, "python", line_numbers=True,
-                        line_range=(it.start_line, it.end_line))
+        lexer = _detect_lexer(it.file)
+        syntax = Syntax(
+            code, lexer, line_numbers=True, start_line=it.start_line,
+        )
         console.print(f"[bold]{it.file}:{it.start_line}-{it.end_line}[/bold]")
         console.print(syntax)
         console.print()
     s = result.stats
-    console.print(
-        f"[dim]files_scanned={s.files_scanned} files_matched={s.files_matched} items={s.items} elapsed_ms={s.elapsed_ms:.2f} indexed={s.indexed_files}[/dim]"
+    stats_text = (
+        f"[dim]files_scanned={s.files_scanned} files_matched={s.files_matched} items={s.items} "
+        f"elapsed_ms={s.elapsed_ms:.2f} indexed={s.indexed_files}[/dim]"
     )
+    console.print(stats_text)
 
 
 def format_result(result: SearchResult, fmt: OutputFormat) -> str:
+    """Format search results according to the specified output format."""
     if fmt == OutputFormat.JSON:
         return to_json_bytes(result).decode("utf-8")
     if fmt == OutputFormat.HIGHLIGHT:
+        # Use rich console rendering when stdout is a real terminal
+        if sys.stdout.isatty():
+            render_highlight_console(result)
+            return ""
         # For non-interactive environments, fall back to text with simple markers
         return format_text(result, highlight=True)
     return format_text(result, highlight=False)

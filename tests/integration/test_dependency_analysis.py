@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pysearch import Language
 from pysearch.analysis.dependency_analysis import (
     DependencyAnalyzer,
     DependencyGraph,
     ImportNode,
 )
-from pysearch import Language
 
 
 def write(tmp: Path, rel: str, text: str) -> Path:
@@ -56,11 +56,16 @@ def test_language_parsers_non_python(tmp_path: Path) -> None:
     ts = write(tmp_path, "web/src/app.ts", "import {A} from 'lib';\nexport * from './w'\n")
     java = write(tmp_path, "App.java", "import java.util.List;\nclass App{}\n")
     cs = write(tmp_path, "Program.cs", "using System;\nclass P{}\n")
-    go = write(tmp_path, "main.go", "package main\nimport (\n \"fmt\"\n)\nfunc main(){}\n")
+    go = write(tmp_path, "main.go", 'package main\nimport (\n "fmt"\n)\nfunc main(){}\n')
 
     az = DependencyAnalyzer()
     # Directly exercise parser internals via analyze_file routing
-    for p, lang in [(js, Language.JAVASCRIPT), (ts, Language.TYPESCRIPT), (java, Language.JAVA), (cs, Language.CSHARP), (go, Language.GO)]:
+    for p, _lang in [
+        (js, Language.JAVASCRIPT),
+        (ts, Language.TYPESCRIPT),
+        (java, Language.JAVA),
+        (cs, Language.CSHARP),
+        (go, Language.GO),
+    ]:
         nodes = az.analyze_file(p)
         assert isinstance(nodes, list)
-

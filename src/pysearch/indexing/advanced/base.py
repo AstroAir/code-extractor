@@ -6,7 +6,7 @@ enhanced index implementations must follow to participate in the
 enhanced indexing system.
 
 Classes:
-    EnhancedCodebaseIndex: Abstract base class for all enhanced index types
+    CodebaseIndex: Abstract base class for all enhanced index types
 
 Features:
     - Standard interface for all index types
@@ -19,17 +19,18 @@ Features:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, AsyncGenerator, List, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from ...analysis.content_addressing import (
-    IndexTag,
     IndexingProgressUpdate,
+    IndexTag,
     MarkCompleteCallback,
     RefreshIndexResults,
 )
 
 
-class EnhancedCodebaseIndex(ABC):
+class CodebaseIndex(ABC):
     """
     Abstract base class for all enhanced index types.
 
@@ -55,7 +56,7 @@ class EnhancedCodebaseIndex(ABC):
         tag: IndexTag,
         results: RefreshIndexResults,
         mark_complete: MarkCompleteCallback,
-        repo_name: Optional[str] = None,
+        repo_name: str | None = None,
     ) -> AsyncGenerator[IndexingProgressUpdate, None]:
         """
         Update the index with new/changed/deleted files.
@@ -80,7 +81,7 @@ class EnhancedCodebaseIndex(ABC):
         tag: IndexTag,
         limit: int = 50,
         **kwargs: Any,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """
         Retrieve results from this index.
 

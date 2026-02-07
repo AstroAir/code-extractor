@@ -85,8 +85,7 @@ class Indexer:
                 return
             if self.cache_path.exists():
                 try:
-                    data = json.loads(
-                        self.cache_path.read_text(encoding="utf-8"))
+                    data = json.loads(self.cache_path.read_text(encoding="utf-8"))
                     files = data.get("files", {})
                     self._index = {
                         k: IndexRecord(
@@ -191,8 +190,7 @@ class Indexer:
             else:
                 # Strict mode: when size or mtime changes, or when sha1 is missing, compute sha1 and compare
                 # This provides exact change detection but is more expensive
-                needs_sha1_check = size_changed or mtime_changed or (
-                    rec and rec.sha1 is None)
+                needs_sha1_check = size_changed or mtime_changed or (rec and rec.sha1 is None)
                 if needs_sha1_check:
                     # Expensive operation - read entire file
                     current_sha1 = file_sha1(p)
@@ -284,7 +282,6 @@ class Indexer:
                 # Limit hot cache size
                 if len(self._hot_cache) > self._hot_cache_max_size:
                     # Remove least recently accessed items
-                    sorted_hot = sorted(
-                        self._hot_cache.items(), key=lambda x: x[1].last_accessed)
+                    sorted_hot = sorted(self._hot_cache.items(), key=lambda x: x[1].last_accessed)
                     for k, _ in sorted_hot[:20]:  # Remove oldest 20
                         del self._hot_cache[k]

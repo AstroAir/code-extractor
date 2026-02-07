@@ -39,21 +39,22 @@ import asyncio
 import multiprocessing as mp
 import queue
 import time
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
-from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
-from .config import SearchConfig
-from .content_addressing import IndexTag, IndexingProgressUpdate
-from .enhanced_indexing_engine import EnhancedIndexingEngine
-from .logging_config import get_logger
+from ..core.config import SearchConfig
+from ..analysis.content_addressing import IndexingProgressUpdate
+from ..indexing.advanced.engine import IndexingEngine
+from ..utils.logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 
 class WorkItemType(str, Enum):
     """Types of work items in the indexing queue."""
+
     FILE_DISCOVERY = "file_discovery"
     CONTENT_EXTRACTION = "content_extraction"
     ENTITY_PARSING = "entity_parsing"
@@ -65,27 +66,29 @@ class WorkItemType(str, Enum):
 @dataclass
 class WorkItem:
     """Represents a unit of work in the indexing pipeline."""
+
     item_id: str
     item_type: WorkItemType
     priority: int = 0
-    data: Dict[str, Any] = field(default_factory=dict)
-    dependencies: List[str] = field(default_factory=list)
+    data: dict[str, Any] = field(default_factory=dict)
+    dependencies: list[str] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
-    worker_id: Optional[str] = None
-    error: Optional[str] = None
+    started_at: float | None = None
+    completed_at: float | None = None
+    worker_id: str | None = None
+    error: str | None = None
 
 
 @dataclass
 class WorkerStats:
     """Statistics for an indexing worker."""
+
     worker_id: str
     process_id: int
     items_processed: int = 0
     items_failed: int = 0
     total_processing_time: float = 0.0
-    current_item: Optional[str] = None
+    current_item: str | None = None
     last_heartbeat: float = field(default_factory=time.time)
     memory_usage_mb: float = 0.0
     cpu_usage_percent: float = 0.0
@@ -102,9 +105,9 @@ class WorkQueue:
     def __init__(self, max_size: int = 10000):
         self.max_size = max_size
         self._queue = queue.PriorityQueue(maxsize=max_size)
-        self._pending: Dict[str, WorkItem] = {}
-        self._completed: Dict[str, WorkItem] = {}
-        self._failed: Dict[str, WorkItem] = {}
+        self._pending: dict[str, WorkItem] = {}
+        self._completed: dict[str, WorkItem] = {}
+        self._failed: dict[str, WorkItem] = {}
         self._lock = asyncio.Lock()
 
     async def add_work_item(self, item: WorkItem) -> bool:
@@ -114,8 +117,7 @@ class WorkQueue:
                 # Check dependencies
                 for dep_id in item.dependencies:
                     if dep_id not in self._completed:
-                        logger.debug(
-                            f"Work item {item.item_id} waiting for dependency {dep_id}")
+                        logger.debug(f"Work item {item.item_id} waiting for dependency {dep_id}")
                         return False
 
                 # Add to queue (priority queue uses negative priority for max-heap behavior)
@@ -124,14 +126,14 @@ class WorkQueue:
                 return True
 
             except queue.Full:
-                logger.warning(
-                    f"Work queue full, cannot add item {item.item_id}")
+                logger.warning(f"Work queue full, cannot add item {item.item_id}")
                 return False
 
-    async def get_work_item(self, timeout: float = 1.0) -> Optional[WorkItem]:
+    async def get_work_item(self, timeout: float = 1.0) -> WorkItem | None:
         """Get the next work item from the queue."""
         try:
-            _, _, item = self._queue.get(timeout=timeout)
+            # Use non-blocking get to avoid blocking the event loop
+            _, _, item = self._queue.get_nowait()
             async with self._lock:
                 if item.item_id in self._pending:
                     item.started_at = time.time()
@@ -161,10 +163,20 @@ class WorkQueue:
 
     async def _check_dependencies(self) -> None:
         """Check if any pending items can be processed due to completed dependencies."""
-        # This would implement dependency resolution logic
-        pass
+        items_to_enqueue: list[WorkItem] = []
+        for item_id, item in list(self._pending.items()):
+            if not item.dependencies:
+                continue
+            if all(dep_id in self._completed for dep_id in item.dependencies):
+                items_to_enqueue.append(item)
 
-    def get_stats(self) -> Dict[str, Any]:
+        for item in items_to_enqueue:
+            try:
+                self._queue.put_nowait((-item.priority, item.created_at, item))
+            except queue.Full:
+                logger.warning(f"Queue full, cannot re-enqueue item {item.item_id}")
+
+    def get_stats(self) -> dict[str, Any]:
         """Get work queue statistics."""
         return {
             "queue_size": self._queue.qsize(),
@@ -186,17 +198,16 @@ class IndexingWorker:
         self,
         worker_id: str,
         config: SearchConfig,
-        work_types: List[WorkItemType],
+        work_types: list[WorkItemType],
     ):
         self.worker_id = worker_id
         self.config = config
         self.work_types = work_types
-        self.stats = WorkerStats(
-            worker_id=worker_id, process_id=mp.current_process().pid)
+        self.stats = WorkerStats(worker_id=worker_id, process_id=mp.current_process().pid)
         self.running = False
 
         # Initialize indexing engine for this worker
-        self.indexing_engine = EnhancedIndexingEngine(config)
+        self.indexing_engine = IndexingEngine(config)
 
     async def start(self, work_queue: WorkQueue) -> None:
         """Start the worker process."""
@@ -218,8 +229,7 @@ class IndexingWorker:
 
                 # Check if we can handle this work type
                 if item.item_type not in self.work_types:
-                    logger.warning(
-                        f"Worker {self.worker_id} cannot handle {item.item_type}")
+                    logger.warning(f"Worker {self.worker_id} cannot handle {item.item_type}")
                     await work_queue.fail_work_item(item.item_id, "Unsupported work type")
                     continue
 
@@ -233,8 +243,7 @@ class IndexingWorker:
                     self.stats.items_processed += 1
 
                 except Exception as e:
-                    logger.error(
-                        f"Worker {self.worker_id} failed to process {item.item_id}: {e}")
+                    logger.error(f"Worker {self.worker_id} failed to process {item.item_id}: {e}")
                     await work_queue.fail_work_item(item.item_id, str(e))
                     self.stats.items_failed += 1
 
@@ -269,49 +278,171 @@ class IndexingWorker:
             raise ValueError(f"Unknown work item type: {item.item_type}")
 
     async def _process_file_discovery(self, item: WorkItem) -> None:
-        """Process file discovery work item."""
+        """Process file discovery work item.
+
+        Discovers files in the given directory using the project's iter_files utility,
+        respecting include/exclude patterns and language filters from config.
+        Discovered files are stored in item.data["discovered_files"].
+        """
+        from pathlib import Path
+
+        from ..utils.utils import file_meta, iter_files
+
         directory = item.data["directory"]
-        # Implementation would discover files in directory
-        logger.debug(
-            f"Worker {self.worker_id} discovering files in {directory}")
+        logger.debug(f"Worker {self.worker_id} discovering files in {directory}")
+
+        discovered: list[str] = []
+        for file_path in iter_files(
+            roots=[directory],
+            include=self.config.get_include_patterns(),
+            exclude=self.config.get_exclude_patterns(),
+            follow_symlinks=self.config.follow_symlinks,
+            prune_excluded_dirs=self.config.dir_prune_exclude,
+            language_filter=self.config.languages,
+        ):
+            try:
+                meta = file_meta(file_path)
+                if meta and meta.size <= self.config.file_size_limit:
+                    discovered.append(str(file_path))
+            except Exception as e:
+                logger.debug(f"Skipping {file_path}: {e}")
+
+        item.data["discovered_files"] = discovered
+        logger.info(
+            f"Worker {self.worker_id} discovered {len(discovered)} files in {directory}"
+        )
 
     async def _process_content_extraction(self, item: WorkItem) -> None:
-        """Process content extraction work item."""
+        """Process content extraction work item.
+
+        Reads file content safely, storing the text in item.data["content"].
+        """
+        from pathlib import Path
+
+        from ..utils.utils import read_text_safely
+
         file_path = item.data["file_path"]
-        # Implementation would extract content from file
-        logger.debug(
-            f"Worker {self.worker_id} extracting content from {file_path}")
+        logger.debug(f"Worker {self.worker_id} extracting content from {file_path}")
+
+        content = read_text_safely(Path(file_path))
+        if content is None:
+            raise ValueError(f"Cannot read file: {file_path}")
+
+        item.data["content"] = content
+        item.data["line_count"] = content.count("\n") + 1
 
     async def _process_entity_parsing(self, item: WorkItem) -> None:
-        """Process entity parsing work item."""
+        """Process entity parsing work item.
+
+        Parses code entities (functions, classes, imports) from file content
+        using the project's language detection and AST parsing capabilities.
+        """
+        from pathlib import Path
+
+        from ..analysis.language_detection import detect_language
+
         file_path = item.data["file_path"]
-        # Implementation would parse entities from file
-        logger.debug(
-            f"Worker {self.worker_id} parsing entities from {file_path}")
+        content = item.data.get("content", "")
+        logger.debug(f"Worker {self.worker_id} parsing entities from {file_path}")
+
+        language = detect_language(Path(file_path))
+        entities: list[dict[str, Any]] = []
+
+        try:
+            from ..search.matchers import extract_ast_entities
+
+            raw_entities = extract_ast_entities(Path(file_path), content, language)
+            entities = [
+                {"name": e.name, "type": e.entity_type, "line": e.line}
+                for e in raw_entities
+            ] if raw_entities else []
+        except (ImportError, Exception) as e:
+            logger.debug(f"AST parsing not available for {file_path}: {e}")
+
+        item.data["entities"] = entities
+        item.data["language"] = language.value if language else "unknown"
 
     async def _process_chunking(self, item: WorkItem) -> None:
-        """Process chunking work item."""
+        """Process chunking work item.
+
+        Splits file content into chunks using the configured chunking strategy.
+        """
         file_path = item.data["file_path"]
-        # Implementation would chunk file content
+        content = item.data.get("content", "")
         logger.debug(f"Worker {self.worker_id} chunking {file_path}")
 
+        chunk_size = self.config.chunk_size
+        chunk_overlap = self.config.chunk_overlap
+        lines = content.split("\n")
+        chunks: list[dict[str, Any]] = []
+
+        # Simple line-based chunking with overlap
+        start = 0
+        chunk_idx = 0
+        while start < len(lines):
+            end = min(start + chunk_size, len(lines))
+            chunk_content = "\n".join(lines[start:end])
+            chunks.append({
+                "chunk_id": f"{file_path}:chunk_{chunk_idx}",
+                "content": chunk_content,
+                "start_line": start + 1,
+                "end_line": end,
+                "file_path": file_path,
+            })
+            chunk_idx += 1
+            start = end - chunk_overlap if end < len(lines) else end
+
+        item.data["chunks"] = chunks
+        logger.debug(f"Worker {self.worker_id} created {len(chunks)} chunks for {file_path}")
+
     async def _process_embedding_generation(self, item: WorkItem) -> None:
-        """Process embedding generation work item."""
-        chunks = item.data["chunks"]
-        # Implementation would generate embeddings for chunks
+        """Process embedding generation work item.
+
+        Delegates to the indexing engine's coordinator for embedding generation
+        if vector indexing is enabled, otherwise stores placeholder metadata.
+        """
+        chunks = item.data.get("chunks", [])
         logger.debug(
-            f"Worker {self.worker_id} generating embeddings for {len(chunks)} chunks")
+            f"Worker {self.worker_id} generating embeddings for {len(chunks)} chunks"
+        )
+
+        # Delegate to the indexing engine if it supports embedding
+        if hasattr(self.indexing_engine, "coordinator"):
+            for idx in self.indexing_engine.coordinator.indexes:
+                if hasattr(idx, "add_chunks"):
+                    try:
+                        await idx.add_chunks(chunks)
+                    except Exception as e:
+                        logger.warning(f"Index {idx} failed to add chunks: {e}")
+
+        item.data["embeddings_generated"] = len(chunks)
 
     async def _process_index_update(self, item: WorkItem) -> None:
-        """Process index update work item."""
-        index_type = item.data["index_type"]
-        # Implementation would update specific index
+        """Process index update work item.
+
+        Triggers a targeted index refresh for specific files or the full index.
+        """
+        index_type = item.data.get("index_type", "all")
+        file_path = item.data.get("file_path")
+        directory = item.data.get("directory", ".")
         logger.debug(f"Worker {self.worker_id} updating {index_type} index")
+
+        if file_path:
+            await self.indexing_engine.refresh_file(
+                file_path=file_path,
+                directory=directory,
+            )
+        else:
+            async for _update in self.indexing_engine.refresh_index(
+                directories=[directory]
+            ):
+                pass  # consume progress updates silently
 
     async def _update_resource_usage(self) -> None:
         """Update resource usage statistics."""
         try:
             import psutil
+
             process = psutil.Process()
             self.stats.memory_usage_mb = process.memory_info().rss / 1024 / 1024
             self.stats.cpu_usage_percent = process.cpu_percent()
@@ -338,14 +469,14 @@ class DistributedIndexingEngine:
     def __init__(
         self,
         config: SearchConfig,
-        num_workers: int = None,
+        num_workers: int | None = None,
         max_queue_size: int = 10000,
     ):
         self.config = config
         self.num_workers = num_workers or min(mp.cpu_count(), 8)
         self.work_queue = WorkQueue(max_queue_size)
-        self.workers: List[IndexingWorker] = []
-        self.worker_tasks: List[asyncio.Task] = []
+        self.workers: list[IndexingWorker] = []
+        self.worker_tasks: list[asyncio.Task] = []
         self.running = False
 
     async def start_workers(self) -> None:
@@ -408,9 +539,9 @@ class DistributedIndexingEngine:
 
     async def index_codebase(
         self,
-        directories: List[str],
-        branch: Optional[str] = None,
-        repo_name: Optional[str] = None,
+        directories: list[str],
+        branch: str | None = None,
+        repo_name: str | None = None,
     ) -> AsyncGenerator[IndexingProgressUpdate, None]:
         """
         Index codebase using distributed workers.
@@ -433,7 +564,7 @@ class DistributedIndexingEngine:
                     item_id=f"discover_{directory}",
                     item_type=WorkItemType.FILE_DISCOVERY,
                     priority=10,  # High priority for discovery
-                    data={"directory": directory}
+                    data={"directory": directory},
                 )
                 await self.work_queue.add_work_item(work_item)
 
@@ -446,22 +577,26 @@ class DistributedIndexingEngine:
                 stats = self.work_queue.get_stats()
 
                 # Calculate progress
-                total_items = stats["completed_items"] + \
-                    stats["failed_items"] + stats["pending_items"]
+                total_items = (
+                    stats["completed_items"] + stats["failed_items"] + stats["pending_items"]
+                )
                 if total_items > 0:
-                    progress = (stats["completed_items"] +
-                                stats["failed_items"]) / total_items
+                    progress = (stats["completed_items"] + stats["failed_items"]) / total_items
                 else:
                     progress = 0.0
 
                 # Update progress periodically
                 current_time = time.time()
                 if current_time - last_update >= 1.0:  # Update every second
+                    description = (
+                        f"Processing {stats['pending_items']} items "
+                        f"({stats['completed_items']} completed, {stats['failed_items']} failed)"
+                    )
                     yield IndexingProgressUpdate(
                         progress=progress,
-                        description=f"Processing {stats['pending_items']} items ({stats['completed_items']} completed, {stats['failed_items']} failed)",
+                        description=description,
                         status="indexing",
-                        debug_info=f"Workers: {len(self.workers)}, Queue: {stats['queue_size']}"
+                        debug_info=f"Workers: {len(self.workers)}, Queue: {stats['queue_size']}",
                     )
                     last_update = current_time
 
@@ -478,16 +613,20 @@ class DistributedIndexingEngine:
 
             # Final progress update
             final_stats = self.work_queue.get_stats()
+            final_description = (
+                f"Distributed indexing complete: {final_stats['completed_items']} items processed, "
+                f"{final_stats['failed_items']} failed"
+            )
             yield IndexingProgressUpdate(
                 progress=1.0,
-                description=f"Distributed indexing complete: {final_stats['completed_items']} items processed, {final_stats['failed_items']} failed",
-                status="done" if final_stats["failed_items"] == 0 else "done_with_errors"
+                description=final_description,
+                status="done" if final_stats["failed_items"] == 0 else "done_with_errors",
             )
 
         finally:
             await self.stop_workers()
 
-    async def get_worker_stats(self) -> List[WorkerStats]:
+    async def get_worker_stats(self) -> list[WorkerStats]:
         """Get statistics for all workers."""
         return [worker.stats for worker in self.workers]
 
@@ -529,7 +668,7 @@ class DistributedIndexingEngine:
 
             logger.info(f"Scaled down to {target_count} workers")
 
-    async def get_performance_metrics(self) -> Dict[str, Any]:
+    async def get_performance_metrics(self) -> dict[str, Any]:
         """Get comprehensive performance metrics."""
         worker_stats = await self.get_worker_stats()
         queue_stats = self.work_queue.get_stats()
@@ -537,11 +676,17 @@ class DistributedIndexingEngine:
         # Aggregate worker metrics
         total_processed = sum(w.items_processed for w in worker_stats)
         total_failed = sum(w.items_failed for w in worker_stats)
-        avg_processing_time = sum(
-            w.total_processing_time for w in worker_stats) / len(worker_stats) if worker_stats else 0.0
+        avg_processing_time = (
+            sum(w.total_processing_time for w in worker_stats) / len(worker_stats)
+            if worker_stats
+            else 0.0
+        )
         total_memory_mb = sum(w.memory_usage_mb for w in worker_stats)
-        avg_cpu_percent = sum(w.cpu_usage_percent for w in worker_stats) / \
-            len(worker_stats) if worker_stats else 0.0
+        avg_cpu_percent = (
+            sum(w.cpu_usage_percent for w in worker_stats) / len(worker_stats)
+            if worker_stats
+            else 0.0
+        )
 
         return {
             "workers": {
@@ -557,6 +702,8 @@ class DistributedIndexingEngine:
             "performance": {
                 "throughput_items_per_second": total_processed / max(avg_processing_time, 1.0),
                 "error_rate": total_failed / max(total_processed + total_failed, 1),
-                "memory_per_worker_mb": total_memory_mb / len(worker_stats) if worker_stats else 0.0,
-            }
+                "memory_per_worker_mb": (
+                    total_memory_mb / len(worker_stats) if worker_stats else 0.0
+                ),
+            },
         }

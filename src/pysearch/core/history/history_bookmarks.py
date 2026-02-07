@@ -80,14 +80,19 @@ class BookmarkManager:
         # Load bookmarks
         if self.bookmarks_file.exists():
             try:
-                data = json.loads(
-                    self.bookmarks_file.read_text(encoding="utf-8"))
+                data = json.loads(self.bookmarks_file.read_text(encoding="utf-8"))
                 bookmarks = data.get("bookmarks", {})
                 for name, entry_data in bookmarks.items():
                     # Handle legacy entries
+                    from .history_core import SearchCategory
+
                     if "category" not in entry_data:
-                        from .history_core import SearchCategory
-                        entry_data["category"] = SearchCategory.GENERAL.value
+                        entry_data["category"] = SearchCategory.GENERAL
+                    elif isinstance(entry_data["category"], str):
+                        try:
+                            entry_data["category"] = SearchCategory(entry_data["category"])
+                        except ValueError:
+                            entry_data["category"] = SearchCategory.GENERAL
                     if "languages" in entry_data and entry_data["languages"]:
                         entry_data["languages"] = set(entry_data["languages"])
                     if "tags" in entry_data and entry_data["tags"]:
@@ -101,13 +106,11 @@ class BookmarkManager:
         # Load bookmark folders
         if self.folders_file.exists():
             try:
-                data = json.loads(
-                    self.folders_file.read_text(encoding="utf-8"))
+                data = json.loads(self.folders_file.read_text(encoding="utf-8"))
                 folders = data.get("folders", {})
                 for folder_name, folder_data in folders.items():
                     if "bookmarks" in folder_data and folder_data["bookmarks"]:
-                        folder_data["bookmarks"] = set(
-                            folder_data["bookmarks"])
+                        folder_data["bookmarks"] = set(folder_data["bookmarks"])
 
                     folder = BookmarkFolder(**folder_data)
                     self._folders[folder_name] = folder
@@ -119,14 +122,26 @@ class BookmarkManager:
     def save_bookmarks(self) -> None:
         """Save bookmarks to disk."""
         try:
+            bookmarks_data = {}
+            for name, entry in self._bookmarks.items():
+                entry_dict = asdict(entry)
+                # Convert sets to lists for JSON serialization
+                if entry_dict.get("languages") and isinstance(entry_dict["languages"], set):
+                    entry_dict["languages"] = list(entry_dict["languages"])
+                if entry_dict.get("tags") and isinstance(entry_dict["tags"], set):
+                    entry_dict["tags"] = list(entry_dict["tags"])
+                # Ensure category is serialized as string value
+                if hasattr(entry_dict.get("category"), "value"):
+                    entry_dict["category"] = entry_dict["category"].value
+                bookmarks_data[name] = entry_dict
+
             data = {
                 "version": 1,
                 "last_updated": time.time(),
-                "bookmarks": {name: asdict(entry) for name, entry in self._bookmarks.items()},
+                "bookmarks": bookmarks_data,
             }
             tmp_file = self.bookmarks_file.with_suffix(".tmp")
-            tmp_file.write_text(json.dumps(
-                data, ensure_ascii=False), encoding="utf-8")
+            tmp_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             tmp_file.replace(self.bookmarks_file)
         except Exception:
             pass
@@ -142,11 +157,9 @@ class BookmarkManager:
                     folder_dict["bookmarks"] = list(folder_dict["bookmarks"])
                 folders_data[folder_name] = folder_dict
 
-            data = {"version": 1, "last_updated": time.time(),
-                    "folders": folders_data}
+            data = {"version": 1, "last_updated": time.time(), "folders": folders_data}
             tmp_file = self.folders_file.with_suffix(".tmp")
-            tmp_file.write_text(json.dumps(
-                data, ensure_ascii=False), encoding="utf-8")
+            tmp_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             tmp_file.replace(self.folders_file)
         except Exception:
             pass
@@ -180,12 +193,12 @@ class BookmarkManager:
         self.load()
         if name in self._bookmarks:
             del self._bookmarks[name]
-            
+
             # Remove from all folders
             for folder in self._folders.values():
                 if folder.bookmarks and name in folder.bookmarks:
                     folder.bookmarks.remove(name)
-            
+
             self.save_bookmarks()
             self.save_folders()
             return True
@@ -197,8 +210,7 @@ class BookmarkManager:
         if name in self._folders:
             return False
 
-        self._folders[name] = BookmarkFolder(
-            name=name, description=description)
+        self._folders[name] = BookmarkFolder(name=name, description=description)
         self.save_folders()
         return True
 
@@ -262,8 +274,7 @@ class BookmarkManager:
         results = []
 
         for name, entry in self._bookmarks.items():
-            if (pattern_lower in name.lower() or 
-                pattern_lower in entry.query_pattern.lower()):
+            if pattern_lower in name.lower() or pattern_lower in entry.query_pattern.lower():
                 results.append((name, entry))
 
         return results
@@ -275,7 +286,7 @@ class BookmarkManager:
             "total_bookmarks": len(self._bookmarks),
             "total_folders": len(self._folders),
             "bookmarks_in_folders": sum(
-                len(folder.bookmarks) if folder.bookmarks else 0 
+                len(folder.bookmarks) if folder.bookmarks else 0
                 for folder in self._folders.values()
             ),
         }

@@ -47,22 +47,26 @@ Example:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from ...core.config import SearchConfig
-from .core import EntityExtractor, RelationshipMapper
-from ...storage.qdrant_client import QdrantVectorStore, QdrantConfig
-from ...search.semantic_advanced import SemanticEmbedding
 from ...core.types import (
-    CodeEntity, EntityRelationship, EntityType, GraphRAGQuery, GraphRAGResult,
-    KnowledgeGraph, RelationType
+    CodeEntity,
+    EntityRelationship,
+    EntityType,
+    GraphRAGQuery,
+    GraphRAGResult,
+    KnowledgeGraph,
+    RelationType,
 )
+from ...search.semantic_advanced import SemanticEmbedding
+from ...storage.qdrant_client import QdrantConfig, QdrantVectorStore
 from ...utils.utils import read_text_safely
+from .core import EntityExtractor, RelationshipMapper
 
 logger = logging.getLogger(__name__)
 
@@ -108,11 +112,11 @@ class KnowledgeGraphBuilder:
 
                 # Load file contents for relationship mapping
                 from ...indexing.indexer import Indexer
+
                 indexer = Indexer(self.config)
                 changed_files, removed_files, total_files = indexer.scan()
                 for file_path in changed_files:
-                    file_contents[file_path] = read_text_safely(
-                        file_path) or ""
+                    file_contents[file_path] = read_text_safely(file_path) or ""
 
         logger.info(f"Extracted {len(all_entities)} entities")
 
@@ -120,7 +124,9 @@ class KnowledgeGraphBuilder:
         await self._generate_embeddings(all_entities)
 
         # Map relationships between entities
-        relationships = await self.relationship_mapper.map_relationships(all_entities, file_contents)
+        relationships = await self.relationship_mapper.map_relationships(
+            all_entities, file_contents
+        )
 
         # Build the knowledge graph
         self.knowledge_graph = KnowledgeGraph()
@@ -137,12 +143,11 @@ class KnowledgeGraphBuilder:
             "total_entities": len(all_entities),
             "total_relationships": len(relationships),
             "entity_types": {
-                entity_type.value: len(
-                    self.knowledge_graph.get_entities_by_type(entity_type))
+                entity_type.value: len(self.knowledge_graph.get_entities_by_type(entity_type))
                 for entity_type in EntityType
             },
             "build_time_seconds": time.time() - start_time,
-            "source_paths": self.config.paths
+            "source_paths": self.config.paths,
         }
 
         # Cache the graph
@@ -150,11 +155,13 @@ class KnowledgeGraphBuilder:
 
         elapsed = time.time() - start_time
         logger.info(
-            f"Built knowledge graph with {len(all_entities)} entities and {len(relationships)} relationships in {elapsed:.2f}s")
+            f"Built knowledge graph with {len(all_entities)} entities and "
+            f"{len(relationships)} relationships in {elapsed:.2f}s"
+        )
 
         return self.knowledge_graph
 
-    async def _generate_embeddings(self, entities: List[CodeEntity]) -> None:
+    async def _generate_embeddings(self, entities: list[CodeEntity]) -> None:
         """Generate vector embeddings for entities."""
         if not entities:
             return
@@ -177,8 +184,7 @@ class KnowledgeGraphBuilder:
                     if isinstance(value, str):
                         text_parts.append(f"{key}: {value}")
                     elif isinstance(value, list):
-                        text_parts.append(
-                            f"{key}: {', '.join(str(v) for v in value)}")
+                        text_parts.append(f"{key}: {', '.join(str(v) for v in value)}")
 
             document = " ".join(text_parts)
             documents.append(document)
@@ -188,12 +194,11 @@ class KnowledgeGraphBuilder:
             self.semantic_embedding.fit(documents)
 
         # Generate embeddings
-        for entity, document in zip(entities, documents):
+        for entity, document in zip(entities, documents, strict=False):
             embedding_vector = self.semantic_embedding.transform(document)
             # Convert sparse vector to dense list
             if embedding_vector:
-                max_dim = max(embedding_vector.keys()) + \
-                    1 if embedding_vector else 0
+                max_dim = max(embedding_vector.keys()) + 1 if embedding_vector else 0
                 dense_vector = [0.0] * max_dim
                 for dim, value in embedding_vector.items():
                     dense_vector[dim] = value
@@ -205,54 +210,53 @@ class KnowledgeGraphBuilder:
             return False
 
         try:
-            with open(self._cache_path, 'r', encoding='utf-8') as f:
+            with open(self._cache_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Reconstruct knowledge graph from JSON
             self.knowledge_graph = KnowledgeGraph()
 
             # Load entities
-            for entity_data in data.get('entities', []):
+            for entity_data in data.get("entities", []):
                 entity = CodeEntity(
-                    id=entity_data['id'],
-                    name=entity_data['name'],
-                    entity_type=EntityType(entity_data['entity_type']),
-                    file_path=Path(entity_data['file_path']),
-                    start_line=entity_data['start_line'],
-                    end_line=entity_data['end_line'],
-                    signature=entity_data.get('signature'),
-                    docstring=entity_data.get('docstring'),
-                    properties=entity_data.get('properties', {}),
-                    embedding=entity_data.get('embedding'),
-                    confidence=entity_data.get('confidence', 1.0),
-                    language=entity_data.get('language', 'unknown'),
-                    scope=entity_data.get('scope'),
-                    access_modifier=entity_data.get('access_modifier')
+                    id=entity_data["id"],
+                    name=entity_data["name"],
+                    entity_type=EntityType(entity_data["entity_type"]),
+                    file_path=Path(entity_data["file_path"]),
+                    start_line=entity_data["start_line"],
+                    end_line=entity_data["end_line"],
+                    signature=entity_data.get("signature"),
+                    docstring=entity_data.get("docstring"),
+                    properties=entity_data.get("properties", {}),
+                    embedding=entity_data.get("embedding"),
+                    confidence=entity_data.get("confidence", 1.0),
+                    language=entity_data.get("language", "unknown"),
+                    scope=entity_data.get("scope"),
+                    access_modifier=entity_data.get("access_modifier"),
                 )
                 self.knowledge_graph.add_entity(entity)
 
             # Load relationships
-            for rel_data in data.get('relationships', []):
+            for rel_data in data.get("relationships", []):
                 relationship = EntityRelationship(
-                    id=rel_data['id'],
-                    source_entity_id=rel_data['source_entity_id'],
-                    target_entity_id=rel_data['target_entity_id'],
-                    relation_type=RelationType(rel_data['relation_type']),
-                    properties=rel_data.get('properties', {}),
-                    confidence=rel_data.get('confidence', 1.0),
-                    weight=rel_data.get('weight', 1.0),
-                    context=rel_data.get('context'),
-                    file_path=Path(rel_data['file_path']) if rel_data.get(
-                        'file_path') else None,
-                    line_number=rel_data.get('line_number')
+                    id=rel_data["id"],
+                    source_entity_id=rel_data["source_entity_id"],
+                    target_entity_id=rel_data["target_entity_id"],
+                    relation_type=RelationType(rel_data["relation_type"]),
+                    properties=rel_data.get("properties", {}),
+                    confidence=rel_data.get("confidence", 1.0),
+                    weight=rel_data.get("weight", 1.0),
+                    context=rel_data.get("context"),
+                    file_path=Path(rel_data["file_path"]) if rel_data.get("file_path") else None,
+                    line_number=rel_data.get("line_number"),
                 )
                 self.knowledge_graph.add_relationship(relationship)
 
             # Load metadata
-            self.knowledge_graph.metadata = data.get('metadata', {})
-            self.knowledge_graph.version = data.get('version', '1.0')
-            self.knowledge_graph.created_at = data.get('created_at')
-            self.knowledge_graph.updated_at = data.get('updated_at')
+            self.knowledge_graph.metadata = data.get("metadata", {})
+            self.knowledge_graph.version = data.get("version", "1.0")
+            self.knowledge_graph.created_at = data.get("created_at")
+            self.knowledge_graph.updated_at = data.get("updated_at")
 
             return True
 
@@ -264,54 +268,58 @@ class KnowledgeGraphBuilder:
         """Cache the knowledge graph to disk."""
         try:
             # Convert knowledge graph to JSON-serializable format
-            data: Dict[str, Any] = {
-                'version': self.knowledge_graph.version,
-                'created_at': self.knowledge_graph.created_at,
-                'updated_at': time.time(),
-                'metadata': self.knowledge_graph.metadata,
-                'entities': [],
-                'relationships': []
+            data: dict[str, Any] = {
+                "version": self.knowledge_graph.version,
+                "created_at": self.knowledge_graph.created_at,
+                "updated_at": time.time(),
+                "metadata": self.knowledge_graph.metadata,
+                "entities": [],
+                "relationships": [],
             }
 
             # Serialize entities
             for entity in self.knowledge_graph.entities.values():
                 entity_data = {
-                    'id': entity.id,
-                    'name': entity.name,
-                    'entity_type': entity.entity_type.value,
-                    'file_path': str(entity.file_path),
-                    'start_line': entity.start_line,
-                    'end_line': entity.end_line,
-                    'signature': entity.signature,
-                    'docstring': entity.docstring,
-                    'properties': entity.properties,
-                    'embedding': entity.embedding,
-                    'confidence': entity.confidence,
-                    'language': entity.language.value if hasattr(entity.language, 'value') else str(entity.language),
-                    'scope': entity.scope,
-                    'access_modifier': entity.access_modifier
+                    "id": entity.id,
+                    "name": entity.name,
+                    "entity_type": entity.entity_type.value,
+                    "file_path": str(entity.file_path),
+                    "start_line": entity.start_line,
+                    "end_line": entity.end_line,
+                    "signature": entity.signature,
+                    "docstring": entity.docstring,
+                    "properties": entity.properties,
+                    "embedding": entity.embedding,
+                    "confidence": entity.confidence,
+                    "language": (
+                        entity.language.value
+                        if hasattr(entity.language, "value")
+                        else str(entity.language)
+                    ),
+                    "scope": entity.scope,
+                    "access_modifier": entity.access_modifier,
                 }
-                data['entities'].append(entity_data)
+                data["entities"].append(entity_data)
 
             # Serialize relationships
             for relationship in self.knowledge_graph.relationships:
                 rel_data = {
-                    'id': relationship.id,
-                    'source_entity_id': relationship.source_entity_id,
-                    'target_entity_id': relationship.target_entity_id,
-                    'relation_type': relationship.relation_type.value,
-                    'properties': relationship.properties,
-                    'confidence': relationship.confidence,
-                    'weight': relationship.weight,
-                    'context': relationship.context,
-                    'file_path': str(relationship.file_path) if relationship.file_path else None,
-                    'line_number': relationship.line_number
+                    "id": relationship.id,
+                    "source_entity_id": relationship.source_entity_id,
+                    "target_entity_id": relationship.target_entity_id,
+                    "relation_type": relationship.relation_type.value,
+                    "properties": relationship.properties,
+                    "confidence": relationship.confidence,
+                    "weight": relationship.weight,
+                    "context": relationship.context,
+                    "file_path": str(relationship.file_path) if relationship.file_path else None,
+                    "line_number": relationship.line_number,
                 }
-                data['relationships'].append(rel_data)
+                data["relationships"].append(rel_data)
 
             # Write to cache file
             self._cache_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._cache_path, 'w', encoding='utf-8') as f:
+            with open(self._cache_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
 
             logger.debug(f"Cached knowledge graph to {self._cache_path}")
@@ -329,15 +337,11 @@ class GraphRAGEngine:
     query processing.
     """
 
-    def __init__(
-        self,
-        config: SearchConfig,
-        qdrant_config: Optional[QdrantConfig] = None
-    ) -> None:
+    def __init__(self, config: SearchConfig, qdrant_config: QdrantConfig | None = None) -> None:
         self.config = config
         self.qdrant_config = qdrant_config
         self.graph_builder = KnowledgeGraphBuilder(config)
-        self.vector_store: Optional[QdrantVectorStore] = None
+        self.vector_store: QdrantVectorStore | None = None
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -379,11 +383,13 @@ class GraphRAGEngine:
             knowledge_graph = await self.build_knowledge_graph()
 
         # Start with semantic/vector search if available
-        candidate_entities: List[CodeEntity] = []
-        similarity_scores: Dict[str, float] = {}
+        candidate_entities: list[CodeEntity] = []
+        similarity_scores: dict[str, float] = {}
 
         if self.vector_store and self.vector_store.is_available():
-            candidate_entities, similarity_scores = await self._vector_search(query, knowledge_graph)
+            candidate_entities, similarity_scores = await self._vector_search(
+                query, knowledge_graph
+            )
         else:
             # Fallback to text-based search
             candidate_entities, similarity_scores = await self._text_search(query, knowledge_graph)
@@ -391,29 +397,22 @@ class GraphRAGEngine:
         # Filter by entity types if specified
         if query.entity_types:
             candidate_entities = [
-                entity for entity in candidate_entities
-                if entity.entity_type in query.entity_types
+                entity for entity in candidate_entities if entity.entity_type in query.entity_types
             ]
 
         # Expand search using graph relationships
         expanded_entities = await self._expand_with_relationships(
-            candidate_entities,
-            knowledge_graph,
-            query
+            candidate_entities, knowledge_graph, query
         )
 
         # Find relevant relationships
         relevant_relationships = await self._find_relevant_relationships(
-            expanded_entities,
-            knowledge_graph,
-            query
+            expanded_entities, knowledge_graph, query
         )
 
         # Rank and filter results
         final_entities = await self._rank_and_filter_results(
-            expanded_entities,
-            similarity_scores,
-            query
+            expanded_entities, similarity_scores, query
         )
 
         return GraphRAGResult(
@@ -425,8 +424,8 @@ class GraphRAGEngine:
                 "total_candidates": len(candidate_entities),
                 "expanded_entities": len(expanded_entities),
                 "final_entities": len(final_entities),
-                "relationships": len(relevant_relationships)
-            }
+                "relationships": len(relevant_relationships),
+            },
         )
 
     async def _store_entity_vectors(self, knowledge_graph: KnowledgeGraph) -> None:
@@ -435,8 +434,7 @@ class GraphRAGEngine:
             return
 
         entities_with_embeddings = [
-            entity for entity in knowledge_graph.entities.values()
-            if entity.embedding
+            entity for entity in knowledge_graph.entities.values() if entity.embedding
         ]
 
         if not entities_with_embeddings:
@@ -444,46 +442,47 @@ class GraphRAGEngine:
             return
 
         vectors = [
-            entity.embedding for entity in entities_with_embeddings if entity.embedding is not None]
+            entity.embedding for entity in entities_with_embeddings if entity.embedding is not None
+        ]
         metadata = []
         ids = []
 
         for entity in entities_with_embeddings:
-            metadata.append({
-                "entity_id": entity.id,
-                "name": entity.name,
-                "entity_type": entity.entity_type.value,
-                "file_path": str(entity.file_path),
-                "start_line": entity.start_line,
-                "language": entity.language.value if hasattr(entity.language, 'value') else str(entity.language),
-                "signature": entity.signature or "",
-                "docstring": entity.docstring or ""
-            })
+            metadata.append(
+                {
+                    "entity_id": entity.id,
+                    "name": entity.name,
+                    "entity_type": entity.entity_type.value,
+                    "file_path": str(entity.file_path),
+                    "start_line": entity.start_line,
+                    "language": (
+                        entity.language.value
+                        if hasattr(entity.language, "value")
+                        else str(entity.language)
+                    ),
+                    "signature": entity.signature or "",
+                    "docstring": entity.docstring or "",
+                }
+            )
             ids.append(entity.id)
 
         try:
             await self.vector_store.add_vectors(
-                collection_name="code_entities",
-                vectors=vectors,
-                metadata=metadata,
-                ids=ids
+                collection_name="code_entities", vectors=vectors, metadata=metadata, ids=ids
             )
             logger.info(f"Stored {len(vectors)} entity vectors in Qdrant")
         except Exception as e:
             logger.error(f"Failed to store entity vectors: {e}")
 
     async def _vector_search(
-        self,
-        query: GraphRAGQuery,
-        knowledge_graph: KnowledgeGraph
-    ) -> Tuple[List[CodeEntity], Dict[str, float]]:
+        self, query: GraphRAGQuery, knowledge_graph: KnowledgeGraph
+    ) -> tuple[list[CodeEntity], dict[str, float]]:
         """Perform vector-based search for entities."""
         if not self.vector_store:
             return [], {}
 
         # Generate query vector
-        query_vector = self.graph_builder.semantic_embedding.transform(
-            query.pattern)
+        query_vector = self.graph_builder.semantic_embedding.transform(query.pattern)
         if not query_vector:
             return [], {}
 
@@ -496,8 +495,7 @@ class GraphRAGEngine:
         # Build filter conditions
         filter_conditions = {}
         if query.entity_types:
-            filter_conditions["entity_type"] = [
-                et.value for et in query.entity_types]
+            filter_conditions["entity_type"] = [et.value for et in query.entity_types]
 
         # Search similar vectors
         try:
@@ -506,7 +504,7 @@ class GraphRAGEngine:
                 collection_name="code_entities",
                 top_k=50,  # Get more candidates for graph expansion
                 filter_conditions=filter_conditions,
-                score_threshold=query.semantic_threshold
+                score_threshold=query.semantic_threshold,
             )
 
             # Convert to entities
@@ -526,10 +524,8 @@ class GraphRAGEngine:
             return [], {}
 
     async def _text_search(
-        self,
-        query: GraphRAGQuery,
-        knowledge_graph: KnowledgeGraph
-    ) -> Tuple[List[CodeEntity], Dict[str, float]]:
+        self, query: GraphRAGQuery, knowledge_graph: KnowledgeGraph
+    ) -> tuple[list[CodeEntity], dict[str, float]]:
         """Fallback text-based search for entities."""
         entities = []
         similarity_scores = {}
@@ -568,22 +564,17 @@ class GraphRAGEngine:
         return entities[:50], similarity_scores  # Limit to top 50
 
     async def _expand_with_relationships(
-        self,
-        entities: List[CodeEntity],
-        knowledge_graph: KnowledgeGraph,
-        query: GraphRAGQuery
-    ) -> List[CodeEntity]:
+        self, entities: list[CodeEntity], knowledge_graph: KnowledgeGraph, query: GraphRAGQuery
+    ) -> list[CodeEntity]:
         """Expand entity set using graph relationships."""
         expanded = set(entities)
 
-        for hop in range(query.max_hops):
+        for _hop in range(query.max_hops):
             current_entities = list(expanded)
 
             for entity in current_entities:
                 related = knowledge_graph.get_related_entities(
-                    entity.id,
-                    relation_types=query.relation_types,
-                    max_hops=1
+                    entity.id, relation_types=query.relation_types, max_hops=1
                 )
 
                 for related_entity, relationship in related:
@@ -593,11 +584,8 @@ class GraphRAGEngine:
         return list(expanded)
 
     async def _find_relevant_relationships(
-        self,
-        entities: List[CodeEntity],
-        knowledge_graph: KnowledgeGraph,
-        query: GraphRAGQuery
-    ) -> List[EntityRelationship]:
+        self, entities: list[CodeEntity], knowledge_graph: KnowledgeGraph, query: GraphRAGQuery
+    ) -> list[EntityRelationship]:
         """Find relationships relevant to the query entities."""
         if not query.include_relationships:
             return []
@@ -606,38 +594,33 @@ class GraphRAGEngine:
         relevant_relationships = []
 
         for relationship in knowledge_graph.relationships:
-            if (relationship.source_entity_id in entity_ids or
-                    relationship.target_entity_id in entity_ids):
+            if (
+                relationship.source_entity_id in entity_ids
+                or relationship.target_entity_id in entity_ids
+            ):
 
                 if relationship.confidence >= query.min_confidence:
-                    if not query.relation_types or relationship.relation_type in query.relation_types:
+                    if (
+                        not query.relation_types
+                        or relationship.relation_type in query.relation_types
+                    ):
                         relevant_relationships.append(relationship)
 
         return relevant_relationships
 
     async def _rank_and_filter_results(
-        self,
-        entities: List[CodeEntity],
-        similarity_scores: Dict[str, float],
-        query: GraphRAGQuery
-    ) -> List[CodeEntity]:
+        self, entities: list[CodeEntity], similarity_scores: dict[str, float], query: GraphRAGQuery
+    ) -> list[CodeEntity]:
         """Rank and filter final results."""
         # Sort by similarity score
-        scored_entities = [
-            (entity, similarity_scores.get(entity.id, 0.0))
-            for entity in entities
-        ]
+        scored_entities = [(entity, similarity_scores.get(entity.id, 0.0)) for entity in entities]
         scored_entities.sort(key=lambda x: x[1], reverse=True)
 
         # Apply context window limit
         max_results = query.context_window * 2  # Allow some expansion
         return [entity for entity, score in scored_entities[:max_results]]
 
-    async def get_entity_context(
-        self,
-        entity_id: str,
-        context_hops: int = 2
-    ) -> Dict[str, Any]:
+    async def get_entity_context(self, entity_id: str, context_hops: int = 2) -> dict[str, Any]:
         """Get contextual information about an entity."""
         knowledge_graph = self.graph_builder.knowledge_graph
         entity = knowledge_graph.get_entity(entity_id)
@@ -646,10 +629,9 @@ class GraphRAGEngine:
             return {}
 
         # Get related entities
-        related = knowledge_graph.get_related_entities(
-            entity_id, max_hops=context_hops)
+        related = knowledge_graph.get_related_entities(entity_id, max_hops=context_hops)
 
-        context: Dict[str, Any] = {
+        context: dict[str, Any] = {
             "entity": {
                 "id": entity.id,
                 "name": entity.name,
@@ -657,28 +639,268 @@ class GraphRAGEngine:
                 "file": str(entity.file_path),
                 "line": entity.start_line,
                 "signature": entity.signature,
-                "docstring": entity.docstring
+                "docstring": entity.docstring,
             },
             "relationships": [],
-            "related_entities": []
+            "related_entities": [],
         }
 
         for related_entity, relationship in related:
-            context["relationships"].append({
-                "type": relationship.relation_type.value,
-                "target": related_entity.name,
-                "confidence": relationship.confidence,
-                "context": relationship.context
-            })
+            context["relationships"].append(
+                {
+                    "type": relationship.relation_type.value,
+                    "target": related_entity.name,
+                    "confidence": relationship.confidence,
+                    "context": relationship.context,
+                }
+            )
 
-            context["related_entities"].append({
-                "id": related_entity.id,
-                "name": related_entity.name,
-                "type": related_entity.entity_type.value,
-                "file": str(related_entity.file_path)
-            })
+            context["related_entities"].append(
+                {
+                    "id": related_entity.id,
+                    "name": related_entity.name,
+                    "type": related_entity.entity_type.value,
+                    "file": str(related_entity.file_path),
+                }
+            )
 
         return context
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get knowledge graph and engine statistics."""
+        knowledge_graph = self.graph_builder.knowledge_graph
+        stats: dict[str, Any] = {
+            "initialized": self._initialized,
+            "total_entities": len(knowledge_graph.entities),
+            "total_relationships": len(knowledge_graph.relationships),
+            "entity_types": {},
+            "vector_store_available": bool(self.vector_store and self.vector_store.is_available()),
+        }
+
+        # Count entities by type
+        for entity in knowledge_graph.entities.values():
+            type_name = entity.entity_type.value
+            stats["entity_types"][type_name] = stats["entity_types"].get(type_name, 0) + 1
+
+        # Include graph metadata
+        if knowledge_graph.metadata:
+            stats["metadata"] = knowledge_graph.metadata
+
+        return stats
+
+    async def add_entities(self, entities: list[CodeEntity]) -> None:
+        """Add entities to the knowledge graph incrementally."""
+        knowledge_graph = self.graph_builder.knowledge_graph
+
+        for entity in entities:
+            knowledge_graph.add_entity(entity)
+
+        # Generate embeddings for new entities
+        await self.graph_builder._generate_embeddings(entities)
+
+        # Store vectors if available
+        if self.vector_store and self.vector_store.is_available():
+            await self._store_entity_vectors(knowledge_graph)
+
+        logger.info(f"Added {len(entities)} entities to knowledge graph")
+
+    async def add_relationships(self, relationships: list[EntityRelationship]) -> None:
+        """Add relationships to the knowledge graph incrementally."""
+        knowledge_graph = self.graph_builder.knowledge_graph
+
+        for relationship in relationships:
+            knowledge_graph.add_relationship(relationship)
+
+        logger.info(f"Added {len(relationships)} relationships to knowledge graph")
+
+    async def find_similar_entities(self, entity_id: str, limit: int = 10) -> list[CodeEntity]:
+        """Find entities similar to the given entity using vector similarity."""
+        knowledge_graph = self.graph_builder.knowledge_graph
+        entity = knowledge_graph.get_entity(entity_id)
+
+        if not entity or not entity.embedding:
+            return []
+
+        if self.vector_store and self.vector_store.is_available():
+            try:
+                search_results = await self.vector_store.search_similar(
+                    query_vector=entity.embedding,
+                    collection_name="code_entities",
+                    top_k=limit + 1,  # +1 to exclude self
+                )
+
+                similar = []
+                for result in search_results:
+                    if result.id != entity_id:
+                        found_entity = knowledge_graph.get_entity(result.id)
+                        if found_entity:
+                            similar.append(found_entity)
+                    if len(similar) >= limit:
+                        break
+
+                return similar
+            except Exception as e:
+                logger.error(f"Vector similarity search failed: {e}")
+
+        # Fallback: find entities connected via relationships
+        related = knowledge_graph.get_related_entities(entity_id, max_hops=2)
+        return [rel_entity for rel_entity, _rel in related][:limit]
+
+    async def update_entity(self, entity_id: str, updates: dict[str, Any]) -> None:
+        """Update an entity's properties in the knowledge graph."""
+        knowledge_graph = self.graph_builder.knowledge_graph
+        entity = knowledge_graph.get_entity(entity_id)
+
+        if not entity:
+            raise ValueError(f"Entity not found: {entity_id}")
+
+        # Update mutable properties via properties dict
+        for key, value in updates.items():
+            if key == "name":
+                # For slots-based dataclass, we need to use object.__setattr__
+                object.__setattr__(entity, "name", value)
+            elif key == "signature":
+                object.__setattr__(entity, "signature", value)
+            elif key == "docstring":
+                object.__setattr__(entity, "docstring", value)
+            elif key == "confidence":
+                object.__setattr__(entity, "confidence", value)
+            else:
+                entity.properties[key] = value
+
+        logger.debug(f"Updated entity {entity_id} with {len(updates)} changes")
+
+    async def delete_entity(self, entity_id: str) -> None:
+        """Delete an entity and its relationships from the knowledge graph."""
+        knowledge_graph = self.graph_builder.knowledge_graph
+
+        if entity_id not in knowledge_graph.entities:
+            raise ValueError(f"Entity not found: {entity_id}")
+
+        # Remove associated relationships
+        knowledge_graph.relationships = [
+            rel
+            for rel in knowledge_graph.relationships
+            if rel.source_entity_id != entity_id and rel.target_entity_id != entity_id
+        ]
+
+        # Remove from entities
+        del knowledge_graph.entities[entity_id]
+
+        # Remove from indexes
+        for name, ids in list(knowledge_graph.entity_index.items()):
+            if entity_id in ids:
+                ids.remove(entity_id)
+                if not ids:
+                    del knowledge_graph.entity_index[name]
+
+        for entity_type, ids in list(knowledge_graph.type_index.items()):
+            if entity_id in ids:
+                ids.remove(entity_id)
+                if not ids:
+                    del knowledge_graph.type_index[entity_type]
+
+        for file_path, ids in list(knowledge_graph.file_index.items()):
+            if entity_id in ids:
+                ids.remove(entity_id)
+                if not ids:
+                    del knowledge_graph.file_index[file_path]
+
+        logger.debug(f"Deleted entity {entity_id}")
+
+    async def export_graph(self, format: str = "json") -> str:
+        """Export the knowledge graph in specified format."""
+        knowledge_graph = self.graph_builder.knowledge_graph
+
+        if format == "json":
+            data: dict[str, Any] = {
+                "version": knowledge_graph.version,
+                "created_at": knowledge_graph.created_at,
+                "updated_at": knowledge_graph.updated_at,
+                "metadata": knowledge_graph.metadata,
+                "entities": [],
+                "relationships": [],
+            }
+
+            for entity in knowledge_graph.entities.values():
+                data["entities"].append(
+                    {
+                        "id": entity.id,
+                        "name": entity.name,
+                        "entity_type": entity.entity_type.value,
+                        "file_path": str(entity.file_path),
+                        "start_line": entity.start_line,
+                        "end_line": entity.end_line,
+                        "signature": entity.signature,
+                        "docstring": entity.docstring,
+                        "properties": entity.properties,
+                        "language": (
+                            entity.language.value
+                            if hasattr(entity.language, "value")
+                            else str(entity.language)
+                        ),
+                    }
+                )
+
+            for rel in knowledge_graph.relationships:
+                data["relationships"].append(
+                    {
+                        "id": rel.id,
+                        "source_entity_id": rel.source_entity_id,
+                        "target_entity_id": rel.target_entity_id,
+                        "relation_type": rel.relation_type.value,
+                        "confidence": rel.confidence,
+                        "context": rel.context,
+                    }
+                )
+
+            return json.dumps(data, indent=2)
+        else:
+            raise ValueError(f"Unsupported export format: {format}")
+
+    async def import_graph(self, data: str, format: str = "json") -> None:
+        """Import a knowledge graph from serialized data."""
+        if format != "json":
+            raise ValueError(f"Unsupported import format: {format}")
+
+        graph_data = json.loads(data)
+        knowledge_graph = KnowledgeGraph()
+
+        for entity_data in graph_data.get("entities", []):
+            entity = CodeEntity(
+                id=entity_data["id"],
+                name=entity_data["name"],
+                entity_type=EntityType(entity_data["entity_type"]),
+                file_path=Path(entity_data["file_path"]),
+                start_line=entity_data["start_line"],
+                end_line=entity_data["end_line"],
+                signature=entity_data.get("signature"),
+                docstring=entity_data.get("docstring"),
+                properties=entity_data.get("properties", {}),
+            )
+            knowledge_graph.add_entity(entity)
+
+        for rel_data in graph_data.get("relationships", []):
+            relationship = EntityRelationship(
+                id=rel_data["id"],
+                source_entity_id=rel_data["source_entity_id"],
+                target_entity_id=rel_data["target_entity_id"],
+                relation_type=RelationType(rel_data["relation_type"]),
+                confidence=rel_data.get("confidence", 1.0),
+                context=rel_data.get("context"),
+            )
+            knowledge_graph.add_relationship(relationship)
+
+        knowledge_graph.metadata = graph_data.get("metadata", {})
+        knowledge_graph.version = graph_data.get("version", "1.0")
+        knowledge_graph.created_at = graph_data.get("created_at")
+        knowledge_graph.updated_at = graph_data.get("updated_at")
+
+        self.graph_builder.knowledge_graph = knowledge_graph
+        logger.info(
+            f"Imported knowledge graph with {len(knowledge_graph.entities)} entities "
+            f"and {len(knowledge_graph.relationships)} relationships"
+        )
 
     async def close(self) -> None:
         """Close the GraphRAG engine and cleanup resources."""

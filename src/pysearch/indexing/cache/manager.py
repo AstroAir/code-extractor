@@ -24,13 +24,13 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ...core.types import SearchResult
+from ...utils.logging_config import get_logger
 from .backends import CacheBackend, DiskCache, MemoryCache
 from .cleanup import CacheCleanup
 from .dependencies import DependencyTracker
 from .models import CacheEntry
 from .statistics import CacheStatistics
-from ...core.types import SearchResult
-from ...utils.logging_config import get_logger
 
 
 class CacheManager:
@@ -49,7 +49,7 @@ class CacheManager:
         default_ttl: float = 3600,  # 1 hour
         compression: bool = False,
         auto_cleanup: bool = True,
-        cleanup_interval: float = 300  # 5 minutes
+        cleanup_interval: float = 300,  # 5 minutes
     ):
         """
         Initialize cache manager.
@@ -76,9 +76,7 @@ class CacheManager:
             if cache_dir is None:
                 cache_dir = Path.home() / ".pysearch" / "cache"
             self.backend = DiskCache(
-                cache_dir=cache_dir,
-                max_size=max_size,
-                compression=compression
+                cache_dir=cache_dir, max_size=max_size, compression=compression
             )
         else:
             raise ValueError(f"Unknown cache backend: {backend}")
@@ -93,7 +91,7 @@ class CacheManager:
         self.cleanup_manager = CacheCleanup(
             cleanup_callback=self.cleanup_expired,
             cleanup_interval=cleanup_interval,
-            auto_cleanup=auto_cleanup
+            auto_cleanup=auto_cleanup,
         )
 
     def get(self, key: str) -> SearchResult | None:
@@ -139,7 +137,7 @@ class CacheManager:
         key: str,
         value: SearchResult,
         ttl: float | None = None,
-        file_dependencies: builtins.set[str] | None = None
+        file_dependencies: builtins.set[str] | None = None,
     ) -> bool:
         """
         Set a cached search result.
@@ -169,7 +167,7 @@ class CacheManager:
                 ttl=ttl,
                 size_bytes=size_bytes,
                 compressed=self.compression,
-                file_dependencies=file_dependencies or set()
+                file_dependencies=file_dependencies or set(),
             )
 
             # Store in backend
@@ -231,8 +229,7 @@ class CacheManager:
         if invalidated > 0:
             self.statistics.record_invalidation(invalidated)
 
-            self.logger.debug(
-                f"Invalidated {invalidated} cache entries for file: {file_path}")
+            self.logger.debug(f"Invalidated {invalidated} cache entries for file: {file_path}")
 
         return invalidated
 
@@ -262,7 +259,8 @@ class CacheManager:
             self.statistics.record_invalidation(invalidated)
 
             self.logger.debug(
-                f"Invalidated {invalidated} cache entries matching pattern: {pattern}")
+                f"Invalidated {invalidated} cache entries matching pattern: {pattern}"
+            )
 
         return invalidated
 
@@ -285,7 +283,6 @@ class CacheManager:
             Number of entries removed
         """
         removed = 0
-        current_time = time.time()
 
         for key in self.backend.keys():
             try:
@@ -314,9 +311,7 @@ class CacheManager:
         """
         self.statistics.update_entry_count(self.backend.size())
 
-        additional_stats = {
-            "file_dependencies": self.dependencies.get_dependency_count()
-        }
+        additional_stats = {"file_dependencies": self.dependencies.get_dependency_count()}
 
         return self.statistics.get_stats_dict(additional_stats)
 

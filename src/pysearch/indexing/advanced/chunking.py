@@ -39,30 +39,33 @@ from __future__ import annotations
 import asyncio
 import re
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional, Set, Tuple
+from typing import Any
 
-from ...analysis.language_support import CodeChunk, LanguageProcessor, language_registry
 from ...analysis.language_detection import detect_language
+from ...analysis.language_support import CodeChunk, language_registry
+from ...core.types import Language
 from ...utils.logging_config import get_logger
-from ...core.types import EntityType, Language
 
 logger = get_logger()
 
 
 class ChunkingStrategy(str, Enum):
     """Available chunking strategies."""
-    BASIC = "basic"           # Simple line-based chunking
+
+    BASIC = "basic"  # Simple line-based chunking
     STRUCTURAL = "structural"  # AST/tree-sitter based chunking
-    SEMANTIC = "semantic"     # Semantic similarity based chunking
-    HYBRID = "hybrid"         # Combination of multiple strategies
+    SEMANTIC = "semantic"  # Semantic similarity based chunking
+    HYBRID = "hybrid"  # Combination of multiple strategies
 
 
 @dataclass
 class ChunkingConfig:
     """Configuration for chunking operations."""
+
     strategy: ChunkingStrategy = ChunkingStrategy.HYBRID
     max_chunk_size: int = 1000
     min_chunk_size: int = 50
@@ -76,22 +79,87 @@ class ChunkingConfig:
 @dataclass
 class ChunkMetadata:
     """Metadata for a code chunk."""
+
     chunk_id: str
     quality_score: float
     boundary_type: str  # "function", "class", "block", "line"
-    contains_entities: List[str]
-    dependencies: List[str]
-    semantic_tags: List[str]
+    contains_entities: list[str]
+    dependencies: list[str]
+    semantic_tags: list[str]
     complexity_score: float
 
 
 @dataclass
-class EnhancedCodeChunk(CodeChunk):
+class MetadataCodeChunk(CodeChunk):
     """Enhanced code chunk with additional metadata."""
+
     chunk_id: str = ""
-    metadata: Optional[ChunkMetadata] = None
-    overlap_with: List[str] = field(default_factory=list)
+    metadata: ChunkMetadata | None = None
+    overlap_with: list[str] = field(default_factory=list)
     quality_score: float = 0.0
+
+
+class BasicChunker:
+    """Simple line-based chunking without structural awareness."""
+
+    def __init__(self, config: ChunkingConfig):
+        self.config = config
+
+    async def chunk_content(
+        self,
+        content: str,
+        language: Language,
+        file_path: str = "",
+    ) -> AsyncGenerator[MetadataCodeChunk, None]:
+        """Chunk content by fixed line count, splitting at blank lines when possible."""
+        lines = content.split("\n")
+        max_lines = max(1, self.config.max_chunk_size // 40)  # ~40 chars per line estimate
+        current_chunk: list[str] = []
+        start_line = 1
+
+        for i, line in enumerate(lines, 1):
+            current_chunk.append(line)
+
+            # Check if we've hit the size limit
+            chunk_text = "\n".join(current_chunk)
+            if len(chunk_text) >= self.config.max_chunk_size or len(current_chunk) >= max_lines:
+                # Try to split at a blank line boundary
+                split_idx = len(current_chunk)
+                for j in range(len(current_chunk) - 1, max(0, len(current_chunk) // 2), -1):
+                    if current_chunk[j].strip() == "":
+                        split_idx = j + 1
+                        break
+
+                emit_lines = current_chunk[:split_idx]
+                remainder = current_chunk[split_idx:]
+
+                if emit_lines:
+                    yield MetadataCodeChunk(
+                        content="\n".join(emit_lines),
+                        start_line=start_line,
+                        end_line=start_line + len(emit_lines) - 1,
+                        language=language,
+                        chunk_type="basic",
+                        chunk_id=f"{file_path}:{start_line}:{start_line + len(emit_lines) - 1}",
+                        quality_score=0.3,
+                    )
+
+                start_line = start_line + len(emit_lines)
+                current_chunk = remainder
+
+        # Emit final chunk
+        if current_chunk:
+            chunk_text = "\n".join(current_chunk)
+            if chunk_text.strip():
+                yield MetadataCodeChunk(
+                    content=chunk_text,
+                    start_line=start_line,
+                    end_line=start_line + len(current_chunk) - 1,
+                    language=language,
+                    chunk_type="basic",
+                    chunk_id=f"{file_path}:{start_line}:{start_line + len(current_chunk) - 1}",
+                    quality_score=0.3,
+                )
 
 
 class ChunkingStrategyBase(ABC):
@@ -106,14 +174,14 @@ class ChunkingStrategyBase(ABC):
         content: str,
         language: Language,
         file_path: str = "",
-    ) -> AsyncGenerator[EnhancedCodeChunk, None]:
+    ) -> AsyncGenerator[MetadataCodeChunk, None]:
         """Chunk content according to this strategy."""
         # This is an abstract async generator method
         # Subclasses should implement this as an async generator using yield
         if False:  # pragma: no cover
             yield
 
-    def calculate_chunk_quality(self, chunk: EnhancedCodeChunk) -> float:
+    def calculate_chunk_quality(self, chunk: MetadataCodeChunk) -> float:
         """Calculate quality score for a chunk."""
         quality = 0.0
 
@@ -147,14 +215,14 @@ class StructuralChunker(ChunkingStrategyBase):
         content: str,
         language: Language,
         file_path: str = "",
-    ) -> AsyncGenerator[EnhancedCodeChunk, None]:
+    ) -> AsyncGenerator[MetadataCodeChunk, None]:
         """Chunk content based on code structure."""
         processor = language_registry.get_processor(language)
 
         if processor:
             # Use tree-sitter based chunking
             async for chunk in processor.chunk_code(content, self.config.max_chunk_size):
-                enhanced_chunk = EnhancedCodeChunk(
+                enhanced_chunk = MetadataCodeChunk(
                     content=chunk.content,
                     start_line=chunk.start_line,
                     end_line=chunk.end_line,
@@ -166,8 +234,7 @@ class StructuralChunker(ChunkingStrategyBase):
                     dependencies=chunk.dependencies,
                     chunk_id=f"{file_path}:{chunk.start_line}:{chunk.end_line}",
                 )
-                enhanced_chunk.quality_score = self.calculate_chunk_quality(
-                    enhanced_chunk)
+                enhanced_chunk.quality_score = self.calculate_chunk_quality(enhanced_chunk)
                 yield enhanced_chunk
         else:
             # Fallback to basic structural chunking
@@ -179,47 +246,45 @@ class StructuralChunker(ChunkingStrategyBase):
         content: str,
         language: Language,
         file_path: str,
-    ) -> AsyncGenerator[EnhancedCodeChunk, None]:
+    ) -> AsyncGenerator[MetadataCodeChunk, None]:
         """Basic structural chunking without tree-sitter."""
-        lines = content.split('\n')
+        lines = content.split("\n")
         current_chunk: list[str] = []
         current_size = 0
         start_line = 1
 
         # Language-specific patterns for boundaries
         if language == Language.PYTHON:
-            boundary_patterns = [r'^\s*def\s+',
-                                 r'^\s*class\s+', r'^\s*async\s+def\s+']
+            boundary_patterns = [r"^\s*def\s+", r"^\s*class\s+", r"^\s*async\s+def\s+"]
         elif language in [Language.JAVASCRIPT, Language.TYPESCRIPT]:
-            boundary_patterns = [r'^\s*function\s+',
-                                 r'^\s*class\s+', r'^\s*const\s+\w+\s*=\s*\(']
+            boundary_patterns = [r"^\s*function\s+", r"^\s*class\s+", r"^\s*const\s+\w+\s*=\s*\("]
         elif language == Language.JAVA:
-            boundary_patterns = [r'^\s*public\s+',
-                                 r'^\s*private\s+', r'^\s*protected\s+']
+            boundary_patterns = [r"^\s*public\s+", r"^\s*private\s+", r"^\s*protected\s+"]
         else:
-            boundary_patterns = [r'^\s*\w+.*{', r'^\s*}']
+            boundary_patterns = [r"^\s*\w+.*{", r"^\s*}"]
 
         for i, line in enumerate(lines, 1):
             line_size = len(line) + 1
 
             # Check if this line starts a new boundary
-            is_boundary = any(re.match(pattern, line)
-                              for pattern in boundary_patterns)
+            is_boundary = any(re.match(pattern, line) for pattern in boundary_patterns)
 
-            if (current_size + line_size > self.config.max_chunk_size and
-                current_chunk and
-                    (is_boundary or not self.config.respect_boundaries)):
+            if (
+                current_size + line_size > self.config.max_chunk_size
+                and current_chunk
+                and (is_boundary or not self.config.respect_boundaries)
+            ):
 
                 # Yield current chunk
-                chunk_content = '\n'.join(current_chunk)
-                yield EnhancedCodeChunk(
+                chunk_content = "\n".join(current_chunk)
+                yield MetadataCodeChunk(
                     content=chunk_content,
                     start_line=start_line,
                     end_line=i - 1,
                     language=language,
                     chunk_type="structural",
                     chunk_id=f"{file_path}:{start_line}:{i-1}",
-                    quality_score=0.5  # Default quality for basic chunks
+                    quality_score=0.5,  # Default quality for basic chunks
                 )
 
                 # Start new chunk
@@ -232,15 +297,15 @@ class StructuralChunker(ChunkingStrategyBase):
 
         # Yield final chunk
         if current_chunk:
-            chunk_content = '\n'.join(current_chunk)
-            yield EnhancedCodeChunk(
+            chunk_content = "\n".join(current_chunk)
+            yield MetadataCodeChunk(
                 content=chunk_content,
                 start_line=start_line,
                 end_line=len(lines),
                 language=language,
                 chunk_type="structural",
                 chunk_id=f"{file_path}:{start_line}:{len(lines)}",
-                quality_score=0.5
+                quality_score=0.5,
             )
 
 
@@ -252,7 +317,7 @@ class SemanticChunker(ChunkingStrategyBase):
         content: str,
         language: Language,
         file_path: str = "",
-    ) -> AsyncGenerator[EnhancedCodeChunk, None]:
+    ) -> AsyncGenerator[MetadataCodeChunk, None]:
         """Chunk content based on semantic similarity."""
         # First get structural chunks as base
         structural_chunker = StructuralChunker(self.config)
@@ -275,8 +340,8 @@ class SemanticChunker(ChunkingStrategyBase):
 
     async def _group_chunks_semantically(
         self,
-        chunks: List[EnhancedCodeChunk],
-    ) -> List[List[EnhancedCodeChunk]]:
+        chunks: list[MetadataCodeChunk],
+    ) -> list[list[MetadataCodeChunk]]:
         """Group chunks by semantic similarity."""
         if not chunks:
             return []
@@ -315,8 +380,8 @@ class SemanticChunker(ChunkingStrategyBase):
         # Simple keyword-based similarity for now
         # In a full implementation, this could use embeddings
 
-        words1 = set(re.findall(r'\w+', content1.lower()))
-        words2 = set(re.findall(r'\w+', content2.lower()))
+        words1 = set(re.findall(r"\w+", content1.lower()))
+        words2 = set(re.findall(r"\w+", content2.lower()))
 
         if not words1 or not words2:
             return 0.0
@@ -328,9 +393,9 @@ class SemanticChunker(ChunkingStrategyBase):
 
     async def _merge_chunks(
         self,
-        chunks: List[EnhancedCodeChunk],
+        chunks: list[MetadataCodeChunk],
         file_path: str,
-    ) -> Optional[EnhancedCodeChunk]:
+    ) -> MetadataCodeChunk | None:
         """Merge semantically similar chunks."""
         if not chunks:
             return None
@@ -339,7 +404,7 @@ class SemanticChunker(ChunkingStrategyBase):
         chunks.sort(key=lambda c: c.start_line)
 
         # Merge content
-        merged_content = '\n'.join(chunk.content for chunk in chunks)
+        merged_content = "\n".join(chunk.content for chunk in chunks)
 
         # Check size limit
         if len(merged_content) > self.config.max_chunk_size * 1.5:
@@ -347,7 +412,7 @@ class SemanticChunker(ChunkingStrategyBase):
             return chunks[0]
 
         # Create merged chunk
-        merged_chunk = EnhancedCodeChunk(
+        merged_chunk = MetadataCodeChunk(
             content=merged_content,
             start_line=chunks[0].start_line,
             end_line=chunks[-1].end_line,
@@ -387,7 +452,7 @@ class HybridChunker(ChunkingStrategyBase):
         content: str,
         language: Language,
         file_path: str = "",
-    ) -> AsyncGenerator[EnhancedCodeChunk, None]:
+    ) -> AsyncGenerator[MetadataCodeChunk, None]:
         """Hybrid chunking using both structural and semantic approaches."""
         # Start with structural chunking
         structural_chunks = []
@@ -419,8 +484,8 @@ class HybridChunker(ChunkingStrategyBase):
 
     async def optimize_chunks(
         self,
-        chunks: List[EnhancedCodeChunk],
-    ) -> List[EnhancedCodeChunk]:
+        chunks: list[MetadataCodeChunk],
+    ) -> list[MetadataCodeChunk]:
         """Optimize chunk boundaries and sizes."""
         optimized = []
 
@@ -437,8 +502,8 @@ class HybridChunker(ChunkingStrategyBase):
 
     async def _improve_chunk(
         self,
-        chunk: EnhancedCodeChunk,
-    ) -> Optional[EnhancedCodeChunk]:
+        chunk: MetadataCodeChunk,
+    ) -> MetadataCodeChunk | None:
         """Try to improve a low-quality chunk."""
         # Implementation would analyze the chunk and try to improve it
         # For now, return the original chunk
@@ -453,9 +518,10 @@ class ChunkingEngine:
     automatically selecting the best strategy based on content and language.
     """
 
-    def __init__(self, config: Optional[ChunkingConfig] = None):
+    def __init__(self, config: ChunkingConfig | None = None):
         self.config = config or ChunkingConfig()
-        self.chunkers = {
+        self.chunkers: dict[ChunkingStrategy, ChunkingStrategyBase | BasicChunker] = {
+            ChunkingStrategy.BASIC: BasicChunker(self.config),
             ChunkingStrategy.STRUCTURAL: StructuralChunker(self.config),
             ChunkingStrategy.SEMANTIC: SemanticChunker(self.config),
             ChunkingStrategy.HYBRID: HybridChunker(self.config),
@@ -464,9 +530,9 @@ class ChunkingEngine:
     async def chunk_file(
         self,
         file_path: str,
-        content: Optional[str] = None,
-        strategy: Optional[ChunkingStrategy] = None,
-    ) -> List[EnhancedCodeChunk]:
+        content: str | None = None,
+        strategy: ChunkingStrategy | None = None,
+    ) -> list[MetadataCodeChunk]:
         """
         Chunk a file using the specified or auto-selected strategy.
 
@@ -481,6 +547,7 @@ class ChunkingEngine:
         if content is None:
             try:
                 from ...utils.utils import read_text_safely
+
                 content = read_text_safely(Path(file_path))
                 if content is None:
                     logger.error(f"Could not read file {file_path}")
@@ -529,8 +596,8 @@ class ChunkingEngine:
 
     async def _post_process_chunks(
         self,
-        chunks: List[EnhancedCodeChunk],
-    ) -> List[EnhancedCodeChunk]:
+        chunks: list[MetadataCodeChunk],
+    ) -> list[MetadataCodeChunk]:
         """Post-process chunks to improve quality."""
         if not chunks:
             return chunks
@@ -538,7 +605,8 @@ class ChunkingEngine:
         # Filter out low-quality chunks
         quality_threshold = self.config.quality_threshold
         filtered_chunks = [
-            chunk for chunk in chunks
+            chunk
+            for chunk in chunks
             if chunk.quality_score >= quality_threshold or len(chunks) == 1
         ]
 
@@ -550,7 +618,7 @@ class ChunkingEngine:
         if len(filtered_chunks) > self.config.max_chunks_per_file:
             # Keep highest quality chunks
             filtered_chunks.sort(key=lambda c: c.quality_score, reverse=True)
-            filtered_chunks = filtered_chunks[:self.config.max_chunks_per_file]
+            filtered_chunks = filtered_chunks[: self.config.max_chunks_per_file]
             # Re-sort by line number
             filtered_chunks.sort(key=lambda c: c.start_line)
 
@@ -558,8 +626,8 @@ class ChunkingEngine:
 
     async def _add_overlap(
         self,
-        chunks: List[EnhancedCodeChunk],
-    ) -> List[EnhancedCodeChunk]:
+        chunks: list[MetadataCodeChunk],
+    ) -> list[MetadataCodeChunk]:
         """Add overlap between adjacent chunks."""
         if len(chunks) <= 1:
             return chunks
@@ -574,8 +642,7 @@ class ChunkingEngine:
                 # Add overlap with previous chunk
                 prev_chunk = chunks[i - 1]
                 overlap_lines = min(
-                    self.config.overlap_size,
-                    (chunk.start_line - prev_chunk.end_line) // 2
+                    self.config.overlap_size, (chunk.start_line - prev_chunk.end_line) // 2
                 )
 
                 if overlap_lines > 0:
@@ -594,10 +661,10 @@ class ChunkingEngine:
 
     async def chunk_multiple_files(
         self,
-        file_paths: List[str],
-        strategy: Optional[ChunkingStrategy] = None,
+        file_paths: list[str],
+        strategy: ChunkingStrategy | None = None,
         max_concurrent: int = 10,
-    ) -> Dict[str, List[EnhancedCodeChunk]]:
+    ) -> dict[str, list[MetadataCodeChunk]]:
         """
         Chunk multiple files concurrently.
 
@@ -611,7 +678,7 @@ class ChunkingEngine:
         """
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def chunk_single_file(file_path: str) -> Tuple[str, List[EnhancedCodeChunk]]:
+        async def chunk_single_file(file_path: str) -> tuple[str, list[MetadataCodeChunk]]:
             async with semaphore:
                 chunks = await self.chunk_file(file_path, strategy=strategy)
                 return file_path, chunks
@@ -633,19 +700,17 @@ class ChunkingEngine:
 
         return file_chunks
 
-    def get_chunking_stats(self, chunks: List[EnhancedCodeChunk]) -> Dict[str, Any]:
+    def get_chunking_stats(self, chunks: list[MetadataCodeChunk]) -> dict[str, Any]:
         """Get statistics for a set of chunks."""
         if not chunks:
             return {"total_chunks": 0}
 
         total_size = sum(len(chunk.content) for chunk in chunks)
-        avg_quality = sum(
-            chunk.quality_score for chunk in chunks) / len(chunks)
+        avg_quality = sum(chunk.quality_score for chunk in chunks) / len(chunks)
 
         chunk_types: dict[str, int] = {}
         for chunk in chunks:
-            chunk_types[chunk.chunk_type] = chunk_types.get(
-                chunk.chunk_type, 0) + 1
+            chunk_types[chunk.chunk_type] = chunk_types.get(chunk.chunk_type, 0) + 1
 
         return {
             "total_chunks": len(chunks),
@@ -657,5 +722,5 @@ class ChunkingEngine:
                 "min": min(len(chunk.content) for chunk in chunks),
                 "max": max(len(chunk.content) for chunk in chunks),
                 "median": sorted([len(chunk.content) for chunk in chunks])[len(chunks) // 2],
-            }
+            },
         }

@@ -35,6 +35,7 @@ Example:
 from __future__ import annotations
 
 import ast
+import hashlib
 import math
 import re
 from collections import Counter, defaultdict
@@ -86,11 +87,58 @@ class SemanticEmbedding:
 
         # Code-specific stop words
         self.stop_words = {
-            'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-            'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have',
-            'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
-            'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we',
-            'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'its', 'our', 'their'
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "this",
+            "that",
+            "these",
+            "those",
+            "i",
+            "you",
+            "he",
+            "she",
+            "it",
+            "we",
+            "they",
+            "me",
+            "him",
+            "her",
+            "us",
+            "them",
+            "my",
+            "your",
+            "his",
+            "its",
+            "our",
+            "their",
         }
 
     def _tokenize_code(self, text: str) -> list[str]:
@@ -107,44 +155,43 @@ class SemanticEmbedding:
         tokens = []
 
         # Programming identifiers (camelCase, snake_case, etc.)
-        identifier_pattern = r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'
+        identifier_pattern = r"\b[a-zA-Z_][a-zA-Z0-9_]*\b"
         identifiers = re.findall(identifier_pattern, text)
         tokens.extend(identifiers)
 
         # Split camelCase and snake_case
         for identifier in identifiers:
             # Split camelCase
-            camel_parts = re.findall(r'[A-Z][a-z]*|[a-z]+', identifier)
-            tokens.extend([part.lower()
-                          for part in camel_parts if len(part) > 1])
+            camel_parts = re.findall(r"[A-Z][a-z]*|[a-z]+", identifier)
+            tokens.extend([part.lower() for part in camel_parts if len(part) > 1])
 
             # Split snake_case
-            snake_parts = identifier.split('_')
-            tokens.extend([part.lower()
-                          for part in snake_parts if len(part) > 1])
+            snake_parts = identifier.split("_")
+            tokens.extend([part.lower() for part in snake_parts if len(part) > 1])
 
         # Extract string literals content
         string_pattern = r'["\']([^"\']*)["\']'
         strings = re.findall(string_pattern, text)
         for string_content in strings:
-            string_tokens = re.findall(r'\b\w+\b', string_content.lower())
+            string_tokens = re.findall(r"\b\w+\b", string_content.lower())
             tokens.extend(string_tokens)
 
         # Extract comments content
         comment_patterns = [
-            r'#\s*(.+)',  # Python comments
-            r'//\s*(.+)',  # C-style comments
-            r'/\*\s*(.+?)\s*\*/',  # Multi-line comments
+            r"#\s*(.+)",  # Python comments
+            r"//\s*(.+)",  # C-style comments
+            r"/\*\s*(.+?)\s*\*/",  # Multi-line comments
         ]
         for pattern in comment_patterns:
             comments = re.findall(pattern, text, re.DOTALL)
             for comment in comments:
-                comment_tokens = re.findall(r'\b\w+\b', comment.lower())
+                comment_tokens = re.findall(r"\b\w+\b", comment.lower())
                 tokens.extend(comment_tokens)
 
         # Filter out stop words and short tokens
         filtered_tokens = [
-            token.lower() for token in tokens
+            token.lower()
+            for token in tokens
             if len(token) > 2 and token.lower() not in self.stop_words
         ]
 
@@ -171,8 +218,7 @@ class SemanticEmbedding:
 
         # Build vocabulary
         token_counts = Counter(all_tokens)
-        self.vocabulary = {token: idx for idx,
-                           (token, _) in enumerate(token_counts.most_common())}
+        self.vocabulary = {token: idx for idx, (token, _) in enumerate(token_counts.most_common())}
 
         # Calculate IDF scores
         doc_count = len(documents)
@@ -242,8 +288,8 @@ class SemanticEmbedding:
         dot_product = sum(vec1[key] * vec2[key] for key in common_keys)
 
         # Calculate magnitudes
-        mag1 = math.sqrt(sum(val ** 2 for val in vec1.values()))
-        mag2 = math.sqrt(sum(val ** 2 for val in vec2.values()))
+        mag1 = math.sqrt(sum(val**2 for val in vec1.values()))
+        mag2 = math.sqrt(sum(val**2 for val in vec2.values()))
 
         if mag1 == 0 or mag2 == 0:
             return 0.0
@@ -267,41 +313,112 @@ class CodeSemanticAnalyzer:
 
         # Semantic categories for code elements
         self.semantic_categories = {
-            'data_processing': [
-                'process', 'transform', 'convert', 'parse', 'format', 'serialize',
-                'deserialize', 'encode', 'decode', 'filter', 'map', 'reduce'
+            "data_processing": [
+                "process",
+                "transform",
+                "convert",
+                "parse",
+                "format",
+                "serialize",
+                "deserialize",
+                "encode",
+                "decode",
+                "filter",
+                "map",
+                "reduce",
             ],
-            'database': [
-                'db', 'database', 'sql', 'query', 'select', 'insert', 'update',
-                'delete', 'connection', 'session', 'transaction', 'commit'
+            "database": [
+                "db",
+                "database",
+                "sql",
+                "query",
+                "select",
+                "insert",
+                "update",
+                "delete",
+                "connection",
+                "session",
+                "transaction",
+                "commit",
             ],
-            'web_api': [
-                'api', 'http', 'request', 'response', 'get', 'post', 'put',
-                'delete', 'endpoint', 'route', 'handler', 'middleware'
+            "web_api": [
+                "api",
+                "http",
+                "request",
+                "response",
+                "get",
+                "post",
+                "put",
+                "delete",
+                "endpoint",
+                "route",
+                "handler",
+                "middleware",
             ],
-            'testing': [
-                'test', 'assert', 'mock', 'fixture', 'setup', 'teardown',
-                'verify', 'check', 'validate', 'expect'
+            "testing": [
+                "test",
+                "assert",
+                "mock",
+                "fixture",
+                "setup",
+                "teardown",
+                "verify",
+                "check",
+                "validate",
+                "expect",
             ],
-            'configuration': [
-                'config', 'settings', 'options', 'parameters', 'env',
-                'environment', 'properties', 'preferences'
+            "configuration": [
+                "config",
+                "settings",
+                "options",
+                "parameters",
+                "env",
+                "environment",
+                "properties",
+                "preferences",
             ],
-            'security': [
-                'auth', 'authentication', 'authorization', 'login', 'password',
-                'token', 'encrypt', 'decrypt', 'hash', 'security'
+            "security": [
+                "auth",
+                "authentication",
+                "authorization",
+                "login",
+                "password",
+                "token",
+                "encrypt",
+                "decrypt",
+                "hash",
+                "security",
             ],
-            'file_io': [
-                'file', 'read', 'write', 'open', 'close', 'save', 'load',
-                'path', 'directory', 'folder', 'stream'
+            "file_io": [
+                "file",
+                "read",
+                "write",
+                "open",
+                "close",
+                "save",
+                "load",
+                "path",
+                "directory",
+                "folder",
+                "stream",
             ],
-            'networking': [
-                'network', 'socket', 'client', 'server', 'connection',
-                'protocol', 'tcp', 'udp', 'http', 'https'
-            ]
+            "networking": [
+                "network",
+                "socket",
+                "client",
+                "server",
+                "connection",
+                "protocol",
+                "tcp",
+                "udp",
+                "http",
+                "https",
+            ],
         }
 
-    def extract_concepts(self, code_content: str, file_path: Path | None = None) -> list[SemanticConcept]:
+    def extract_concepts(
+        self, code_content: str, file_path: Path | None = None
+    ) -> list[SemanticConcept]:
         """
         Extract semantic concepts from code content.
 
@@ -321,12 +438,10 @@ class CodeSemanticAnalyzer:
         try:
             # Try AST-based analysis for supported languages
             if language == Language.PYTHON:
-                concepts.extend(
-                    self._extract_python_concepts(code_content, lines))
+                concepts.extend(self._extract_python_concepts(code_content, lines))
             else:
                 # Fallback to regex-based analysis
-                concepts.extend(
-                    self._extract_regex_concepts(code_content, lines))
+                concepts.extend(self._extract_regex_concepts(code_content, lines))
         except Exception:
             # Fallback to regex-based analysis on AST errors
             concepts.extend(self._extract_regex_concepts(code_content, lines))
@@ -336,7 +451,9 @@ class CodeSemanticAnalyzer:
 
         return concepts
 
-    def _extract_python_concepts(self, code_content: str, lines: list[str]) -> list[SemanticConcept]:
+    def _extract_python_concepts(
+        self, code_content: str, lines: list[str]
+    ) -> list[SemanticConcept]:
         """Extract concepts using Python AST analysis."""
         concepts = []
 
@@ -346,46 +463,50 @@ class CodeSemanticAnalyzer:
             for node in ast.walk(tree):
                 concept = None
 
-                if isinstance(node, ast.FunctionDef):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     concept = SemanticConcept(
                         name=node.name,
-                        category='function',
+                        category="function",
                         context=self._get_function_context(node, lines),
                         confidence=0.9,
                         line_number=node.lineno,
                         metadata={
-                            'args': [arg.arg for arg in node.args.args],
-                            'decorators': [self._ast_to_string(dec) for dec in node.decorator_list],
-                            'returns': self._ast_to_string(node.returns) if node.returns else None
-                        }
+                            "args": [arg.arg for arg in node.args.args],
+                            "decorators": [self._ast_to_string(dec) for dec in node.decorator_list],
+                            "returns": self._ast_to_string(node.returns) if node.returns else None,
+                            "is_async": isinstance(node, ast.AsyncFunctionDef),
+                        },
                     )
 
                 elif isinstance(node, ast.ClassDef):
                     concept = SemanticConcept(
                         name=node.name,
-                        category='class',
+                        category="class",
                         context=self._get_class_context(node, lines),
                         confidence=0.9,
                         line_number=node.lineno,
                         metadata={
-                            'bases': [self._ast_to_string(base) for base in node.bases],
-                            'decorators': [self._ast_to_string(dec) for dec in node.decorator_list]
-                        }
+                            "bases": [self._ast_to_string(base) for base in node.bases],
+                            "decorators": [self._ast_to_string(dec) for dec in node.decorator_list],
+                        },
                     )
 
                 elif isinstance(node, (ast.Import, ast.ImportFrom)):
                     for alias in node.names:
                         concept = SemanticConcept(
                             name=alias.name,
-                            category='import',
-                            context=f"from {node.module}" if isinstance(
-                                node, ast.ImportFrom) else "import",
+                            category="import",
+                            context=(
+                                f"from {node.module}"
+                                if isinstance(node, ast.ImportFrom)
+                                else "import"
+                            ),
                             confidence=0.8,
                             line_number=node.lineno,
                             metadata={
-                                'module': node.module if isinstance(node, ast.ImportFrom) else None,
-                                'alias': alias.asname
-                            }
+                                "module": node.module if isinstance(node, ast.ImportFrom) else None,
+                                "alias": alias.asname,
+                            },
                         )
                         concepts.append(concept)
                     continue
@@ -404,25 +525,25 @@ class CodeSemanticAnalyzer:
 
         # Function patterns for various languages
         function_patterns = [
-            (r'def\s+(\w+)\s*\(', 'function', 0.8),  # Python
-            (r'function\s+(\w+)\s*\(', 'function', 0.8),  # JavaScript
-            (r'(\w+)\s*\([^)]*\)\s*{', 'function', 0.7),  # C-style
-            (r'public\s+\w+\s+(\w+)\s*\(', 'function', 0.8),  # Java/C#
+            (r"def\s+(\w+)\s*\(", "function", 0.8),  # Python
+            (r"function\s+(\w+)\s*\(", "function", 0.8),  # JavaScript
+            (r"(\w+)\s*\([^)]*\)\s*{", "function", 0.7),  # C-style
+            (r"public\s+\w+\s+(\w+)\s*\(", "function", 0.8),  # Java/C#
         ]
 
         # Class patterns
         class_patterns = [
-            (r'class\s+(\w+)', 'class', 0.9),  # Python, C++, Java, C#
-            (r'interface\s+(\w+)', 'interface', 0.9),  # Java, C#, TypeScript
-            (r'struct\s+(\w+)', 'struct', 0.9),  # C, C++, Go
+            (r"class\s+(\w+)", "class", 0.9),  # Python, C++, Java, C#
+            (r"interface\s+(\w+)", "interface", 0.9),  # Java, C#, TypeScript
+            (r"struct\s+(\w+)", "struct", 0.9),  # C, C++, Go
         ]
 
         # Variable patterns
         variable_patterns = [
-            (r'(\w+)\s*=\s*', 'variable', 0.6),  # Assignment
-            (r'let\s+(\w+)', 'variable', 0.7),  # JavaScript
-            (r'var\s+(\w+)', 'variable', 0.7),  # JavaScript, Go
-            (r'const\s+(\w+)', 'constant', 0.8),  # JavaScript, C++
+            (r"(\w+)\s*=\s*", "variable", 0.6),  # Assignment
+            (r"let\s+(\w+)", "variable", 0.7),  # JavaScript
+            (r"var\s+(\w+)", "variable", 0.7),  # JavaScript, Go
+            (r"const\s+(\w+)", "constant", 0.8),  # JavaScript, C++
         ]
 
         all_patterns = function_patterns + class_patterns + variable_patterns
@@ -436,20 +557,22 @@ class CodeSemanticAnalyzer:
                         category=category,
                         context=line.strip(),
                         confidence=confidence,
-                        line_number=line_num
+                        line_number=line_num,
                     )
                     concepts.append(concept)
 
         return concepts
 
-    def _extract_comment_concepts(self, code_content: str, lines: list[str]) -> list[SemanticConcept]:
+    def _extract_comment_concepts(
+        self, code_content: str, lines: list[str]
+    ) -> list[SemanticConcept]:
         """Extract semantic concepts from comments."""
         concepts = []
 
         comment_patterns = [
-            r'#\s*(.+)',  # Python, shell
-            r'//\s*(.+)',  # C-style
-            r'/\*\s*(.+?)\s*\*/',  # Multi-line C-style
+            r"#\s*(.+)",  # Python, shell
+            r"//\s*(.+)",  # C-style
+            r"/\*\s*(.+?)\s*\*/",  # Multi-line C-style
         ]
 
         for line_num, line in enumerate(lines, 1):
@@ -460,24 +583,27 @@ class CodeSemanticAnalyzer:
                     if len(comment_text) > 10:  # Only meaningful comments
                         concept = SemanticConcept(
                             name=comment_text[:50],  # Truncate long comments
-                            category='comment',
+                            category="comment",
                             context=line.strip(),
                             confidence=0.5,
                             line_number=line_num,
-                            metadata={'full_text': comment_text}
+                            metadata={"full_text": comment_text},
                         )
                         concepts.append(concept)
 
         return concepts
 
-    def _get_function_context(self, node: ast.FunctionDef, lines: list[str]) -> str:
+    def _get_function_context(self, node: ast.FunctionDef | ast.AsyncFunctionDef, lines: list[str]) -> str:
         """Get contextual information for a function."""
         context_parts = []
 
         # Add docstring if available
-        if (node.body and isinstance(node.body[0], ast.Expr) and
-            isinstance(node.body[0].value, ast.Constant) and
-                isinstance(node.body[0].value.value, str)):
+        if (
+            node.body
+            and isinstance(node.body[0], ast.Expr)
+            and isinstance(node.body[0].value, ast.Constant)
+            and isinstance(node.body[0].value.value, str)
+        ):
             docstring = node.body[0].value.value.strip()
             context_parts.append(f"Doc: {docstring[:100]}")
 
@@ -547,8 +673,7 @@ class CodeSemanticAnalyzer:
                 concept_score += 0.6 * concept.confidence
 
             # Category-based semantic matching
-            category_score = self._calculate_category_similarity(
-                query_lower, concept)
+            category_score = self._calculate_category_similarity(query_lower, concept)
             concept_score += category_score * concept.confidence
 
             total_score += concept_score
@@ -558,10 +683,12 @@ class CodeSemanticAnalyzer:
 
     def _calculate_category_similarity(self, query: str, concept: SemanticConcept) -> float:
         """Calculate similarity based on semantic categories."""
-        for category, keywords in self.semantic_categories.items():
+        for _category, keywords in self.semantic_categories.items():
             if any(keyword in query for keyword in keywords):
-                if any(keyword in concept.name.lower() or keyword in concept.context.lower()
-                       for keyword in keywords):
+                if any(
+                    keyword in concept.name.lower() or keyword in concept.context.lower()
+                    for keyword in keywords
+                ):
                     return 0.4  # Moderate semantic match
         return 0.0
 
@@ -593,11 +720,7 @@ class SemanticSearchEngine:
         self.embedding_model.fit(documents)
 
     def search_semantic(
-        self,
-        query: str,
-        content: str,
-        file_path: Path | None = None,
-        threshold: float = 0.1
+        self, query: str, content: str, file_path: Path | None = None, threshold: float = 0.1
     ) -> list[SemanticMatch]:
         """
         Perform semantic search on content.
@@ -611,8 +734,8 @@ class SemanticSearchEngine:
         Returns:
             List of semantic matches sorted by relevance
         """
-        # Extract concepts from content
-        cache_key = str(hash(content))
+        # Extract concepts from content (use stable hash to avoid collisions)
+        cache_key = hashlib.md5(content.encode("utf-8", errors="replace")).hexdigest()
         if cache_key not in self._concept_cache:
             concepts = self.analyzer.extract_concepts(content, file_path)
             self._concept_cache[cache_key] = concepts
@@ -627,38 +750,42 @@ class SemanticSearchEngine:
         if self.embedding_model.is_fitted:
             query_vector = self.embedding_model.transform(query)
             content_vector = self.embedding_model.transform(content)
-            embedding_score = self.embedding_model.cosine_similarity(
-                query_vector, content_vector)
+            embedding_score = self.embedding_model.cosine_similarity(query_vector, content_vector)
+
+        # Pre-split lines once and reuse
+        lines = split_lines_keepends(content)
 
         # Calculate structural score
         structural_score = self._calculate_structural_score(query, concepts)
 
-        # Calculate contextual score
-        contextual_score = self._calculate_contextual_score(
-            query, content, concepts)
+        # Calculate contextual score (pass pre-split lines to avoid redundant split)
+        contextual_score = self._calculate_contextual_score(query, content, concepts, _lines=lines)
 
         # Combine scores with weights
         combined_score = (
-            0.4 * semantic_score +
-            0.3 * embedding_score +
-            0.2 * structural_score +
-            0.1 * contextual_score
+            0.4 * semantic_score
+            + 0.3 * embedding_score
+            + 0.2 * structural_score
+            + 0.1 * contextual_score
         )
 
         if combined_score < threshold:
             return []
 
         # Find relevant concepts for this query
+        query_lower = query.lower()
         relevant_concepts = [
-            concept for concept in concepts
-            if (query.lower() in concept.name.lower() or
-                query.lower() in concept.context.lower() or
-                self.analyzer._calculate_category_similarity(query.lower(), concept) > 0)
+            concept
+            for concept in concepts
+            if (
+                query_lower in concept.name.lower()
+                or query_lower in concept.context.lower()
+                or self.analyzer._calculate_category_similarity(query_lower, concept) > 0
+            )
         ]
 
         # Create search items for relevant concepts
         matches = []
-        lines = split_lines_keepends(content)
 
         for concept in relevant_concepts:
             # Create a search item for this concept
@@ -669,9 +796,8 @@ class SemanticSearchEngine:
                 file=file_path or Path("unknown"),
                 start_line=concept.line_number,
                 end_line=concept.line_number,
-                lines=lines[start_line:end_line] if start_line < len(lines) else [
-                ],
-                match_spans=[(0, (0, len(concept.name)))]
+                lines=lines[start_line:end_line] if start_line < len(lines) else [],
+                match_spans=[(0, (0, len(concept.name)))],
             )
 
             match = SemanticMatch(
@@ -680,7 +806,7 @@ class SemanticSearchEngine:
                 concept_matches=[concept],
                 structural_score=structural_score,
                 contextual_score=contextual_score,
-                combined_score=combined_score
+                combined_score=combined_score,
             )
             matches.append(match)
 
@@ -695,11 +821,11 @@ class SemanticSearchEngine:
 
         query_lower = query.lower()
         structure_weights = {
-            'function': 0.8,
-            'class': 0.9,
-            'import': 0.6,
-            'variable': 0.4,
-            'comment': 0.3
+            "function": 0.8,
+            "class": 0.9,
+            "import": 0.6,
+            "variable": 0.4,
+            "comment": 0.3,
         }
 
         total_score = 0.0
@@ -714,17 +840,15 @@ class SemanticSearchEngine:
         return total_score / total_weight if total_weight > 0 else 0.0
 
     def _calculate_contextual_score(
-        self,
-        query: str,
-        content: str,
-        concepts: list[SemanticConcept]
+        self, query: str, content: str, concepts: list[SemanticConcept],
+        _lines: list[str] | None = None,
     ) -> float:
         """Calculate score based on contextual relevance."""
         query_lower = query.lower()
 
         # Check for query terms in surrounding context
         context_score = 0.0
-        lines = split_lines_keepends(content)
+        lines = _lines if _lines is not None else split_lines_keepends(content)
 
         for concept in concepts:
             if concept.line_number <= len(lines):
@@ -732,16 +856,14 @@ class SemanticSearchEngine:
                 start_line = max(0, concept.line_number - 3)
                 end_line = min(len(lines), concept.line_number + 3)
 
-                context_text = ' '.join(lines[start_line:end_line]).lower()
+                context_text = " ".join(lines[start_line:end_line]).lower()
 
                 # Count query term occurrences in context
                 query_words = query_lower.split()
-                context_matches = sum(
-                    1 for word in query_words if word in context_text)
+                context_matches = sum(1 for word in query_words if word in context_text)
 
                 if context_matches > 0:
-                    context_score += (context_matches /
-                                      len(query_words)) * concept.confidence
+                    context_score += (context_matches / len(query_words)) * concept.confidence
 
         return min(context_score / len(concepts), 1.0) if concepts else 0.0
 
@@ -759,22 +881,21 @@ class SemanticSearchEngine:
         query_lower = query.lower()
 
         # Add terms from semantic categories
-        for category, keywords in self.analyzer.semantic_categories.items():
+        for _category, keywords in self.analyzer.semantic_categories.items():
             if any(keyword in query_lower for keyword in keywords):
                 expanded_terms.extend(keywords)
 
         # Add common programming variations
-        if '_' in query:
+        if "_" in query:
             # Convert snake_case to camelCase
-            parts = query.split('_')
-            camel_case = parts[0] + \
-                ''.join(word.capitalize() for word in parts[1:])
+            parts = query.split("_")
+            camel_case = parts[0] + "".join(word.capitalize() for word in parts[1:])
             expanded_terms.append(camel_case)
 
         # Add plural/singular variations
-        if query.endswith('s') and len(query) > 3:
+        if query.endswith("s") and len(query) > 3:
             expanded_terms.append(query[:-1])  # Remove 's'
         else:
-            expanded_terms.append(query + 's')  # Add 's'
+            expanded_terms.append(query + "s")  # Add 's'
 
         return list(set(expanded_terms))  # Remove duplicates

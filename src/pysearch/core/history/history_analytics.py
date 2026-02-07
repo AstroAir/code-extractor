@@ -44,12 +44,13 @@ class AnalyticsManager:
     def __init__(self, cfg: SearchConfig) -> None:
         self.cfg = cfg
 
-    def get_search_analytics(self, history_entries: list[SearchHistoryEntry], days: int = 30) -> dict[str, Any]:
+    def get_search_analytics(
+        self, history_entries: list[SearchHistoryEntry], days: int = 30
+    ) -> dict[str, Any]:
         """Get comprehensive search analytics."""
         cutoff_time = time.time() - (days * 24 * 60 * 60)
 
-        recent_entries = [
-            entry for entry in history_entries if entry.timestamp >= cutoff_time]
+        recent_entries = [entry for entry in history_entries if entry.timestamp >= cutoff_time]
 
         if not recent_entries:
             return {
@@ -65,13 +66,11 @@ class AnalyticsManager:
 
         # Calculate statistics
         total_searches = len(recent_entries)
-        successful_searches = sum(
-            1 for entry in recent_entries if entry.items_count > 0)
+        successful_searches = sum(1 for entry in recent_entries if entry.items_count > 0)
         average_success_score = (
             sum(entry.success_score for entry in recent_entries) / total_searches
         )
-        average_search_time = sum(
-            entry.elapsed_ms for entry in recent_entries) / total_searches
+        average_search_time = sum(entry.elapsed_ms for entry in recent_entries) / total_searches
 
         # Category analysis
         category_counts: dict[str, int] = defaultdict(int)
@@ -87,8 +86,7 @@ class AnalyticsManager:
             if entry.languages:
                 for lang in entry.languages:
                     language_counts[lang] += 1
-        most_used_languages = sorted(
-            language_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        most_used_languages = sorted(language_counts.items(), key=lambda x: x[1], reverse=True)[:5]
 
         # Search frequency by day
         search_frequency: dict[str, int] = defaultdict(int)
@@ -107,7 +105,9 @@ class AnalyticsManager:
             "search_frequency": dict(search_frequency),
         }
 
-    def get_pattern_suggestions(self, history_entries: list[SearchHistoryEntry], partial_pattern: str, limit: int = 5) -> list[str]:
+    def get_pattern_suggestions(
+        self, history_entries: list[SearchHistoryEntry], partial_pattern: str, limit: int = 5
+    ) -> list[str]:
         """Get pattern suggestions based on search history."""
         partial_lower = partial_pattern.lower()
 
@@ -143,7 +143,9 @@ class AnalyticsManager:
 
         if slow_searches:
             insights.append(f"Found {len(slow_searches)} slow searches (>{avg_time*2:.1f}ms)")
-            recommendations.append("Consider using more specific patterns or filters for better performance")
+            recommendations.append(
+                "Consider using more specific patterns or filters for better performance"
+            )
 
         # Analyze success rates by category
         category_success: dict[str, list[float]] = defaultdict(list)
@@ -157,13 +159,16 @@ class AnalyticsManager:
                 low_success_categories.append((category, avg_score))
 
         if low_success_categories:
-            insights.append(f"Low success rate in categories: {', '.join(cat for cat, _ in low_success_categories)}")
-            recommendations.append("Try using AST filters or more specific patterns for better results")
+            insights.append(
+                f"Low success rate in categories: {', '.join(cat for cat, _ in low_success_categories)}"
+            )
+            recommendations.append(
+                "Try using AST filters or more specific patterns for better results"
+            )
 
         # Analyze pattern complexity
         complex_patterns = [
-            entry for entry in history_entries 
-            if len(entry.query_pattern) > 50 or entry.use_regex
+            entry for entry in history_entries if len(entry.query_pattern) > 50 or entry.use_regex
         ]
         if len(complex_patterns) > len(history_entries) * 0.3:  # More than 30% complex
             insights.append("High usage of complex patterns detected")
@@ -183,7 +188,7 @@ class AnalyticsManager:
                 "slow_search_count": len(slow_searches),
                 "empty_result_rate": len(empty_results) / len(history_entries),
                 "complex_pattern_rate": len(complex_patterns) / len(history_entries),
-            }
+            },
         }
 
     def get_usage_patterns(self, history_entries: list[SearchHistoryEntry]) -> dict[str, Any]:
@@ -227,12 +232,16 @@ class AnalyticsManager:
                 "ast_usage_rate": ast_usage / len(history_entries),
             },
             "productivity_metrics": {
-                "searches_per_day": len(history_entries) / max(1, (time.time() - min(e.timestamp for e in history_entries)) / 86400),
-                "average_results_per_search": sum(e.items_count for e in history_entries) / len(history_entries),
-            }
+                "searches_per_day": len(history_entries)
+                / max(1, (time.time() - min(e.timestamp for e in history_entries)) / 86400),
+                "average_results_per_search": sum(e.items_count for e in history_entries)
+                / len(history_entries),
+            },
         }
 
-    def rate_search(self, history_entries: list[SearchHistoryEntry], pattern: str, rating: int) -> bool:
+    def rate_search(
+        self, history_entries: list[SearchHistoryEntry], pattern: str, rating: int
+    ) -> bool:
         """Rate a search result (1-5 stars)."""
         if not 1 <= rating <= 5:
             return False
@@ -245,7 +254,9 @@ class AnalyticsManager:
 
         return False
 
-    def add_tags_to_search(self, history_entries: list[SearchHistoryEntry], pattern: str, tags: set[str]) -> bool:
+    def add_tags_to_search(
+        self, history_entries: list[SearchHistoryEntry], pattern: str, tags: set[str]
+    ) -> bool:
         """Add tags to a search in history."""
         # Find the most recent search with this pattern
         for entry in reversed(history_entries):
@@ -258,7 +269,9 @@ class AnalyticsManager:
 
         return False
 
-    def search_history_by_tags(self, history_entries: list[SearchHistoryEntry], tags: set[str]) -> list[SearchHistoryEntry]:
+    def search_history_by_tags(
+        self, history_entries: list[SearchHistoryEntry], tags: set[str]
+    ) -> list[SearchHistoryEntry]:
         """Find searches by tags."""
         matching_entries = []
         for entry in history_entries:

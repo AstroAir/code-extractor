@@ -297,10 +297,7 @@ class KnowledgeGraph:
         return [self.entities[eid] for eid in entity_ids if eid in self.entities]
 
     def get_related_entities(
-        self,
-        entity_id: str,
-        relation_types: list[RelationType] | None = None,
-        max_hops: int = 1
+        self, entity_id: str, relation_types: list[RelationType] | None = None, max_hops: int = 1
     ) -> list[tuple[CodeEntity, EntityRelationship]]:
         """Get entities related to the given entity."""
         related = []
@@ -308,14 +305,12 @@ class KnowledgeGraph:
         for relationship in self.relationships:
             if relationship.source_entity_id == entity_id:
                 if relation_types is None or relationship.relation_type in relation_types:
-                    target_entity = self.entities.get(
-                        relationship.target_entity_id)
+                    target_entity = self.entities.get(relationship.target_entity_id)
                     if target_entity:
                         related.append((target_entity, relationship))
             elif relationship.target_entity_id == entity_id:
                 if relation_types is None or relationship.relation_type in relation_types:
-                    source_entity = self.entities.get(
-                        relationship.source_entity_id)
+                    source_entity = self.entities.get(relationship.source_entity_id)
                     if source_entity:
                         related.append((source_entity, relationship))
 

@@ -26,7 +26,7 @@ from .models import EntityMetadata, FileMetadata, IndexQuery, IndexStats
 __all__ = [
     # Data models
     "EntityMetadata",
-    "FileMetadata", 
+    "FileMetadata",
     "IndexQuery",
     "IndexStats",
     # Core classes

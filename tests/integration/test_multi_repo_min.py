@@ -14,4 +14,3 @@ def test_repository_manager_add_list_remove(tmp_path: Path) -> None:
     assert rm.get_repository("r1") is not None
     assert rm.remove_repository("r1") is True
     assert rm.get_repository("r1") is None
-

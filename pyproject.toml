@@ -79,7 +79,8 @@ dev = [
   "mkdocs-minify-plugin"
 ]
 watch = [
-  "watchdog>=4.0.0"
+  "watchdog>=4.0.0",
+  "psutil>=5.9.0"
 ]
 
 # GraphRAG and enhanced features
@@ -232,8 +233,9 @@ no_implicit_optional = true
 pretty = true
 files = [
   "src/pysearch/",
-  "mcp/servers/",
+  "mcp/servers/pysearch_mcp_server.py",
   "mcp/shared/",
+  "test_mcp_core.py",
 ]
 exclude = [
   "build",
@@ -251,6 +253,7 @@ module = [
   "rapidfuzz.*",
   "fastmcp.*",
   "qdrant_client.*",
+  "chromadb.*",
   "numpy.*",
   "sentence_transformers.*",
   "transformers.*",
@@ -296,3 +299,10 @@ default = true
 
 [tool.uv.pip]
 index-url = "https://mirrors.aliyun.com/pypi/simple"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-timeout>=2.4.0",
+]

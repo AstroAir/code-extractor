@@ -44,14 +44,15 @@ import hashlib
 import json
 import sqlite3
 import time
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Set
+from typing import Any
 
 from ..core.config import SearchConfig
+from ..core.types import Language
 from ..utils.error_handling import ErrorCollector
 from ..utils.logging_config import get_logger
-from ..core.types import Language
 from ..utils.utils import file_meta, read_text_safely
 
 logger = get_logger()
@@ -74,13 +75,14 @@ class ContentAddress:
             content = read_text_safely(Path(path))
             if content is None:
                 raise ValueError(f"Cannot read file content: {path}")
-            content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+            content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
             meta = file_meta(Path(path))
             if meta is None:
                 raise ValueError(f"Cannot read file metadata: {path}")
 
             from .language_detection import detect_language
+
             language = detect_language(Path(path), content)
 
             return cls(
@@ -88,7 +90,7 @@ class ContentAddress:
                 content_hash=content_hash,
                 size=meta.size,
                 mtime=meta.mtime,
-                language=language
+                language=language,
             )
         except Exception as e:
             logger.error(f"Error creating ContentAddress for {path}: {e}")
@@ -119,6 +121,7 @@ class IndexTag:
 @dataclass
 class PathAndCacheKey:
     """Path and cache key pair for index operations."""
+
     path: str
     cache_key: str  # SHA256 content hash
 
@@ -126,24 +129,26 @@ class PathAndCacheKey:
 @dataclass
 class RefreshIndexResults:
     """Results of index refresh operation."""
-    compute: List[PathAndCacheKey]      # New files to index
-    delete: List[PathAndCacheKey]       # Files to remove completely
-    add_tag: List[PathAndCacheKey]      # Existing content, new tag
-    remove_tag: List[PathAndCacheKey]   # Remove tag, keep content
+
+    compute: list[PathAndCacheKey]  # New files to index
+    delete: list[PathAndCacheKey]  # Files to remove completely
+    add_tag: list[PathAndCacheKey]  # Existing content, new tag
+    remove_tag: list[PathAndCacheKey]  # Remove tag, keep content
 
 
 @dataclass
 class IndexingProgressUpdate:
     """Progress update for indexing operations."""
+
     progress: float  # 0.0 to 1.0
     description: str
     status: str  # "loading", "indexing", "done", "failed", "paused", "cancelled"
-    warnings: Optional[List[str]] = None
-    debug_info: Optional[str] = None
+    warnings: list[str] | None = None
+    debug_info: str | None = None
 
 
 # Type aliases
-MarkCompleteCallback = Callable[[List[PathAndCacheKey], str], None]
+MarkCompleteCallback = Callable[[list[PathAndCacheKey], str], None]
 
 
 class GlobalCacheManager:
@@ -158,17 +163,13 @@ class GlobalCacheManager:
         self.cache_dir = cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = cache_dir / "global_cache.db"
-        self._connection: Optional[sqlite3.Connection] = None
+        self._connection: sqlite3.Connection | None = None
         self._lock = asyncio.Lock()
 
     async def _get_connection(self) -> sqlite3.Connection:
         """Get database connection, creating tables if needed."""
         if self._connection is None:
-            self._connection = sqlite3.connect(
-                self.db_path,
-                check_same_thread=False,
-                timeout=30.0
-            )
+            self._connection = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0)
             self._connection.execute("PRAGMA journal_mode=WAL")
             self._connection.execute("PRAGMA busy_timeout=3000")
             await self._create_tables()
@@ -176,7 +177,9 @@ class GlobalCacheManager:
 
     async def _create_tables(self) -> None:
         """Create global cache tables."""
-        conn = await self._get_connection()
+        conn = self._connection
+        if conn is None:
+            raise RuntimeError("Database connection not established before creating tables")
 
         # Global cache table - stores content by hash
         conn.execute("""
@@ -226,24 +229,30 @@ class GlobalCacheManager:
         self,
         content_hash: str,
         artifact_id: str,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Get cached content by hash and artifact type."""
         async with self._lock:
             try:
                 conn = await self._get_connection()
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT content_data FROM global_cache
                     WHERE content_hash = ? AND artifact_id = ?
-                """, (content_hash, artifact_id))
+                """,
+                    (content_hash, artifact_id),
+                )
 
                 row = cursor.fetchone()
                 if row:
                     # Update access statistics
-                    conn.execute("""
+                    conn.execute(
+                        """
                         UPDATE global_cache
                         SET last_accessed = ?, access_count = access_count + 1
                         WHERE content_hash = ? AND artifact_id = ?
-                    """, (time.time(), content_hash, artifact_id))
+                    """,
+                        (time.time(), content_hash, artifact_id),
+                    )
                     conn.commit()
 
                     return json.loads(row[0])
@@ -257,7 +266,7 @@ class GlobalCacheManager:
         content_hash: str,
         artifact_id: str,
         content: Any,
-        tags: List[IndexTag],
+        tags: list[IndexTag],
     ) -> None:
         """Store content in global cache with associated tags."""
         async with self._lock:
@@ -266,25 +275,25 @@ class GlobalCacheManager:
                 current_time = time.time()
 
                 # Store content
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT OR REPLACE INTO global_cache
                     (content_hash, artifact_id, content_data, created_at, last_accessed)
                     VALUES (?, ?, ?, ?, ?)
-                """, (
-                    content_hash,
-                    artifact_id,
-                    json.dumps(content),
-                    current_time,
-                    current_time
-                ))
+                """,
+                    (content_hash, artifact_id, json.dumps(content), current_time, current_time),
+                )
 
                 # Store tag associations
                 for tag in tags:
-                    conn.execute("""
+                    conn.execute(
+                        """
                         INSERT OR REPLACE INTO cache_tags
                         (content_hash, artifact_id, tag, created_at)
                         VALUES (?, ?, ?, ?)
-                    """, (content_hash, artifact_id, tag.to_string(), current_time))
+                    """,
+                        (content_hash, artifact_id, tag.to_string(), current_time),
+                    )
 
                 conn.commit()
             except Exception as e:
@@ -295,15 +304,18 @@ class GlobalCacheManager:
         self,
         content_hash: str,
         artifact_id: str,
-    ) -> List[IndexTag]:
+    ) -> list[IndexTag]:
         """Get all tags associated with content."""
         async with self._lock:
             try:
                 conn = await self._get_connection()
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT tag FROM cache_tags
                     WHERE content_hash = ? AND artifact_id = ?
-                """, (content_hash, artifact_id))
+                """,
+                    (content_hash, artifact_id),
+                )
 
                 rows = cursor.fetchall()
                 return [IndexTag.from_string(row[0]) for row in rows]
@@ -323,25 +335,34 @@ class GlobalCacheManager:
                 conn = await self._get_connection()
 
                 # Remove tag association
-                conn.execute("""
+                conn.execute(
+                    """
                     DELETE FROM cache_tags
                     WHERE content_hash = ? AND artifact_id = ? AND tag = ?
-                """, (content_hash, artifact_id, tag.to_string()))
+                """,
+                    (content_hash, artifact_id, tag.to_string()),
+                )
 
                 # Check if any tags remain
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT COUNT(*) FROM cache_tags
                     WHERE content_hash = ? AND artifact_id = ?
-                """, (content_hash, artifact_id))
+                """,
+                    (content_hash, artifact_id),
+                )
 
                 count = cursor.fetchone()[0]
 
                 # If no tags remain, delete content
                 if count == 0:
-                    conn.execute("""
+                    conn.execute(
+                        """
                         DELETE FROM global_cache
                         WHERE content_hash = ? AND artifact_id = ?
-                    """, (content_hash, artifact_id))
+                    """,
+                        (content_hash, artifact_id),
+                    )
                     conn.commit()
                     return True
 
@@ -370,10 +391,13 @@ class GlobalCacheManager:
 
                 # Delete orphaned content
                 for content_hash, artifact_id in orphaned:
-                    conn.execute("""
+                    conn.execute(
+                        """
                         DELETE FROM global_cache
                         WHERE content_hash = ? AND artifact_id = ?
-                    """, (content_hash, artifact_id))
+                    """,
+                        (content_hash, artifact_id),
+                    )
 
                 conn.commit()
                 return len(orphaned)
@@ -398,17 +422,13 @@ class ContentAddressedIndexer:
 
         # Database for tag catalog
         self.db_path = self.cache_dir / "tag_catalog.db"
-        self._connection: Optional[sqlite3.Connection] = None
+        self._connection: sqlite3.Connection | None = None
         self._lock = asyncio.Lock()
 
     async def _get_connection(self) -> sqlite3.Connection:
         """Get database connection, creating tables if needed."""
         if self._connection is None:
-            self._connection = sqlite3.connect(
-                self.db_path,
-                check_same_thread=False,
-                timeout=30.0
-            )
+            self._connection = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0)
             self._connection.execute("PRAGMA journal_mode=WAL")
             self._connection.execute("PRAGMA busy_timeout=3000")
             await self._create_tables()
@@ -416,7 +436,9 @@ class ContentAddressedIndexer:
 
     async def _create_tables(self) -> None:
         """Create tag catalog tables."""
-        conn = await self._get_connection()
+        conn = self._connection
+        if conn is None:
+            raise RuntimeError("Database connection not established before creating tables")
 
         # Tag catalog - tracks what's indexed for each tag
         conn.execute("""
@@ -444,23 +466,22 @@ class ContentAddressedIndexer:
 
         conn.commit()
 
-    async def get_saved_items_for_tag(self, tag: IndexTag) -> List[Dict[str, Any]]:
+    async def get_saved_items_for_tag(self, tag: IndexTag) -> list[dict[str, Any]]:
         """Get all items currently indexed for a tag."""
         async with self._lock:
             try:
                 conn = await self._get_connection()
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT path, content_hash, last_updated
                     FROM tag_catalog
                     WHERE directory = ? AND branch = ? AND artifact_id = ?
-                """, (tag.directory, tag.branch, tag.artifact_id))
+                """,
+                    (tag.directory, tag.branch, tag.artifact_id),
+                )
 
                 return [
-                    {
-                        "path": row[0],
-                        "content_hash": row[1],
-                        "last_updated": row[2]
-                    }
+                    {"path": row[0], "content_hash": row[1], "last_updated": row[2]}
                     for row in cursor.fetchall()
                 ]
             except Exception as e:
@@ -470,7 +491,7 @@ class ContentAddressedIndexer:
     async def calculate_refresh_results(
         self,
         tag: IndexTag,
-        current_files: Dict[str, Any],
+        current_files: dict[str, Any],
         read_file: Callable[[str], str],
     ) -> RefreshIndexResults:
         """
@@ -510,17 +531,15 @@ class ContentAddressedIndexer:
                     # File was modified, check if content actually changed
                     try:
                         content = read_file(path)
-                        current_hash = hashlib.sha256(
-                            content.encode('utf-8')).hexdigest()
+                        current_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
                         if current_hash != saved_item["content_hash"]:
                             # Content changed - need to compute new index
                             # First remove old versions
                             for version in saved_by_path[path]:
-                                remove_tag.append(PathAndCacheKey(
-                                    path=path,
-                                    cache_key=version["content_hash"]
-                                ))
+                                remove_tag.append(
+                                    PathAndCacheKey(path=path, cache_key=version["content_hash"])
+                                )
 
                             # Check if new content exists in global cache
                             cached_content = await self.global_cache.get_cached_content(
@@ -528,15 +547,9 @@ class ContentAddressedIndexer:
                             )
 
                             if cached_content:
-                                add_tag.append(PathAndCacheKey(
-                                    path=path,
-                                    cache_key=current_hash
-                                ))
+                                add_tag.append(PathAndCacheKey(path=path, cache_key=current_hash))
                             else:
-                                compute.append(PathAndCacheKey(
-                                    path=path,
-                                    cache_key=current_hash
-                                ))
+                                compute.append(PathAndCacheKey(path=path, cache_key=current_hash))
                         # If content unchanged, no action needed
                     except Exception as e:
                         logger.error(f"Error processing file {path}: {e}")
@@ -545,8 +558,7 @@ class ContentAddressedIndexer:
                 # New file
                 try:
                     content = read_file(path)
-                    content_hash = hashlib.sha256(
-                        content.encode('utf-8')).hexdigest()
+                    content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
                     # Check if content exists in global cache
                     cached_content = await self.global_cache.get_cached_content(
@@ -554,15 +566,9 @@ class ContentAddressedIndexer:
                     )
 
                     if cached_content:
-                        add_tag.append(PathAndCacheKey(
-                            path=path,
-                            cache_key=content_hash
-                        ))
+                        add_tag.append(PathAndCacheKey(path=path, cache_key=content_hash))
                     else:
-                        compute.append(PathAndCacheKey(
-                            path=path,
-                            cache_key=content_hash
-                        ))
+                        compute.append(PathAndCacheKey(path=path, cache_key=content_hash))
                 except Exception as e:
                     logger.error(f"Error processing new file {path}: {e}")
                     self.error_collector.add_error(e, file_path=Path(path))
@@ -579,26 +585,19 @@ class ContentAddressedIndexer:
                     )
 
                     if len(tags) > 1:
-                        remove_tag.append(PathAndCacheKey(
-                            path=path,
-                            cache_key=version["content_hash"]
-                        ))
+                        remove_tag.append(
+                            PathAndCacheKey(path=path, cache_key=version["content_hash"])
+                        )
                     else:
-                        delete.append(PathAndCacheKey(
-                            path=path,
-                            cache_key=version["content_hash"]
-                        ))
+                        delete.append(PathAndCacheKey(path=path, cache_key=version["content_hash"]))
 
         return RefreshIndexResults(
-            compute=compute,
-            delete=delete,
-            add_tag=add_tag,
-            remove_tag=remove_tag
+            compute=compute, delete=delete, add_tag=add_tag, remove_tag=remove_tag
         )
 
     async def mark_complete(
         self,
-        items: List[PathAndCacheKey],
+        items: list[PathAndCacheKey],
         result_type: str,
         tag: IndexTag,
     ) -> None:
@@ -611,31 +610,31 @@ class ContentAddressedIndexer:
                 for item in items:
                     if result_type == "compute" or result_type == "add_tag":
                         # Add or update in tag catalog
-                        conn.execute("""
+                        conn.execute(
+                            """
                             INSERT OR REPLACE INTO tag_catalog
                             (directory, branch, artifact_id, path, content_hash, last_updated)
                             VALUES (?, ?, ?, ?, ?, ?)
-                        """, (
-                            tag.directory,
-                            tag.branch,
-                            tag.artifact_id,
-                            item.path,
-                            item.cache_key,
-                            current_time
-                        ))
+                        """,
+                            (
+                                tag.directory,
+                                tag.branch,
+                                tag.artifact_id,
+                                item.path,
+                                item.cache_key,
+                                current_time,
+                            ),
+                        )
                     elif result_type == "delete" or result_type == "remove_tag":
                         # Remove from tag catalog
-                        conn.execute("""
+                        conn.execute(
+                            """
                             DELETE FROM tag_catalog
                             WHERE directory = ? AND branch = ? AND artifact_id = ?
                                 AND path = ? AND content_hash = ?
-                        """, (
-                            tag.directory,
-                            tag.branch,
-                            tag.artifact_id,
-                            item.path,
-                            item.cache_key
-                        ))
+                        """,
+                            (tag.directory, tag.branch, tag.artifact_id, item.path, item.cache_key),
+                        )
 
                 conn.commit()
             except Exception as e:

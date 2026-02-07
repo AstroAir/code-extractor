@@ -30,8 +30,7 @@ The configuration system provides comprehensive control over search behavior, pe
 ### Basic Configuration
 
 ```python
-from pysearch.config import SearchConfig
-from pysearch.types import OutputFormat
+from pysearch import SearchConfig, OutputFormat
 
 config = SearchConfig(
     paths=["./src", "./tests"],
@@ -58,7 +57,7 @@ config = SearchConfig(
 ### Language-Specific Configuration
 
 ```python
-from pysearch.types import Language
+from pysearch import Language
 
 config = SearchConfig(
     paths=["."],

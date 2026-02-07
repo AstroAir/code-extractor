@@ -9,6 +9,15 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+# Standard LogRecord attributes to exclude when extracting extra fields
+_LOGRECORD_BUILTIN_ATTRS: frozenset[str] = frozenset({
+    "name", "msg", "args", "levelname", "levelno", "pathname",
+    "filename", "module", "lineno", "funcName", "created", "msecs",
+    "relativeCreated", "thread", "threadName", "processName", "process",
+    "getMessage", "exc_info", "exc_text", "stack_info", "asctime",
+    "message", "taskName",
+})
+
 
 class LogLevel(str, Enum):
     """Available log levels."""
@@ -190,29 +199,9 @@ class JsonFormatter(logging.Formatter):
         }
 
         # Add extra fields
-        if hasattr(record, "__dict__"):
-            for key, value in record.__dict__.items():
-                if key not in [
-                    "name",
-                    "msg",
-                    "args",
-                    "levelname",
-                    "levelno",
-                    "pathname",
-                    "filename",
-                    "module",
-                    "lineno",
-                    "funcName",
-                    "created",
-                    "msecs",
-                    "relativeCreated",
-                    "thread",
-                    "threadName",
-                    "processName",
-                    "process",
-                    "getMessage",
-                ]:
-                    log_entry[key] = value
+        for key, value in record.__dict__.items():
+            if key not in _LOGRECORD_BUILTIN_ATTRS:
+                log_entry[key] = value
 
         # Add exception info if present
         if record.exc_info:
@@ -233,30 +222,9 @@ class StructuredFormatter(logging.Formatter):
 
         # Add structured fields
         extra_fields = []
-        if hasattr(record, "__dict__"):
-            for key, value in record.__dict__.items():
-                if key not in [
-                    "name",
-                    "msg",
-                    "args",
-                    "levelname",
-                    "levelno",
-                    "pathname",
-                    "filename",
-                    "module",
-                    "lineno",
-                    "funcName",
-                    "created",
-                    "msecs",
-                    "relativeCreated",
-                    "thread",
-                    "threadName",
-                    "processName",
-                    "process",
-                    "getMessage",
-                    "asctime",
-                ]:
-                    extra_fields.append(f"{key}={value}")
+        for key, value in record.__dict__.items():
+            if key not in _LOGRECORD_BUILTIN_ATTRS:
+                extra_fields.append(f"{key}={value}")
 
         if extra_fields:
             base += f" | {' '.join(extra_fields)}"
@@ -281,6 +249,7 @@ def get_logger() -> SearchLogger:
 
 
 def configure_logging(
+    name: str = "pysearch",
     level: LogLevel = LogLevel.INFO,
     format_type: LogFormat = LogFormat.SIMPLE,
     log_file: Path | None = None,
@@ -291,6 +260,7 @@ def configure_logging(
     """Configure global logging settings."""
     global _global_logger
     _global_logger = SearchLogger(
+        name=name,
         level=level,
         format_type=format_type,
         log_file=log_file,
@@ -303,16 +273,14 @@ def configure_logging(
 
 def disable_logging() -> None:
     """Disable all logging."""
-    global _global_logger
-    if _global_logger:
-        _global_logger.logger.setLevel(logging.CRITICAL + 1)
+    logger = get_logger()
+    logger.logger.setLevel(logging.CRITICAL + 1)
 
 
 def enable_debug_logging() -> None:
     """Enable debug logging for troubleshooting."""
-    global _global_logger
-    if _global_logger:
-        _global_logger.level = LogLevel.DEBUG
-        _global_logger.logger.setLevel(logging.DEBUG)
-        for handler in _global_logger.logger.handlers:
-            handler.setLevel(logging.DEBUG)
+    logger = get_logger()
+    logger.level = LogLevel.DEBUG
+    logger.logger.setLevel(logging.DEBUG)
+    for handler in logger.logger.handlers:
+        handler.setLevel(logging.DEBUG)

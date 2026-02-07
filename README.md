@@ -85,12 +85,33 @@ pysearch find \
   --context 5
 ```
 
+Boolean queries with logical operators:
+```bash
+pysearch find \
+  --pattern "(async AND handler) NOT test" \
+  --logic \
+  --context 3
+```
+
+Count-only search (fast counting without content):
+```bash
+pysearch find \
+  --pattern "def" \
+  --count
+```
+
+Limit results per file:
+```bash
+pysearch find \
+  --pattern "function" \
+  --max-per-file 3
+```
+
 ### API Usage
 
 Basic search:
 ```python
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
+from pysearch import PySearch, SearchConfig
 
 # Create search configuration
 config = SearchConfig(
@@ -314,9 +335,7 @@ pysearch find \
 ## Programming Interface
 
 ```python
-from pysearch.api import PySearch
-from pysearch.config import SearchConfig
-from pysearch.types import Query, OutputFormat
+from pysearch import PySearch, SearchConfig, Query, OutputFormat
 
 cfg = SearchConfig(
     paths=["."],

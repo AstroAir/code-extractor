@@ -12,20 +12,27 @@ import asyncio
 import json
 import sqlite3
 import time
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any
 
-from ...analysis.content_addressing import IndexTag, IndexingProgressUpdate, MarkCompleteCallback, PathAndCacheKey, RefreshIndexResults
-from ..advanced.engine import EnhancedCodebaseIndex
+from ...analysis.content_addressing import (
+    IndexingProgressUpdate,
+    IndexTag,
+    MarkCompleteCallback,
+    PathAndCacheKey,  # noqa: F401
+    RefreshIndexResults,
+)
 from ...analysis.language_support import language_registry
+from ...core.types import CodeEntity
 from ...utils.logging_config import get_logger
-from ...core.types import CodeEntity, Language
 from ...utils.utils import read_text_safely
+from ..advanced.base import CodebaseIndex
 
 logger = get_logger()
 
 
-class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
+class CodeSnippetsIndex(CodebaseIndex):
     """
     Enhanced code snippets index with multi-language support.
 
@@ -46,17 +53,13 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
         self.config = config
         self.cache_dir = config.resolve_cache_dir()
         self.db_path = self.cache_dir / "code_snippets.db"
-        self._connection: Optional[sqlite3.Connection] = None
+        self._connection: sqlite3.Connection | None = None
         self._lock = asyncio.Lock()
 
     async def _get_connection(self) -> sqlite3.Connection:
         """Get database connection, creating tables if needed."""
         if self._connection is None:
-            self._connection = sqlite3.connect(
-                self.db_path,
-                check_same_thread=False,
-                timeout=30.0
-            )
+            self._connection = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0)
             self._connection.execute("PRAGMA journal_mode=WAL")
             self._connection.execute("PRAGMA busy_timeout=3000")
             await self._create_tables()
@@ -126,7 +129,7 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
         tag: IndexTag,
         results: RefreshIndexResults,
         mark_complete: MarkCompleteCallback,
-        repo_name: Optional[str] = None,
+        repo_name: str | None = None,
     ) -> AsyncGenerator[IndexingProgressUpdate, None]:
         """Update the code snippets index."""
         conn = await self._get_connection()
@@ -137,7 +140,7 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
             yield IndexingProgressUpdate(
                 progress=i / max(len(results.compute), 1),
                 description=f"Extracting snippets from {Path(item.path).name}",
-                status="indexing"
+                status="indexing",
             )
 
             try:
@@ -148,6 +151,7 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
 
                 # Detect language
                 from ...analysis.language_detection import detect_language
+
                 language = detect_language(Path(item.path), content)
 
                 # Extract entities using language processor
@@ -164,37 +168,43 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
                     quality_score = self._calculate_entity_quality(entity)
 
                     # Insert snippet
-                    cursor = conn.execute("""
+                    cursor = conn.execute(
+                        """
                         INSERT OR REPLACE INTO code_snippets (
                             path, content_hash, name, entity_type, signature, docstring,
                             content, language, start_line, end_line, complexity_score,
                             quality_score, dependencies, metadata, created_at
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        item.path,
-                        item.cache_key,
-                        entity.name,
-                        entity.entity_type.value,
-                        entity.signature,
-                        entity.docstring,
-                        entity.signature or "",  # Use signature as content fallback
-                        language.value,
-                        entity.start_line,
-                        entity.end_line,
-                        0.0,  # Default complexity score
-                        quality_score,
-                        json.dumps([]),  # Default empty dependencies
-                        json.dumps(entity.properties),
-                        current_time
-                    ))
+                    """,
+                        (
+                            item.path,
+                            item.cache_key,
+                            entity.name,
+                            entity.entity_type.value,
+                            entity.signature,
+                            entity.docstring,
+                            entity.signature or "",  # Use signature as content fallback
+                            language.value,
+                            entity.start_line,
+                            entity.end_line,
+                            0.0,  # Default complexity score
+                            quality_score,
+                            json.dumps([]),  # Default empty dependencies
+                            json.dumps(entity.properties),
+                            current_time,
+                        ),
+                    )
 
                     snippet_id = cursor.lastrowid
 
                     # Add tag association
-                    conn.execute("""
+                    conn.execute(
+                        """
                         INSERT OR REPLACE INTO snippet_tags (snippet_id, tag, created_at)
                         VALUES (?, ?, ?)
-                    """, (snippet_id, tag_string, current_time))
+                    """,
+                        (snippet_id, tag_string, current_time),
+                    )
 
                 conn.commit()
                 mark_complete([item], "compute")
@@ -207,20 +217,26 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
         for item in results.add_tag:
             try:
                 # Find existing snippets for this content
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT id FROM code_snippets
                     WHERE path = ? AND content_hash = ?
-                """, (item.path, item.cache_key))
+                """,
+                    (item.path, item.cache_key),
+                )
 
                 snippet_ids = [row[0] for row in cursor.fetchall()]
 
                 # Add tag to existing snippets
                 current_time = time.time()
                 for snippet_id in snippet_ids:
-                    conn.execute("""
+                    conn.execute(
+                        """
                         INSERT OR REPLACE INTO snippet_tags (snippet_id, tag, created_at)
                         VALUES (?, ?, ?)
-                    """, (snippet_id, tag_string, current_time))
+                    """,
+                        (snippet_id, tag_string, current_time),
+                    )
 
                 conn.commit()
                 mark_complete([item], "add_tag")
@@ -232,20 +248,26 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
         for item in results.remove_tag:
             try:
                 # Find snippets for this content and tag
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT st.snippet_id FROM snippet_tags st
                     JOIN code_snippets cs ON st.snippet_id = cs.id
                     WHERE cs.path = ? AND cs.content_hash = ? AND st.tag = ?
-                """, (item.path, item.cache_key, tag_string))
+                """,
+                    (item.path, item.cache_key, tag_string),
+                )
 
                 snippet_ids = [row[0] for row in cursor.fetchall()]
 
                 # Remove tag associations
                 for snippet_id in snippet_ids:
-                    conn.execute("""
+                    conn.execute(
+                        """
                         DELETE FROM snippet_tags
                         WHERE snippet_id = ? AND tag = ?
-                    """, (snippet_id, tag_string))
+                    """,
+                        (snippet_id, tag_string),
+                    )
 
                 conn.commit()
                 mark_complete([item], "remove_tag")
@@ -257,19 +279,20 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
         for item in results.delete:
             try:
                 # Find snippets to delete
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT id FROM code_snippets
                     WHERE path = ? AND content_hash = ?
-                """, (item.path, item.cache_key))
+                """,
+                    (item.path, item.cache_key),
+                )
 
                 snippet_ids = [row[0] for row in cursor.fetchall()]
 
                 # Delete snippets and their tags
                 for snippet_id in snippet_ids:
-                    conn.execute(
-                        "DELETE FROM snippet_tags WHERE snippet_id = ?", (snippet_id,))
-                    conn.execute(
-                        "DELETE FROM code_snippets WHERE id = ?", (snippet_id,))
+                    conn.execute("DELETE FROM snippet_tags WHERE snippet_id = ?", (snippet_id,))
+                    conn.execute("DELETE FROM code_snippets WHERE id = ?", (snippet_id,))
 
                 conn.commit()
                 mark_complete([item], "delete")
@@ -278,9 +301,7 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
                 logger.error(f"Error deleting snippets for {item.path}: {e}")
 
         yield IndexingProgressUpdate(
-            progress=1.0,
-            description="Code snippets indexing complete",
-            status="done"
+            progress=1.0, description="Code snippets indexing complete", status="done"
         )
 
     async def retrieve(
@@ -289,7 +310,7 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
         tag: IndexTag,
         limit: int = 50,
         **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Retrieve code snippets matching the query."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
@@ -306,8 +327,7 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
             """)
             params.extend([f"%{term}%", f"%{term}%", f"%{term}%"])
 
-        where_clause = " AND ".join(
-            where_conditions) if where_conditions else "1=1"
+        where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
 
         # Additional filters from kwargs
         if "entity_type" in kwargs:
@@ -323,33 +343,38 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
             params.append(kwargs["min_quality"])
 
         # Execute query
-        cursor = conn.execute(f"""
+        cursor = conn.execute(
+            f"""
             SELECT cs.* FROM code_snippets cs
             JOIN snippet_tags st ON cs.id = st.snippet_id
             WHERE st.tag = ? AND ({where_clause})
             ORDER BY cs.quality_score DESC, cs.complexity_score DESC
             LIMIT ?
-        """, [tag_string] + params + [limit])
+        """,
+            [tag_string] + params + [limit],
+        )
 
         results = []
         for row in cursor.fetchall():
-            results.append({
-                "id": row[0],
-                "path": row[1],
-                "content_hash": row[2],
-                "name": row[3],
-                "entity_type": row[4],
-                "signature": row[5],
-                "docstring": row[6],
-                "content": row[7],
-                "language": row[8],
-                "start_line": row[9],
-                "end_line": row[10],
-                "complexity_score": row[11],
-                "quality_score": row[12],
-                "dependencies": json.loads(row[13]) if row[13] else [],
-                "metadata": json.loads(row[14]) if row[14] else {},
-            })
+            results.append(
+                {
+                    "id": row[0],
+                    "path": row[1],
+                    "content_hash": row[2],
+                    "name": row[3],
+                    "entity_type": row[4],
+                    "signature": row[5],
+                    "docstring": row[6],
+                    "content": row[7],
+                    "language": row[8],
+                    "start_line": row[9],
+                    "end_line": row[10],
+                    "complexity_score": row[11],
+                    "quality_score": row[12],
+                    "dependencies": json.loads(row[13]) if row[13] else [],
+                    "metadata": json.loads(row[14]) if row[14] else {},
+                }
+            )
 
         return results
 
@@ -360,7 +385,7 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
         # Name quality (prefer descriptive names)
         if len(entity.name) > 3:
             quality += 0.2
-        if not entity.name.startswith('_'):  # Not private
+        if not entity.name.startswith("_"):  # Not private
             quality += 0.1
 
         # Documentation quality
@@ -371,19 +396,22 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
 
         # Content quality (use signature as proxy for content)
         if entity.signature:
-            content_lines = len(entity.signature.split('\n'))
+            content_lines = len(entity.signature.split("\n"))
             if 1 <= content_lines <= 10:  # Reasonable signature size
                 quality += 0.2
 
         return min(1.0, quality)
 
-    async def get_entity_by_id(self, entity_id: int) -> Optional[Dict[str, Any]]:
+    async def get_entity_by_id(self, entity_id: int) -> dict[str, Any] | None:
         """Get a specific entity by ID."""
         conn = await self._get_connection()
 
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT * FROM code_snippets WHERE id = ?
-        """, (entity_id,))
+        """,
+            (entity_id,),
+        )
 
         row = cursor.fetchone()
         if row:
@@ -410,71 +438,88 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
         self,
         file_path: str,
         tag: IndexTag,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get all entities for a specific file."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
 
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT cs.* FROM code_snippets cs
             JOIN snippet_tags st ON cs.id = st.snippet_id
             WHERE cs.path = ? AND st.tag = ?
             ORDER BY cs.start_line
-        """, (file_path, tag_string))
+        """,
+            (file_path, tag_string),
+        )
 
         results = []
         for row in cursor.fetchall():
-            results.append({
-                "id": row[0],
-                "name": row[3],
-                "entity_type": row[4],
-                "signature": row[5],
-                "start_line": row[9],
-                "end_line": row[10],
-                "complexity_score": row[11],
-                "quality_score": row[12],
-            })
+            results.append(
+                {
+                    "id": row[0],
+                    "name": row[3],
+                    "entity_type": row[4],
+                    "signature": row[5],
+                    "start_line": row[9],
+                    "end_line": row[10],
+                    "complexity_score": row[11],
+                    "quality_score": row[12],
+                }
+            )
 
         return results
 
-    async def get_statistics(self, tag: IndexTag) -> Dict[str, Any]:
+    async def get_statistics(self, tag: IndexTag) -> dict[str, Any]:
         """Get statistics for this index."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
 
         # Total entities
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT COUNT(*) FROM code_snippets cs
             JOIN snippet_tags st ON cs.id = st.snippet_id
             WHERE st.tag = ?
-        """, (tag_string,))
+        """,
+            (tag_string,),
+        )
         total_entities = cursor.fetchone()[0]
 
         # Entities by type
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT cs.entity_type, COUNT(*) FROM code_snippets cs
             JOIN snippet_tags st ON cs.id = st.snippet_id
             WHERE st.tag = ?
             GROUP BY cs.entity_type
-        """, (tag_string,))
+        """,
+            (tag_string,),
+        )
         entities_by_type = dict(cursor.fetchall())
 
         # Entities by language
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT cs.language, COUNT(*) FROM code_snippets cs
             JOIN snippet_tags st ON cs.id = st.snippet_id
             WHERE st.tag = ?
             GROUP BY cs.language
-        """, (tag_string,))
+        """,
+            (tag_string,),
+        )
         entities_by_language = dict(cursor.fetchall())
 
         # Average quality and complexity
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT AVG(cs.quality_score), AVG(cs.complexity_score)
             FROM code_snippets cs
             JOIN snippet_tags st ON cs.id = st.snippet_id
             WHERE st.tag = ?
-        """, (tag_string,))
+        """,
+            (tag_string,),
+        )
         avg_scores = cursor.fetchone()
 
         return {
@@ -489,11 +534,11 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
         self,
         query: str,
         tag: IndexTag,
-        entity_types: Optional[List[str]] = None,
-        languages: Optional[List[str]] = None,
+        entity_types: list[str] | None = None,
+        languages: list[str] | None = None,
         min_quality: float = 0.0,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Search for entities with advanced filtering.
 
@@ -521,8 +566,7 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
                 (cs.name LIKE ? OR cs.signature LIKE ? OR cs.docstring LIKE ? OR cs.content LIKE ?)
             """)
             query_pattern = f"%{query}%"
-            params.extend([query_pattern, query_pattern,
-                          query_pattern, query_pattern])
+            params.extend([query_pattern, query_pattern, query_pattern, query_pattern])
 
         # Entity type filter
         if entity_types:
@@ -544,31 +588,36 @@ class EnhancedCodeSnippetsIndex(EnhancedCodebaseIndex):
         where_clause = " AND ".join(where_conditions)
 
         # Execute search
-        cursor = conn.execute(f"""
+        cursor = conn.execute(
+            f"""
             SELECT cs.* FROM code_snippets cs
             JOIN snippet_tags st ON cs.id = st.snippet_id
             WHERE {where_clause}
             ORDER BY cs.quality_score DESC, cs.complexity_score DESC
             LIMIT ?
-        """, params + [limit])
+        """,
+            params + [limit],
+        )
 
         results = []
         for row in cursor.fetchall():
-            results.append({
-                "id": row[0],
-                "path": row[1],
-                "name": row[3],
-                "entity_type": row[4],
-                "signature": row[5],
-                "docstring": row[6],
-                "content": row[7],
-                "language": row[8],
-                "start_line": row[9],
-                "end_line": row[10],
-                "complexity_score": row[11],
-                "quality_score": row[12],
-                "dependencies": json.loads(row[13]) if row[13] else [],
-                "metadata": json.loads(row[14]) if row[14] else {},
-            })
+            results.append(
+                {
+                    "id": row[0],
+                    "path": row[1],
+                    "name": row[3],
+                    "entity_type": row[4],
+                    "signature": row[5],
+                    "docstring": row[6],
+                    "content": row[7],
+                    "language": row[8],
+                    "start_line": row[9],
+                    "end_line": row[10],
+                    "complexity_score": row[11],
+                    "quality_score": row[12],
+                    "dependencies": json.loads(row[13]) if row[13] else [],
+                    "metadata": json.loads(row[14]) if row[14] else {},
+                }
+            )
 
         return results

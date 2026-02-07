@@ -29,8 +29,8 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
-from .models import CacheEntry
 from ...utils.logging_config import get_logger
+from .models import CacheEntry
 
 
 class CacheBackend(ABC):
@@ -103,8 +103,10 @@ class MemoryCache(CacheBackend):
                 del self._cache[key]
 
             # Check memory limits
-            if (self._current_size_bytes + entry.size_bytes > self.max_memory_bytes or
-                    len(self._cache) >= self.max_size):
+            if (
+                self._current_size_bytes + entry.size_bytes > self.max_memory_bytes
+                or len(self._cache) >= self.max_size
+            ):
                 self._evict_entries()
 
             # Add new entry
@@ -140,8 +142,10 @@ class MemoryCache(CacheBackend):
     def _evict_entries(self) -> None:
         """Evict least recently used entries to make space."""
         # Remove oldest entries until we're under limits
-        while (len(self._cache) >= self.max_size or
-               self._current_size_bytes > self.max_memory_bytes * 0.8):
+        while (
+            len(self._cache) >= self.max_size
+            or self._current_size_bytes > self.max_memory_bytes * 0.8
+        ):
             if not self._cache:
                 break
 
@@ -158,12 +162,7 @@ class DiskCache(CacheBackend):
     Uses pickle for serialization and optional compression.
     """
 
-    def __init__(
-        self,
-        cache_dir: Path | str,
-        max_size: int = 10000,
-        compression: bool = True
-    ):
+    def __init__(self, cache_dir: Path | str, max_size: int = 10000, compression: bool = True):
         self.cache_dir = Path(cache_dir)
         self.max_size = max_size
         self.compression = compression
@@ -193,7 +192,7 @@ class DiskCache(CacheBackend):
                     return None
 
                 # Load entry from disk
-                with open(entry_file, 'rb') as f:
+                with open(entry_file, "rb") as f:
                     data = f.read()
 
                 if self.compression:
@@ -203,8 +202,8 @@ class DiskCache(CacheBackend):
                 entry.touch()
 
                 # Update index
-                self._index[key]['last_accessed'] = entry.last_accessed
-                self._index[key]['access_count'] = entry.access_count
+                self._index[key]["last_accessed"] = entry.last_accessed
+                self._index[key]["access_count"] = entry.access_count
                 self._save_index()
 
                 return entry
@@ -228,16 +227,16 @@ class DiskCache(CacheBackend):
 
                 # Save to disk
                 entry_file = self._get_entry_file(key)
-                with open(entry_file, 'wb') as f:
+                with open(entry_file, "wb") as f:
                     f.write(data)
 
                 # Update index
                 self._index[key] = {
-                    'created_at': entry.created_at,
-                    'last_accessed': entry.last_accessed,
-                    'ttl': entry.ttl,
-                    'size_bytes': len(data),
-                    'access_count': entry.access_count
+                    "created_at": entry.created_at,
+                    "last_accessed": entry.last_accessed,
+                    "ttl": entry.ttl,
+                    "size_bytes": len(data),
+                    "access_count": entry.access_count,
                 }
                 self._save_index()
 
@@ -307,7 +306,7 @@ class DiskCache(CacheBackend):
     def _save_index(self) -> None:
         """Save the cache index to disk."""
         try:
-            with open(self.index_file, 'w') as f:
+            with open(self.index_file, "w") as f:
                 json.dump(self._index, f, indent=2)
         except Exception as e:
             self.logger.error(f"Error saving cache index: {e}")
@@ -315,10 +314,7 @@ class DiskCache(CacheBackend):
     def _evict_entries(self) -> None:
         """Evict least recently used entries to make space."""
         # Sort by last accessed time
-        sorted_entries = sorted(
-            self._index.items(),
-            key=lambda x: x[1]['last_accessed']
-        )
+        sorted_entries = sorted(self._index.items(), key=lambda x: x[1]["last_accessed"])
 
         # Remove oldest 20% of entries
         num_to_remove = max(1, len(sorted_entries) // 5)

@@ -129,8 +129,8 @@ Comprehensive error handling and reporting system for robust search operations.
 ### Basic Error Handling
 
 ```python
-from pysearch.error_handling import PySearchError, FileAccessError
-from pysearch.api import PySearch
+from pysearch import PySearch
+from pysearch.utils.error_handling import PySearchError, FileAccessError
 
 try:
     engine = PySearch(config)
@@ -145,7 +145,7 @@ except PySearchError as e:
 ### Error Collection
 
 ```python
-from pysearch.error_handling import ErrorCollector
+from pysearch.utils.error_handling import ErrorCollector
 
 # Create error collector
 collector = ErrorCollector()

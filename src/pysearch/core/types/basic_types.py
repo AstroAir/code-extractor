@@ -40,47 +40,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+
+from ...languages import Language
 
 
 class OutputFormat(str, Enum):
     TEXT = "text"
     JSON = "json"
     HIGHLIGHT = "highlight"
-
-
-class Language(str, Enum):
-    """Supported programming languages for syntax-aware processing."""
-
-    PYTHON = "python"
-    JAVASCRIPT = "javascript"
-    TYPESCRIPT = "typescript"
-    JAVA = "java"
-    C = "c"
-    CPP = "cpp"
-    CSHARP = "csharp"
-    GO = "go"
-    RUST = "rust"
-    PHP = "php"
-    RUBY = "ruby"
-    KOTLIN = "kotlin"
-    SWIFT = "swift"
-    SCALA = "scala"
-    R = "r"
-    MATLAB = "matlab"
-    SHELL = "shell"
-    POWERSHELL = "powershell"
-    SQL = "sql"
-    HTML = "html"
-    CSS = "css"
-    XML = "xml"
-    JSON = "json"
-    YAML = "yaml"
-    TOML = "toml"
-    MARKDOWN = "markdown"
-    DOCKERFILE = "dockerfile"
-    MAKEFILE = "makefile"
-    UNKNOWN = "unknown"
 
 
 @dataclass(slots=True)
@@ -297,3 +264,37 @@ class Query:
     search_docstrings: bool = True
     search_comments: bool = True
     search_strings: bool = True
+
+    # Count-only and per-file limits
+    count_only: bool = False
+    max_per_file: int | None = None
+
+    # Boolean query support
+    use_boolean: bool = False
+
+
+class BooleanOperator(str, Enum):
+    """Boolean operators for query composition."""
+
+    AND = "AND"
+    OR = "OR"
+    NOT = "NOT"
+
+
+@dataclass(slots=True)
+class BooleanQuery:
+    """Represents a boolean query with logical operators."""
+
+    operator: BooleanOperator | None = None
+    left: BooleanQuery | None = None
+    right: BooleanQuery | None = None
+    term: str | None = None  # For leaf nodes
+
+
+@dataclass(slots=True)
+class CountResult:
+    """Result for count-only searches."""
+
+    total_matches: int
+    files_matched: int
+    stats: SearchStats

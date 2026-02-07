@@ -179,17 +179,21 @@ def read_text_safely(path: Path, max_bytes: int = 2_000_000) -> str | None:
 
 
 def _is_likely_text_content(content: str) -> bool:
-    """Check if content appears to be text (not binary)."""
+    """Check if content appears to be text (not binary).
+
+    Samples up to 8KB of content for efficiency on large files.
+    """
     if not content:
         return True
 
     # Check for null bytes (common in binary files)
-    if "\x00" in content:
+    if "\x00" in content[:8192]:
         return False
 
-    # Check ratio of printable characters
-    printable_chars = sum(1 for c in content if c.isprintable() or c.isspace())
-    ratio = printable_chars / len(content)
+    # Sample up to 8KB to avoid scanning huge files
+    sample = content[:8192]
+    printable_chars = sum(1 for c in sample if c.isprintable() or c.isspace())
+    ratio = printable_chars / len(sample)
 
     return ratio > 0.7  # At least 70% printable characters
 
@@ -240,17 +244,10 @@ def iter_files(
         for dirpath, dirnames, filenames in os.walk(root_path, followlinks=follow_symlinks):
             # 目录剪枝：原地修改 dirnames，阻止 os.walk 进入被排除的子树
             if prune_excluded_dirs and dirnames:
-                pruned: list[str] = []
-                for d in list(dirnames):
-                    full = Path(dirpath) / d
-                    rel_dir = str(full.resolve())
-                    # 使用绝对路径字符串进行匹配，简化实现（与文件匹配一致）
-                    if exc.match_file(rel_dir):
-                        # 从 dirnames 移除该目录，达到剪枝目的
-                        dirnames.remove(d)
-                    else:
-                        pruned.append(d)
-                # pruned 列表仅用于可读性，无需返回
+                dirnames[:] = [
+                    d for d in dirnames
+                    if not exc.match_file(str((Path(dirpath) / d).resolve()))
+                ]
 
             for name in filenames:
                 p = Path(dirpath) / name
@@ -317,7 +314,7 @@ def extract_context(
     s = max(1, start - window)
     e = min(n, end + window)
     # convert to 0-based slice
-    return s, e, lines[s - 1: e]
+    return s, e, lines[s - 1 : e]
 
 
 def split_lines_keepends(text: str) -> list[str]:
@@ -353,7 +350,41 @@ def highlight_spans(
 
 
 def iter_python_ast_nodes(src: str) -> ast.AST | None:
+    """Parse Python source code into an AST module node.
+
+    Args:
+        src: Python source code string
+
+    Returns:
+        AST module node, or None if the source has syntax errors
+    """
     try:
         return ast.parse(src)
     except SyntaxError:
         return None
+
+
+def get_ast_node_info(node: ast.AST) -> dict[str, object]:
+    """Extract basic information from an AST node.
+
+    Args:
+        node: An AST node
+
+    Returns:
+        Dictionary with node type, name (if any), line number, and col offset
+    """
+    info: dict[str, object] = {
+        "type": type(node).__name__,
+        "lineno": getattr(node, "lineno", None),
+        "col_offset": getattr(node, "col_offset", None),
+        "end_lineno": getattr(node, "end_lineno", None),
+        "end_col_offset": getattr(node, "end_col_offset", None),
+    }
+    # Extract name for common named nodes
+    if hasattr(node, "name"):
+        info["name"] = node.name  # type: ignore[attr-defined]
+    elif hasattr(node, "id"):
+        info["name"] = node.id  # type: ignore[attr-defined]
+    elif isinstance(node, ast.Attribute):
+        info["name"] = node.attr
+    return info

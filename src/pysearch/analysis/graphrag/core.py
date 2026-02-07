@@ -48,25 +48,23 @@ Example:
 from __future__ import annotations
 
 import ast
-import asyncio
 import logging
 import re
-import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import uuid4
 
 from ...core.config import SearchConfig
-from ..dependency_analysis import DependencyAnalyzer, DependencyGraph
-from ..language_detection import detect_language
-from ...storage.qdrant_client import QdrantVectorStore, QdrantConfig
-from ...search.semantic_advanced import SemanticEmbedding
 from ...core.types import (
-    CodeEntity, EntityRelationship, EntityType, GraphRAGQuery, GraphRAGResult,
-    KnowledgeGraph, Language, RelationType
+    CodeEntity,
+    EntityRelationship,
+    EntityType,
+    Language,
+    RelationType,
 )
 from ...utils.utils import read_text_safely
+from ..dependency_analysis import DependencyAnalyzer
+from ..language_detection import detect_language
 
 logger = logging.getLogger(__name__)
 
@@ -88,13 +86,12 @@ class EntityExtractor:
             Language.CSHARP: self._extract_csharp_entities,
         }
 
-    async def extract_from_file(self, file_path: Path) -> List[CodeEntity]:
+    async def extract_from_file(self, file_path: Path) -> list[CodeEntity]:
         """Extract entities from a single file."""
         language = detect_language(file_path)
 
         if language not in self.language_extractors:
-            logger.debug(
-                f"No entity extractor for language {language} in {file_path}")
+            logger.debug(f"No entity extractor for language {language} in {file_path}")
             return []
 
         try:
@@ -105,8 +102,7 @@ class EntityExtractor:
             extractor = self.language_extractors[language]
             entities = await extractor(content, file_path, language)
 
-            logger.debug(
-                f"Extracted {len(entities)} entities from {file_path}")
+            logger.debug(f"Extracted {len(entities)} entities from {file_path}")
             return entities
 
         except Exception as e:
@@ -114,10 +110,8 @@ class EntityExtractor:
             return []
 
     async def extract_from_directory(
-        self,
-        directory: Path,
-        config: SearchConfig
-    ) -> List[CodeEntity]:
+        self, directory: Path, config: SearchConfig
+    ) -> list[CodeEntity]:
         """Extract entities from all files in a directory."""
         from ...indexing.indexer import Indexer
 
@@ -134,11 +128,8 @@ class EntityExtractor:
         return all_entities
 
     async def _extract_python_entities(
-        self,
-        content: str,
-        file_path: Path,
-        language: Language
-    ) -> List[CodeEntity]:
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
         """Extract entities from Python source code using AST."""
         entities = []
 
@@ -157,17 +148,19 @@ class EntityExtractor:
                         entity_type=EntityType.FUNCTION,
                         file_path=file_path,
                         start_line=node.lineno,
-                        end_line=getattr(node, 'end_lineno', node.lineno),
+                        end_line=getattr(node, "end_lineno", node.lineno),
                         signature=self._get_function_signature(node),
                         docstring=ast.get_docstring(node),
                         language=language,
                         scope=".".join(self.scope_stack),
                         properties={
                             "args": [arg.arg for arg in node.args.args],
-                            "decorators": [self._get_decorator_name(d) for d in node.decorator_list],
+                            "decorators": [
+                                self._get_decorator_name(d) for d in node.decorator_list
+                            ],
                             "is_async": isinstance(node, ast.AsyncFunctionDef),
-                            "returns": self._get_return_annotation(node)
-                        }
+                            "returns": self._get_return_annotation(node),
+                        },
                     )
                     self.entities.append(entity)
 
@@ -184,17 +177,19 @@ class EntityExtractor:
                         entity_type=EntityType.FUNCTION,
                         file_path=file_path,
                         start_line=node.lineno,
-                        end_line=getattr(node, 'end_lineno', node.lineno),
+                        end_line=getattr(node, "end_lineno", node.lineno),
                         signature=self._get_function_signature(node),
                         docstring=ast.get_docstring(node),
                         language=language,
                         scope=".".join(self.scope_stack),
                         properties={
                             "args": [arg.arg for arg in node.args.args],
-                            "decorators": [self._get_decorator_name(d) for d in node.decorator_list],
+                            "decorators": [
+                                self._get_decorator_name(d) for d in node.decorator_list
+                            ],
                             "is_async": True,
-                            "returns": self._get_return_annotation(node)
-                        }
+                            "returns": self._get_return_annotation(node),
+                        },
                     )
                     self.entities.append(entity)
 
@@ -210,16 +205,18 @@ class EntityExtractor:
                         entity_type=EntityType.CLASS,
                         file_path=file_path,
                         start_line=node.lineno,
-                        end_line=getattr(node, 'end_lineno', node.lineno),
+                        end_line=getattr(node, "end_lineno", node.lineno),
                         docstring=ast.get_docstring(node),
                         language=language,
                         scope=".".join(self.scope_stack),
                         properties={
                             "bases": [self._get_base_name(base) for base in node.bases],
-                            "decorators": [self._get_decorator_name(d) for d in node.decorator_list],
+                            "decorators": [
+                                self._get_decorator_name(d) for d in node.decorator_list
+                            ],
                             "methods": [],
-                            "attributes": []
-                        }
+                            "attributes": [],
+                        },
                     )
                     self.entities.append(entity)
 
@@ -242,8 +239,8 @@ class EntityExtractor:
                             properties={
                                 "module": alias.name,
                                 "alias": alias.asname,
-                                "import_type": "import"
-                            }
+                                "import_type": "import",
+                            },
                         )
                         self.entities.append(entity)
 
@@ -264,8 +261,8 @@ class EntityExtractor:
                                 "imported_name": alias.name,
                                 "alias": alias.asname,
                                 "import_type": "from_import",
-                                "level": node.level
-                            }
+                                "level": node.level,
+                            },
                         )
                         self.entities.append(entity)
 
@@ -284,12 +281,14 @@ class EntityExtractor:
                                 scope=".".join(self.scope_stack),
                                 properties={
                                     "assignment_type": "simple",
-                                    "value_type": type(node.value).__name__
-                                }
+                                    "value_type": type(node.value).__name__,
+                                },
                             )
                             self.entities.append(entity)
 
-                def _get_function_signature(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
+                def _get_function_signature(
+                    self, node: ast.FunctionDef | ast.AsyncFunctionDef
+                ) -> str:
                     """Extract function signature as string."""
                     args = []
                     for arg in node.args.args:
@@ -320,7 +319,9 @@ class EntityExtractor:
                     else:
                         return ast.unparse(base)
 
-                def _get_return_annotation(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> Optional[str]:
+                def _get_return_annotation(
+                    self, node: ast.FunctionDef | ast.AsyncFunctionDef
+                ) -> str | None:
                     """Extract return type annotation."""
                     if node.returns:
                         return ast.unparse(node.returns)
@@ -338,20 +339,15 @@ class EntityExtractor:
         return entities
 
     async def _extract_javascript_entities(
-        self,
-        content: str,
-        file_path: Path,
-        language: Language
-    ) -> List[CodeEntity]:
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
         """Extract entities from JavaScript/TypeScript using regex patterns."""
         entities = []
-        lines = content.split('\n')
 
         # Function declarations
-        func_pattern = re.compile(
-            r'^\s*(async\s+)?function\s+(\w+)\s*\([^)]*\)', re.MULTILINE)
+        func_pattern = re.compile(r"^\s*(async\s+)?function\s+(\w+)\s*\([^)]*\)", re.MULTILINE)
         for match in func_pattern.finditer(content):
-            line_num = content[:match.start()].count('\n') + 1
+            line_num = content[: match.start()].count("\n") + 1
             entity = CodeEntity(
                 id=f"func_{match.group(2)}_{line_num}_{uuid4().hex[:8]}",
                 name=match.group(2),
@@ -361,17 +357,14 @@ class EntityExtractor:
                 end_line=line_num,
                 signature=match.group(0).strip(),
                 language=language,
-                properties={
-                    "is_async": bool(match.group(1))
-                }
+                properties={"is_async": bool(match.group(1))},
             )
             entities.append(entity)
 
         # Class declarations
-        class_pattern = re.compile(
-            r'^\s*class\s+(\w+)(?:\s+extends\s+(\w+))?\s*{', re.MULTILINE)
+        class_pattern = re.compile(r"^\s*class\s+(\w+)(?:\s+extends\s+(\w+))?\s*{", re.MULTILINE)
         for match in class_pattern.finditer(content):
-            line_num = content[:match.start()].count('\n') + 1
+            line_num = content[: match.start()].count("\n") + 1
             entity = CodeEntity(
                 id=f"class_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
                 name=match.group(1),
@@ -380,19 +373,19 @@ class EntityExtractor:
                 start_line=line_num,
                 end_line=line_num,
                 language=language,
-                properties={
-                    "extends": match.group(2) if match.group(2) else None
-                }
+                properties={"extends": match.group(2) if match.group(2) else None},
             )
             entities.append(entity)
 
         # Import statements
         import_pattern = re.compile(
-            r'^\s*import\s+(?:{([^}]+)}|\*\s+as\s+(\w+)|(\w+))\s+from\s+[\'"]([^\'"]+)[\'"]', re.MULTILINE)
+            r'^\s*import\s+(?:{([^}]+)}|\*\s+as\s+(\w+)|(\w+))\s+from\s+[\'"]([^\'"]+)[\'"]',
+            re.MULTILINE,
+        )
         for match in import_pattern.finditer(content):
-            line_num = content[:match.start()].count('\n') + 1
+            line_num = content[: match.start()].count("\n") + 1
             if match.group(1):  # Named imports
-                imports = [name.strip() for name in match.group(1).split(',')]
+                imports = [name.strip() for name in match.group(1).split(",")]
                 for imp in imports:
                     entity = CodeEntity(
                         id=f"import_{imp}_{line_num}_{uuid4().hex[:8]}",
@@ -402,10 +395,7 @@ class EntityExtractor:
                         start_line=line_num,
                         end_line=line_num,
                         language=language,
-                        properties={
-                            "module": match.group(4),
-                            "import_type": "named"
-                        }
+                        properties={"module": match.group(4), "import_type": "named"},
                     )
                     entities.append(entity)
             elif match.group(2):  # Namespace import
@@ -417,10 +407,7 @@ class EntityExtractor:
                     start_line=line_num,
                     end_line=line_num,
                     language=language,
-                    properties={
-                        "module": match.group(4),
-                        "import_type": "namespace"
-                    }
+                    properties={"module": match.group(4), "import_type": "namespace"},
                 )
                 entities.append(entity)
             elif match.group(3):  # Default import
@@ -432,31 +419,26 @@ class EntityExtractor:
                     start_line=line_num,
                     end_line=line_num,
                     language=language,
-                    properties={
-                        "module": match.group(4),
-                        "import_type": "default"
-                    }
+                    properties={"module": match.group(4), "import_type": "default"},
                 )
                 entities.append(entity)
 
         return entities
 
     async def _extract_java_entities(
-        self,
-        content: str,
-        file_path: Path,
-        language: Language
-    ) -> List[CodeEntity]:
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
         """Extract entities from Java using regex patterns."""
         entities = []
 
         # Class declarations
         class_pattern = re.compile(
-            r'^\s*(?:public|private|protected)?\s*(?:abstract|final)?\s*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([^{]+))?\s*{',
-            re.MULTILINE
+            r"^\s*(?:public|private|protected)?\s*(?:abstract|final)?\s*class\s+(\w+)"
+            r"(?:\s+extends\s+(\w+))?(?:\s+implements\s+([^{]+))?\s*{",
+            re.MULTILINE,
         )
         for match in class_pattern.finditer(content):
-            line_num = content[:match.start()].count('\n') + 1
+            line_num = content[: match.start()].count("\n") + 1
             entity = CodeEntity(
                 id=f"class_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
                 name=match.group(1),
@@ -467,18 +449,19 @@ class EntityExtractor:
                 language=language,
                 properties={
                     "extends": match.group(2) if match.group(2) else None,
-                    "implements": match.group(3).strip() if match.group(3) else None
-                }
+                    "implements": match.group(3).strip() if match.group(3) else None,
+                },
             )
             entities.append(entity)
 
         # Method declarations
         method_pattern = re.compile(
-            r'^\s*(?:public|private|protected)?\s*(?:static)?\s*(?:final)?\s*(\w+)\s+(\w+)\s*\([^)]*\)\s*(?:throws\s+[^{]+)?\s*{',
-            re.MULTILINE
+            r"^\s*(?:public|private|protected)?\s*(?:static)?\s*(?:final)?\s*(\w+)\s+(\w+)"
+            r"\s*\([^)]*\)\s*(?:throws\s+[^{]+)?\s*{",
+            re.MULTILINE,
         )
         for match in method_pattern.finditer(content):
-            line_num = content[:match.start()].count('\n') + 1
+            line_num = content[: match.start()].count("\n") + 1
             entity = CodeEntity(
                 id=f"method_{match.group(2)}_{line_num}_{uuid4().hex[:8]}",
                 name=match.group(2),
@@ -488,30 +471,26 @@ class EntityExtractor:
                 end_line=line_num,
                 signature=match.group(0).strip(),
                 language=language,
-                properties={
-                    "return_type": match.group(1)
-                }
+                properties={"return_type": match.group(1)},
             )
             entities.append(entity)
 
         return entities
 
     async def _extract_csharp_entities(
-        self,
-        content: str,
-        file_path: Path,
-        language: Language
-    ) -> List[CodeEntity]:
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
         """Extract entities from C# using regex patterns."""
         entities = []
 
         # Class declarations
         class_pattern = re.compile(
-            r'^\s*(?:public|private|protected|internal)?\s*(?:abstract|sealed|static)?\s*class\s+(\w+)(?:\s*:\s*([^{]+))?\s*{',
-            re.MULTILINE
+            r"^\s*(?:public|private|protected|internal)?\s*(?:abstract|sealed|static)?\s*class\s+(\w+)"
+            r"(?:\s*:\s*([^{]+))?\s*{",
+            re.MULTILINE,
         )
         for match in class_pattern.finditer(content):
-            line_num = content[:match.start()].count('\n') + 1
+            line_num = content[: match.start()].count("\n") + 1
             entity = CodeEntity(
                 id=f"class_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
                 name=match.group(1),
@@ -520,9 +499,7 @@ class EntityExtractor:
                 start_line=line_num,
                 end_line=line_num,
                 language=language,
-                properties={
-                    "inheritance": match.group(2).strip() if match.group(2) else None
-                }
+                properties={"inheritance": match.group(2).strip() if match.group(2) else None},
             )
             entities.append(entity)
 
@@ -541,10 +518,8 @@ class RelationshipMapper:
         self.dependency_analyzer = DependencyAnalyzer()
 
     async def map_relationships(
-        self,
-        entities: List[CodeEntity],
-        file_contents: Dict[Path, str]
-    ) -> List[EntityRelationship]:
+        self, entities: list[CodeEntity], file_contents: dict[Path, str]
+    ) -> list[EntityRelationship]:
         """Map relationships between entities."""
         relationships = []
 
@@ -559,22 +534,18 @@ class RelationshipMapper:
         relationships.extend(await self._map_import_relationships(entities))
         relationships.extend(await self._map_containment_relationships(entities))
 
-        logger.info(
-            f"Mapped {len(relationships)} relationships between entities")
+        logger.info(f"Mapped {len(relationships)} relationships between entities")
         return relationships
 
     async def _map_inheritance_relationships(
-        self,
-        entities: List[CodeEntity]
-    ) -> List[EntityRelationship]:
+        self, entities: list[CodeEntity]
+    ) -> list[EntityRelationship]:
         """Map inheritance relationships between classes."""
         relationships = []
 
         # Create a mapping of class names to entities
         class_entities = {
-            entity.name: entity
-            for entity in entities
-            if entity.entity_type == EntityType.CLASS
+            entity.name: entity for entity in entities if entity.entity_type == EntityType.CLASS
         }
 
         for entity in entities:
@@ -591,7 +562,7 @@ class RelationshipMapper:
                                 confidence=0.9,
                                 context=f"Class {entity.name} inherits from {base_name}",
                                 file_path=entity.file_path,
-                                line_number=entity.start_line
+                                line_number=entity.start_line,
                             )
                             relationships.append(relationship)
 
@@ -607,17 +578,15 @@ class RelationshipMapper:
                             confidence=0.9,
                             context=f"Class {entity.name} extends {base_name}",
                             file_path=entity.file_path,
-                            line_number=entity.start_line
+                            line_number=entity.start_line,
                         )
                         relationships.append(relationship)
 
         return relationships
 
     async def _map_call_relationships(
-        self,
-        entities: List[CodeEntity],
-        file_contents: Dict[Path, str]
-    ) -> List[EntityRelationship]:
+        self, entities: list[CodeEntity], file_contents: dict[Path, str]
+    ) -> list[EntityRelationship]:
         """Map function/method call relationships."""
         relationships = []
 
@@ -635,17 +604,16 @@ class RelationshipMapper:
                     continue
 
                 # Extract function body (simplified approach)
-                lines = file_content.split('\n')
+                lines = file_content.split("\n")
                 start_idx = max(0, entity.start_line - 1)
                 end_idx = min(len(lines), entity.end_line)
-                function_body = '\n'.join(lines[start_idx:end_idx])
+                function_body = "\n".join(lines[start_idx:end_idx])
 
                 # Look for function calls in the body
                 for func_name, target_entity in function_entities.items():
                     if func_name != entity.name and func_name in function_body:
                         # Simple pattern matching for function calls
-                        call_pattern = re.compile(
-                            rf'\b{re.escape(func_name)}\s*\(')
+                        call_pattern = re.compile(rf"\b{re.escape(func_name)}\s*\(")
                         if call_pattern.search(function_body):
                             relationship = EntityRelationship(
                                 id=f"call_{entity.id}_{target_entity.id}",
@@ -654,16 +622,15 @@ class RelationshipMapper:
                                 relation_type=RelationType.CALLS,
                                 confidence=0.7,
                                 context=f"Function {entity.name} calls {func_name}",
-                                file_path=entity.file_path
+                                file_path=entity.file_path,
                             )
                             relationships.append(relationship)
 
         return relationships
 
     async def _map_import_relationships(
-        self,
-        entities: List[CodeEntity]
-    ) -> List[EntityRelationship]:
+        self, entities: list[CodeEntity]
+    ) -> list[EntityRelationship]:
         """Map import relationships."""
         relationships = []
 
@@ -673,10 +640,8 @@ class RelationshipMapper:
             entities_by_file[entity.file_path].append(entity)
 
         for file_path, file_entities in entities_by_file.items():
-            import_entities = [
-                e for e in file_entities if e.entity_type == EntityType.IMPORT]
-            other_entities = [
-                e for e in file_entities if e.entity_type != EntityType.IMPORT]
+            import_entities = [e for e in file_entities if e.entity_type == EntityType.IMPORT]
+            other_entities = [e for e in file_entities if e.entity_type != EntityType.IMPORT]
 
             # Map imports to usage within the same file
             for import_entity in import_entities:
@@ -690,16 +655,15 @@ class RelationshipMapper:
                             confidence=0.8,
                             context=f"Entity {other_entity.name} uses import {import_entity.name}",
                             file_path=file_path,
-                            line_number=import_entity.start_line
+                            line_number=import_entity.start_line,
                         )
                         relationships.append(relationship)
 
         return relationships
 
     async def _map_containment_relationships(
-        self,
-        entities: List[CodeEntity]
-    ) -> List[EntityRelationship]:
+        self, entities: list[CodeEntity]
+    ) -> list[EntityRelationship]:
         """Map containment relationships (classes contain methods, etc.)."""
         relationships = []
 
@@ -719,14 +683,18 @@ class RelationshipMapper:
                         other_entity = file_entities[j]
 
                         # Stop if we've moved past this class
-                        if (other_entity.entity_type == EntityType.CLASS and
-                                other_entity.start_line > entity.end_line):
+                        if (
+                            other_entity.entity_type == EntityType.CLASS
+                            and other_entity.start_line > entity.end_line
+                        ):
                             break
 
                         # Check if the other entity is contained within this class
-                        if (other_entity.start_line > entity.start_line and
-                            other_entity.end_line <= entity.end_line and
-                                other_entity.entity_type in [EntityType.METHOD, EntityType.FUNCTION]):
+                        if (
+                            other_entity.start_line > entity.start_line
+                            and other_entity.end_line <= entity.end_line
+                            and other_entity.entity_type in [EntityType.METHOD, EntityType.FUNCTION]
+                        ):
 
                             relationship = EntityRelationship(
                                 id=f"contain_{entity.id}_{other_entity.id}",
@@ -734,9 +702,12 @@ class RelationshipMapper:
                                 target_entity_id=other_entity.id,
                                 relation_type=RelationType.CONTAINS,
                                 confidence=0.95,
-                                context=f"Class {entity.name} contains {other_entity.entity_type.value} {other_entity.name}",
+                                context=(
+                                    f"Class {entity.name} contains {other_entity.entity_type.value} "
+                                    f"{other_entity.name}"
+                                ),
                                 file_path=file_path,
-                                line_number=other_entity.start_line
+                                line_number=other_entity.start_line,
                             )
                             relationships.append(relationship)
 

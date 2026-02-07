@@ -27,8 +27,8 @@ Example:
 import asyncio
 import tempfile
 import time
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pytest
 
@@ -57,7 +57,7 @@ ErrorCollector = error_handling_mod.ErrorCollector
 ErrorSeverity = error_handling_mod.ErrorSeverity
 RecoveryManager = error_handling_mod.RecoveryManager
 
-EnhancedIndexingEngine = indexing_engine_mod.EnhancedIndexingEngine
+IndexingEngine = indexing_engine_mod.IndexingEngine
 IndexCoordinator = indexing_engine_mod.IndexCoordinator
 
 LanguageRegistry = lang_support_mod.LanguageRegistry
@@ -124,20 +124,14 @@ class Calculator:
         test_content = {"data": "test_data", "value": 42}
         tags = [IndexTag("dir1", "main", "artifact1")]
 
-        await cache_manager.store_cached_content(
-            content_hash, artifact_id, test_content, tags
-        )
+        await cache_manager.store_cached_content(content_hash, artifact_id, test_content, tags)
 
-        retrieved_content = await cache_manager.get_cached_content(
-            content_hash, artifact_id
-        )
+        retrieved_content = await cache_manager.get_cached_content(content_hash, artifact_id)
 
         assert retrieved_content == test_content
 
         # Test tag associations
-        associated_tags = await cache_manager.get_tags_for_content(
-            content_hash, artifact_id
-        )
+        associated_tags = await cache_manager.get_tags_for_content(content_hash, artifact_id)
         assert len(associated_tags) == 1
         assert associated_tags[0].directory == "dir1"
 
@@ -313,7 +307,11 @@ class TestClass:
         test_file.write_text(test_content)
 
         # Test different strategies
-        strategies = [ChunkingStrategy.STRUCTURAL, ChunkingStrategy.SEMANTIC, ChunkingStrategy.HYBRID]
+        strategies = [
+            ChunkingStrategy.STRUCTURAL,
+            ChunkingStrategy.SEMANTIC,
+            ChunkingStrategy.HYBRID,
+        ]
 
         for strategy in strategies:
             config = ChunkingConfig(strategy=strategy, max_chunk_size=500)
@@ -339,16 +337,10 @@ class TestErrorHandling:
     async def test_error_collection(self, error_collector: ErrorCollector) -> None:
         """Test error collection functionality."""
         # Add various types of errors
-        _ = await error_collector.add_error(
-            "test_file.py",
-            "File not found",
-            ErrorSeverity.ERROR
-        )
+        _ = await error_collector.add_error("test_file.py", "File not found", ErrorSeverity.ERROR)
 
         _ = await error_collector.add_error(
-            "network_operation",
-            "Connection timeout",
-            ErrorSeverity.WARNING
+            "network_operation", "Connection timeout", ErrorSeverity.WARNING
         )
 
         # Verify errors were collected
@@ -368,14 +360,17 @@ class TestErrorHandling:
         recovery_manager = RecoveryManager(config)
 
         # Test file access recovery
-        from src.pysearch.utils.advanced_error_handling import IndexingError, ErrorCategory  # type: ignore[import-not-found]
+        from src.pysearch.utils.advanced_error_handling import (  # type: ignore[import-not-found]
+            ErrorCategory,
+            IndexingError,
+        )
 
         error = IndexingError(
             error_id="test_error",
             severity=ErrorSeverity.ERROR,
             category=ErrorCategory.FILE_ACCESS,
             message="Permission denied",
-            context="nonexistent_file.py"
+            context="nonexistent_file.py",
         )
 
         # Recovery should handle non-existent files gracefully
@@ -395,15 +390,9 @@ class TestPerformanceMonitoring:
     async def test_metrics_collection(self, metrics_collector: MetricsCollector) -> None:
         """Test metrics collection functionality."""
         # Record various metrics
-        await metrics_collector.record_metric(
-            "test_counter", 1.0, MetricType.COUNTER
-        )
-        await metrics_collector.record_metric(
-            "test_gauge", 42.5, MetricType.GAUGE, unit="MB"
-        )
-        await metrics_collector.record_metric(
-            "test_timer", 1.23, MetricType.TIMER, unit="seconds"
-        )
+        await metrics_collector.record_metric("test_counter", 1.0, MetricType.COUNTER)
+        await metrics_collector.record_metric("test_gauge", 42.5, MetricType.GAUGE, unit="MB")
+        await metrics_collector.record_metric("test_timer", 1.23, MetricType.TIMER, unit="seconds")
 
         # Verify metrics were recorded
         all_metrics = await metrics_collector.get_metrics()
@@ -442,11 +431,15 @@ class TestIntegration:
     def test_config(self, tmp_path: Path) -> SearchConfig:
         """Create test configuration."""
         from typing import cast
-        return cast(SearchConfig, SearchConfig(
-            paths=[str(tmp_path)],
-            cache_dir=str(tmp_path / "cache"),
-            enable_enhanced_indexing=True,
-        ))
+
+        return cast(
+            SearchConfig,
+            SearchConfig(
+                paths=[str(tmp_path)],
+                cache_dir=str(tmp_path / "cache"),
+                enable_metadata_indexing=True,
+            ),
+        )
 
     @pytest.fixture
     def sample_codebase(self, tmp_path: Path) -> Path:
@@ -483,7 +476,7 @@ class DataManager:
 
         # JavaScript file
         js_file = tmp_path / "utils.js"
-        js_file.write_text('''
+        js_file.write_text("""
 function calculateSum(numbers) {
     /**
      * Calculate sum of an array of numbers.
@@ -511,14 +504,16 @@ class EventHandler {
 }
 
 export { calculateSum, EventHandler };
-''')
+""")
 
         return tmp_path
 
     @pytest.mark.asyncio
-    async def test_enhanced_indexing_engine(self, test_config: SearchConfig, sample_codebase: Path) -> None:
+    async def test_enhanced_indexing_engine(
+        self, test_config: SearchConfig, sample_codebase: Path
+    ) -> None:
         """Test the complete enhanced indexing engine."""
-        engine = EnhancedIndexingEngine(test_config)
+        engine = IndexingEngine(test_config)
         await engine.initialize()
 
         # Test indexing
@@ -537,7 +532,9 @@ export { calculateSum, EventHandler };
         assert stats["total_indexes"] > 0
 
     @pytest.mark.asyncio
-    async def test_index_coordinator(self, test_config: SearchConfig, sample_codebase: Path) -> None:
+    async def test_index_coordinator(
+        self, test_config: SearchConfig, sample_codebase: Path
+    ) -> None:
         """Test index coordinator functionality."""
         _ = sample_codebase  # acknowledge fixture usage
         coordinator = IndexCoordinator(test_config)
@@ -546,11 +543,11 @@ export { calculateSum, EventHandler };
         code_snippets_mod = pytest.importorskip("src.pysearch.indexes.code_snippets_index")
         full_text_mod = pytest.importorskip("src.pysearch.indexes.full_text_index")
 
-        EnhancedCodeSnippetsIndex = code_snippets_mod.EnhancedCodeSnippetsIndex
-        EnhancedFullTextIndex = full_text_mod.EnhancedFullTextIndex
+        CodeSnippetsIndex = code_snippets_mod.CodeSnippetsIndex
+        FullTextIndex = full_text_mod.FullTextIndex
 
-        coordinator.add_index(EnhancedCodeSnippetsIndex(test_config))
-        coordinator.add_index(EnhancedFullTextIndex(test_config))
+        coordinator.add_index(CodeSnippetsIndex(test_config))
+        coordinator.add_index(FullTextIndex(test_config))
 
         # Test index management
         assert len(coordinator.indexes) == 2
@@ -605,7 +602,7 @@ class Class_{i}:
             cache_dir=str(large_codebase / "cache"),
         )
 
-        engine = EnhancedIndexingEngine(config)
+        engine = IndexingEngine(config)
         await engine.initialize()
 
         # Measure indexing time
@@ -625,7 +622,7 @@ class Class_{i}:
 
         # Log performance metrics
         print(f"Indexing duration: {indexing_duration:.2f}s")
-        print(f"Files processed: 50")
+        print("Files processed: 50")
         print(f"Throughput: {50 / indexing_duration:.2f} files/second")
 
     @pytest.mark.asyncio
@@ -644,8 +641,7 @@ class Class_{i}:
         start_time = time.time()
 
         all_chunks = await engine.chunk_multiple_files(
-            [str(f) for f in python_files],
-            max_concurrent=5
+            [str(f) for f in python_files], max_concurrent=5
         )
 
         end_time = time.time()
@@ -676,7 +672,7 @@ class Class_{i}:
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB
 
         # Perform indexing
-        engine = EnhancedIndexingEngine(config)
+        engine = IndexingEngine(config)
         await engine.initialize()
 
         async for _ in engine.refresh_index([str(large_codebase)]):

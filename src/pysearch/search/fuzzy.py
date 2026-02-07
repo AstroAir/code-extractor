@@ -76,7 +76,7 @@ def damerau_levenshtein_distance(s1: str, s2: str) -> int:
         db = 0
         for j in range(1, len2 + 1):
             k = da[s2[j - 1]]
-            l = db
+            last_match = db
             if s1[i - 1] == s2[j - 1]:
                 cost = 0
                 db = j
@@ -87,7 +87,7 @@ def damerau_levenshtein_distance(s1: str, s2: str) -> int:
                 H[i][j] + cost,  # substitution
                 H[i + 1][j] + 1,  # insertion
                 H[i][j + 1] + 1,  # deletion
-                H[k][l] + (i - k - 1) + 1 + (j - l - 1),  # transposition
+                H[k][last_match] + (i - k - 1) + 1 + (j - last_match - 1),  # transposition
             )
 
         da[s1[i - 1]] = i
@@ -146,8 +146,7 @@ def jaro_winkler_similarity(s1: str, s2: str) -> float:
         k += 1
 
     # Calculate Jaro similarity
-    jaro = (matches / len1 + matches / len2 +
-            (matches - transpositions / 2) / matches) / 3
+    jaro = (matches / len1 + matches / len2 + (matches - transpositions / 2) / matches) / 3
 
     # Calculate common prefix length (up to 4 characters)
     prefix_len = 0
@@ -407,8 +406,6 @@ def _generate_soundex_pattern(pattern: str) -> str:
 
 def _generate_metaphone_pattern(pattern: str) -> str:
     """Generate regex pattern for Metaphone-based matching."""
-    metaphone_code = metaphone(pattern)
-
     # Create pattern based on metaphone transformations
     pattern_lower = pattern.lower()
 
@@ -485,8 +482,7 @@ def fuzzy_match(
             if algorithm == FuzzyAlgorithm.LEVENSHTEIN:
                 distance = levenshtein_distance(word_lower, pattern_lower)
             else:
-                distance = damerau_levenshtein_distance(
-                    word_lower, pattern_lower)
+                distance = damerau_levenshtein_distance(word_lower, pattern_lower)
 
             if distance > max_distance:
                 continue
@@ -590,8 +586,7 @@ def suggest_corrections(
     word_lower = word.lower()
 
     for dict_word in dictionary:
-        similarity = calculate_similarity(
-            word_lower, dict_word.lower(), algorithm)
+        similarity = calculate_similarity(word_lower, dict_word.lower(), algorithm)
         if similarity > 0.3:  # Minimum threshold for suggestions
             suggestions.append((dict_word, similarity))
 

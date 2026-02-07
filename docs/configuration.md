@@ -56,8 +56,7 @@ results = engine.search("def main")
 ### Common Setup
 
 ```python
-from pysearch.config import SearchConfig
-from pysearch.types import OutputFormat
+from pysearch import SearchConfig, OutputFormat
 
 config = SearchConfig(
     paths=["./src", "./tests"],           # Search paths
@@ -139,7 +138,7 @@ config = SearchConfig(
 Limit search to specific programming languages.
 
 ```python
-from pysearch.types import Language
+from pysearch import Language
 
 config = SearchConfig(
     languages={
@@ -279,7 +278,7 @@ config = SearchConfig(
 Choose the output format for results.
 
 ```python
-from pysearch.types import OutputFormat
+from pysearch import OutputFormat
 
 config = SearchConfig(
     output_format=OutputFormat.JSON  # JSON, TEXT, or HIGHLIGHT
@@ -309,7 +308,7 @@ config = SearchConfig(
 Configure result scoring and ranking.
 
 ```python
-from pysearch.config import RankStrategy
+from pysearch import RankStrategy
 
 config = SearchConfig(
     rank_strategy=RankStrategy.DEFAULT,
@@ -325,8 +324,7 @@ config = SearchConfig(
 ### Complete Configuration Example
 
 ```python
-from pysearch.config import SearchConfig, RankStrategy
-from pysearch.types import OutputFormat, Language
+from pysearch import SearchConfig, RankStrategy, OutputFormat, Language
 from pathlib import Path
 
 config = SearchConfig(
@@ -420,7 +418,7 @@ format = "json"
 
 ```python
 import tomllib
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig
 
 # Load from TOML file
 with open("pysearch.toml", "rb") as f:
@@ -478,7 +476,7 @@ export PYSEARCH_LOG_LEVEL="DEBUG"
 
 ```python
 import os
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig
 
 config = SearchConfig()
 

@@ -3,10 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from pysearch import PySearch
-from pysearch import SearchConfig
+from pysearch import Language, OutputFormat, PySearch, SearchConfig
 from pysearch.analysis.language_detection import detect_language
-from pysearch import Language, OutputFormat
 
 
 def test_language_detection():

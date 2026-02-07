@@ -1,7 +1,7 @@
 """
 Enhanced index implementations for the pysearch indexing engine.
 
-This package contains concrete implementations of the EnhancedCodebaseIndex
+This package contains concrete implementations of the CodebaseIndex
 interface, providing different types of indexes for comprehensive code search
 and analysis capabilities.
 
@@ -12,24 +12,25 @@ Index Types:
     - VectorIndex: Vector database integration for semantic search
     - DependencyIndex: Code dependency and relationship tracking
 
-Each index type implements the EnhancedCodebaseIndex interface and can be
+Each index type implements the CodebaseIndex interface and can be
 used independently or in combination through the IndexCoordinator.
 """
 
-from .code_snippets_index import EnhancedCodeSnippetsIndex
-from .full_text_index import EnhancedFullTextIndex
-from .chunk_index import EnhancedChunkIndex
+from .chunk_index import ChunkIndex
+from .code_snippets_index import CodeSnippetsIndex
+from .full_text_index import FullTextIndex
 
 __all__ = [
-    "EnhancedCodeSnippetsIndex",
-    "EnhancedFullTextIndex",
-    "EnhancedChunkIndex",
+    "CodeSnippetsIndex",
+    "FullTextIndex",
+    "ChunkIndex",
 ]
 
 # Vector index is optional due to dependencies
 try:
-    from .vector_index import EnhancedVectorIndex
-    __all__.append("EnhancedVectorIndex")
+    from .vector_index import VectorIndex  # noqa: F401
+
+    __all__.append("VectorIndex")
 except ImportError:
     pass
 

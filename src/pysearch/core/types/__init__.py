@@ -13,6 +13,9 @@ For backward compatibility, all types are re-exported from this package.
 # Import all types from submodules for backward compatibility
 from .basic_types import (
     ASTFilters,
+    BooleanOperator,
+    BooleanQuery,
+    CountResult,
     FileMetadata,
     Language,
     MatchSpan,
@@ -37,7 +40,10 @@ from .graphrag_types import (
 __all__ = [
     # Basic types
     "ASTFilters",
-    "FileMetadata", 
+    "BooleanOperator",
+    "BooleanQuery",
+    "CountResult",
+    "FileMetadata",
     "Language",
     "MatchSpan",
     "MetadataFilters",

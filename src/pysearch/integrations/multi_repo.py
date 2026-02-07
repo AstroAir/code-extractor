@@ -59,10 +59,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # avoid runtime circular import
-    from ..core.api import PySearch  # pragma: no cover
+    pass  # Used for type hints only
+
 from ..core.config import SearchConfig
-from ..utils.logging_config import get_logger
 from ..core.types import Query, SearchItem, SearchResult
+from ..utils.logging_config import get_logger
 
 
 @dataclass
@@ -110,7 +111,7 @@ class RepositoryInfo:
                 cwd=self.path,
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
             )
             if result.returncode == 0:
                 self.git_remote = result.stdout.strip()
@@ -120,7 +121,7 @@ class RepositoryInfo:
                 cwd=self.path,
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
             )
             if result.returncode == 0:
                 self.git_branch = result.stdout.strip()
@@ -130,7 +131,7 @@ class RepositoryInfo:
                 cwd=self.path,
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
             )
             if result.returncode == 0:
                 self.git_commit = result.stdout.strip()[:8]  # Short hash
@@ -189,7 +190,7 @@ class RepositoryManager:
         path: Path | str,
         config: SearchConfig | None = None,
         priority: str = "normal",
-        **metadata: Any
+        **metadata: Any,
     ) -> bool:
         """
         Add a repository to the manager.
@@ -218,11 +219,7 @@ class RepositoryManager:
                 config = SearchConfig(paths=[str(path)])
 
             repo_info = RepositoryInfo(
-                name=name,
-                path=path,
-                config=config,
-                priority=priority,
-                metadata=metadata
+                name=name, path=path, config=config, priority=priority, metadata=metadata
             )
 
             self.repositories[name] = repo_info
@@ -298,7 +295,7 @@ class RepositoryManager:
             "error": 0,
             "unknown": 0,
             "enabled": 0,
-            "disabled": 0
+            "disabled": 0,
         }
 
         for repo in self.repositories.values():
@@ -324,10 +321,7 @@ class SearchCoordinator:
         self.logger = get_logger()
 
     def search_repositories(
-        self,
-        repositories: dict[str, RepositoryInfo],
-        query: Query,
-        timeout: float = 30.0
+        self, repositories: dict[str, RepositoryInfo], query: Query, timeout: float = 30.0
     ) -> MultiRepoSearchResult:
         """
         Execute search across multiple repositories in parallel.
@@ -347,8 +341,7 @@ class SearchCoordinator:
         # Sort repositories by priority
         sorted_repos = sorted(
             repositories.items(),
-            key=lambda x: {"high": 0, "normal": 1,
-                           "low": 2}.get(x[1].priority, 1)
+            key=lambda x: {"high": 0, "normal": 1, "low": 2}.get(x[1].priority, 1),
         )
 
         # Execute searches in parallel
@@ -368,12 +361,10 @@ class SearchCoordinator:
                         repository_results[repo_name] = result
                     else:
                         failed_repositories.append(repo_name)
-                        self.logger.warning(
-                            f"No results from repository '{repo_name}'")
+                        self.logger.warning(f"No results from repository '{repo_name}'")
                 except Exception as e:
                     failed_repositories.append(repo_name)
-                    self.logger.error(
-                        f"Error searching repository '{repo_name}': {e}")
+                    self.logger.error(f"Error searching repository '{repo_name}': {e}")
 
         # Create multi-repo result
         search_time_ms = (time.time() - start_time) * 1000
@@ -383,14 +374,11 @@ class SearchCoordinator:
             total_repositories=len(repositories),
             successful_repositories=len(repository_results),
             failed_repositories=failed_repositories,
-            search_time_ms=search_time_ms
+            search_time_ms=search_time_ms,
         )
 
     def _search_single_repository(
-        self,
-        repo_info: RepositoryInfo,
-        query: Query,
-        timeout: float
+        self, repo_info: RepositoryInfo, query: Query, timeout: float
     ) -> SearchResult | None:
         """
         Execute search in a single repository.
@@ -398,40 +386,38 @@ class SearchCoordinator:
         Args:
             repo_info: Repository information
             query: Search query
-            timeout: Search timeout
+            timeout: Search timeout in seconds
 
         Returns:
             SearchResult if successful, None otherwise
         """
-        try:
-            # Import PySearch here to avoid circular imports
+        import concurrent.futures
+
+        def _run_search() -> SearchResult:
             from ..core.api import PySearch
-            # Create PySearch instance for this repository
+
             search_engine = PySearch(config=repo_info.config)
+            return search_engine.run(query)
 
-            # Execute search with timeout
-            result = search_engine.run(query)
-
-            # Add repository metadata to results
-            for item in result.items:
-                if not hasattr(item, 'metadata'):
-                    item.metadata = {}  # type: ignore[attr-defined]
-                # type: ignore[attr-defined]
-                item.metadata['repository'] = repo_info.name
-                item.metadata['repository_path'] = str(
-                    repo_info.path)  # type: ignore[attr-defined]
+        try:
+            # Enforce timeout via a dedicated single-thread executor
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_run_search)
+                result = future.result(timeout=timeout)
 
             return result
 
+        except concurrent.futures.TimeoutError:
+            self.logger.warning(
+                f"Search in repository '{repo_info.name}' timed out after {timeout}s"
+            )
+            return None
         except Exception as e:
-            self.logger.error(
-                f"Error searching repository '{repo_info.name}': {e}")
+            self.logger.error(f"Error searching repository '{repo_info.name}': {e}")
             return None
 
     def aggregate_results(
-        self,
-        repository_results: dict[str, SearchResult],
-        max_results: int = 1000
+        self, repository_results: dict[str, SearchResult], max_results: int = 1000
     ) -> SearchResult:
         """
         Aggregate results from multiple repositories into a single result.
@@ -449,19 +435,14 @@ class SearchCoordinator:
         total_elapsed_ms = 0.0
 
         # Collect all items
-        for repo_name, result in repository_results.items():
+        for _repo_name, result in repository_results.items():
             all_items.extend(result.items)
             total_files_scanned += result.stats.files_scanned
             total_files_matched += result.stats.files_matched
             total_elapsed_ms = max(total_elapsed_ms, result.stats.elapsed_ms)
 
-        # Sort by relevance (you might want to implement cross-repo scoring)
-        all_items.sort(key=lambda item: (
-            # Prioritize by repository priority if available
-            getattr(item, 'metadata', {}).get('repository_priority', 1),
-            # Then by file name (simple heuristic)
-            str(item.file)
-        ))
+        # Sort by file path for deterministic ordering across repos
+        all_items.sort(key=lambda item: (str(item.file), item.start_line))
 
         # Limit results
         if len(all_items) > max_results:
@@ -469,12 +450,13 @@ class SearchCoordinator:
 
         # Create aggregated stats
         from .types import SearchStats
+
         aggregated_stats = SearchStats(
             files_scanned=total_files_scanned,
             files_matched=total_files_matched,
             items=len(all_items),
             elapsed_ms=total_elapsed_ms,
-            indexed_files=total_files_scanned
+            indexed_files=total_files_scanned,
         )
 
         return SearchResult(items=all_items, stats=aggregated_stats)
@@ -510,7 +492,7 @@ class MultiRepoSearchEngine:
         path: Path | str,
         config: SearchConfig | None = None,
         priority: str = "normal",
-        **metadata: Any
+        **metadata: Any,
     ) -> bool:
         """
         Add a repository to the multi-repo search engine.
@@ -543,11 +525,7 @@ class MultiRepoSearchEngine:
             >>> engine.add_repository("web-app", "/path/to/web-app", config=config)
         """
         return self.repository_manager.add_repository(
-            name=name,
-            path=path,
-            config=config,
-            priority=priority,
-            **metadata
+            name=name, path=path, config=config, priority=priority, **metadata
         )
 
     def remove_repository(self, name: str) -> bool:
@@ -614,7 +592,7 @@ class MultiRepoSearchEngine:
         context: int = 2,
         max_results: int = 1000,
         aggregate_results: bool = True,
-        timeout: float = 30.0
+        timeout: float = 30.0,
     ) -> MultiRepoSearchResult:
         """
         Search across all enabled repositories.
@@ -652,7 +630,7 @@ class MultiRepoSearchEngine:
             use_regex=use_regex,
             use_ast=use_ast,
             use_semantic=use_semantic,
-            context=context
+            context=context,
         )
 
         return self.search_repositories(
@@ -660,7 +638,7 @@ class MultiRepoSearchEngine:
             query=query,
             max_results=max_results,
             aggregate_results=aggregate_results,
-            timeout=timeout
+            timeout=timeout,
         )
 
     def search_repositories(
@@ -671,7 +649,7 @@ class MultiRepoSearchEngine:
         max_results: int = 1000,
         aggregate_results: bool = True,
         timeout: float = 30.0,
-        **query_kwargs: Any
+        **query_kwargs: Any,
     ) -> MultiRepoSearchResult:
         """
         Search specific repositories or all repositories.
@@ -709,6 +687,7 @@ class MultiRepoSearchEngine:
                 raise ValueError("Either query or pattern must be provided")
 
             from .types import Query
+
             query = Query(pattern=pattern, **query_kwargs)
 
         # Get repositories to search
@@ -721,8 +700,7 @@ class MultiRepoSearchEngine:
                 if repo_info and repo_info.enabled:
                     target_repos[repo_name] = repo_info
                 else:
-                    self.logger.warning(
-                        f"Repository '{repo_name}' not found or disabled")
+                    self.logger.warning(f"Repository '{repo_name}' not found or disabled")
 
         if not target_repos:
             self.logger.warning("No repositories available for search")
@@ -730,24 +708,20 @@ class MultiRepoSearchEngine:
                 repository_results={},
                 total_repositories=0,
                 successful_repositories=0,
-                search_time_ms=0.0
+                search_time_ms=0.0,
             )
 
         # Execute search
-        self.logger.info(
-            f"Searching {len(target_repos)} repositories for: {query.pattern}")
+        self.logger.info(f"Searching {len(target_repos)} repositories for: {query.pattern}")
 
         result = self.search_coordinator.search_repositories(
-            repositories=target_repos,
-            query=query,
-            timeout=timeout
+            repositories=target_repos, query=query, timeout=timeout
         )
 
         # Aggregate results if requested
         if aggregate_results and result.repository_results:
             result.aggregated_result = self.search_coordinator.aggregate_results(
-                result.repository_results,
-                max_results=max_results
+                result.repository_results, max_results=max_results
             )
 
         # Update statistics
@@ -756,14 +730,16 @@ class MultiRepoSearchEngine:
         self.total_search_time += search_time
 
         # Add to history
-        self.search_history.append({
-            "timestamp": time.time(),
-            "pattern": query.pattern,
-            "repositories": list(target_repos.keys()),
-            "total_matches": result.total_matches,
-            "success_rate": result.success_rate,
-            "search_time": search_time
-        })
+        self.search_history.append(
+            {
+                "timestamp": time.time(),
+                "pattern": query.pattern,
+                "repositories": list(target_repos.keys()),
+                "total_matches": result.total_matches,
+                "success_rate": result.success_rate,
+                "search_time": search_time,
+            }
+        )
 
         # Limit history size
         if len(self.search_history) > 100:
@@ -789,14 +765,15 @@ class MultiRepoSearchEngine:
         health_summary = self.repository_manager.get_health_summary()
 
         # Add search statistics
-        health_summary.update({
-            "total_searches": self.total_searches,
-            "average_search_time": (
-                self.total_search_time / self.total_searches
-                if self.total_searches > 0 else 0.0
-            ),
-            "recent_searches": len(self.search_history)
-        })
+        health_summary.update(
+            {
+                "total_searches": self.total_searches,
+                "average_search_time": (
+                    self.total_search_time / self.total_searches if self.total_searches > 0 else 0.0
+                ),
+                "recent_searches": len(self.search_history),
+            }
+        )
 
         return health_summary
 
@@ -812,7 +789,7 @@ class MultiRepoSearchEngine:
                 "total_searches": 0,
                 "average_search_time": 0.0,
                 "average_matches": 0.0,
-                "average_success_rate": 0.0
+                "average_success_rate": 0.0,
             }
 
         recent_searches = self.search_history[-20:]  # Last 20 searches
@@ -820,10 +797,13 @@ class MultiRepoSearchEngine:
         return {
             "total_searches": self.total_searches,
             "average_search_time": self.total_search_time / self.total_searches,
-            "recent_average_search_time": sum(s["search_time"] for s in recent_searches) / len(recent_searches),
-            "average_matches": sum(s["total_matches"] for s in recent_searches) / len(recent_searches),
-            "average_success_rate": sum(s["success_rate"] for s in recent_searches) / len(recent_searches),
-            "most_searched_patterns": self._get_most_searched_patterns()
+            "recent_average_search_time": sum(s["search_time"] for s in recent_searches)
+            / len(recent_searches),
+            "average_matches": sum(s["total_matches"] for s in recent_searches)
+            / len(recent_searches),
+            "average_success_rate": sum(s["success_rate"] for s in recent_searches)
+            / len(recent_searches),
+            "most_searched_patterns": self._get_most_searched_patterns(),
         }
 
     def _get_most_searched_patterns(self) -> list[tuple[str, int]]:

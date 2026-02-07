@@ -39,10 +39,11 @@ import asyncio
 import json
 import time
 import traceback
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any
 
 from .logging_config import get_logger
 
@@ -51,6 +52,7 @@ logger = get_logger()
 
 class ErrorSeverity(str, Enum):
     """Error severity levels."""
+
     DEBUG = "debug"
     INFO = "info"
     WARNING = "warning"
@@ -60,6 +62,7 @@ class ErrorSeverity(str, Enum):
 
 class ErrorCategory(str, Enum):
     """Error categories for better classification."""
+
     FILE_ACCESS = "file_access"
     PARSING = "parsing"
     NETWORK = "network"
@@ -73,14 +76,15 @@ class ErrorCategory(str, Enum):
 @dataclass
 class IndexingError:
     """Enhanced error representation with context and metadata."""
+
     error_id: str
     severity: ErrorSeverity
     category: ErrorCategory
     message: str
     context: str  # File path, operation, etc.
     timestamp: float = field(default_factory=time.time)
-    stack_trace: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    stack_trace: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     recovery_attempted: bool = False
     recovery_successful: bool = False
     impact_score: float = 0.0  # 0.0 = no impact, 1.0 = critical impact
@@ -96,9 +100,9 @@ class ErrorCollector:
 
     def __init__(self, max_errors: int = 10000):
         self.max_errors = max_errors
-        self.errors: List[IndexingError] = []
-        self.error_counts: Dict[ErrorCategory, int] = {}
-        self.error_trends: Dict[str, List[float]] = {}
+        self.errors: list[IndexingError] = []
+        self.error_counts: dict[ErrorCategory, int] = {}
+        self.error_trends: dict[str, list[float]] = {}
         self._lock = asyncio.Lock()
 
     async def add_error(
@@ -106,9 +110,9 @@ class ErrorCollector:
         context: str,
         message: str,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
-        category: Optional[ErrorCategory] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        exception: Optional[Exception] = None,
+        category: ErrorCategory | None = None,
+        metadata: dict[str, Any] | None = None,
+        exception: Exception | None = None,
     ) -> str:
         """
         Add an error to the collector.
@@ -138,11 +142,10 @@ class ErrorCollector:
                 stack_trace_lines = traceback.format_exception(
                     type(exception), exception, exception.__traceback__
                 )
-                stack_trace = ''.join(stack_trace_lines)
+                stack_trace = "".join(stack_trace_lines)
 
             # Calculate impact score
-            impact_score = self._calculate_impact_score(
-                severity, category, context)
+            impact_score = self._calculate_impact_score(severity, category, context)
 
             # Create error object
             error = IndexingError(
@@ -160,8 +163,7 @@ class ErrorCollector:
             self.errors.append(error)
 
             # Update counts
-            self.error_counts[category] = self.error_counts.get(
-                category, 0) + 1
+            self.error_counts[category] = self.error_counts.get(category, 0) + 1
 
             # Update trends
             current_hour = int(time.time() // 3600)
@@ -172,7 +174,7 @@ class ErrorCollector:
 
             # Trim old errors if needed
             if len(self.errors) > self.max_errors:
-                self.errors = self.errors[-self.max_errors:]
+                self.errors = self.errors[-self.max_errors :]
 
             # Log error
             log_level = {
@@ -190,17 +192,23 @@ class ErrorCollector:
     def _categorize_error(
         self,
         message: str,
-        exception: Optional[Exception] = None,
+        exception: Exception | None = None,
     ) -> ErrorCategory:
         """Auto-categorize error based on message and exception type."""
         message_lower = message.lower()
 
         # File access errors
-        if any(keyword in message_lower for keyword in ["permission", "not found", "access denied", "file not found"]):
+        if any(
+            keyword in message_lower
+            for keyword in ["permission", "not found", "access denied", "file not found"]
+        ):
             return ErrorCategory.FILE_ACCESS
 
         # Network errors
-        if any(keyword in message_lower for keyword in ["connection", "timeout", "network", "http", "ssl"]):
+        if any(
+            keyword in message_lower
+            for keyword in ["connection", "timeout", "network", "http", "ssl"]
+        ):
             return ErrorCategory.NETWORK
 
         # Memory errors
@@ -216,11 +224,15 @@ class ErrorCollector:
             return ErrorCategory.TIMEOUT
 
         # Configuration errors
-        if any(keyword in message_lower for keyword in ["config", "setting", "parameter", "option"]):
+        if any(
+            keyword in message_lower for keyword in ["config", "setting", "parameter", "option"]
+        ):
             return ErrorCategory.CONFIGURATION
 
         # Dependency errors
-        if any(keyword in message_lower for keyword in ["import", "module", "dependency", "package"]):
+        if any(
+            keyword in message_lower for keyword in ["import", "module", "dependency", "package"]
+        ):
             return ErrorCategory.DEPENDENCY
 
         # Exception-based categorization
@@ -257,29 +269,28 @@ class ErrorCollector:
 
         # Category multipliers
         category_multipliers = {
-            ErrorCategory.UNKNOWN: 1.5,
             ErrorCategory.MEMORY: 1.3,
             ErrorCategory.NETWORK: 1.2,
             ErrorCategory.CONFIGURATION: 1.1,
             ErrorCategory.FILE_ACCESS: 1.0,
-            ErrorCategory.PARSING: 0.8,
-            ErrorCategory.DEPENDENCY: 0.9,
             ErrorCategory.TIMEOUT: 1.1,
+            ErrorCategory.DEPENDENCY: 0.9,
+            ErrorCategory.PARSING: 0.8,
             ErrorCategory.UNKNOWN: 0.7,
         }
         multiplier = category_multipliers.get(category, 1.0)
 
         return min(1.0, base_score * multiplier)
 
-    def get_errors_by_severity(self, severity: ErrorSeverity) -> List[IndexingError]:
+    def get_errors_by_severity(self, severity: ErrorSeverity) -> list[IndexingError]:
         """Get all errors of a specific severity."""
         return [error for error in self.errors if error.severity == severity]
 
-    def get_errors_by_category(self, category: ErrorCategory) -> List[IndexingError]:
+    def get_errors_by_category(self, category: ErrorCategory) -> list[IndexingError]:
         """Get all errors of a specific category."""
         return [error for error in self.errors if error.category == category]
 
-    def get_error_summary(self) -> Dict[str, Any]:
+    def get_error_summary(self) -> dict[str, Any]:
         """Get summary of all collected errors."""
         if not self.errors:
             return {"total_errors": 0}
@@ -287,8 +298,7 @@ class ErrorCollector:
         # Count by severity
         severity_counts: dict[str, int] = {}
         for error in self.errors:
-            severity_counts[error.severity.value] = severity_counts.get(
-                error.severity.value, 0) + 1
+            severity_counts[error.severity.value] = severity_counts.get(error.severity.value, 0) + 1
 
         # Count by category
         category_counts = dict(self.error_counts)
@@ -298,10 +308,7 @@ class ErrorCollector:
         avg_impact = total_impact / len(self.errors)
 
         # Recent error rate (last hour)
-        recent_errors = [
-            error for error in self.errors
-            if time.time() - error.timestamp < 3600
-        ]
+        recent_errors = [error for error in self.errors if time.time() - error.timestamp < 3600]
 
         return {
             "total_errors": len(self.errors),
@@ -309,11 +316,13 @@ class ErrorCollector:
             "category_counts": category_counts,
             "average_impact_score": avg_impact,
             "recent_errors_count": len(recent_errors),
-            "most_common_category": max(category_counts.items(), key=lambda x: x[1])[0] if category_counts else None,
+            "most_common_category": (
+                max(category_counts.items(), key=lambda x: x[1])[0] if category_counts else None
+            ),
             "error_rate_per_hour": len(recent_errors),
         }
 
-    def get_all_errors(self) -> List[str]:
+    def get_all_errors(self) -> list[str]:
         """Get all error messages for compatibility with existing code."""
         return [f"{error.context}: {error.message}" for error in self.errors]
 
@@ -367,7 +376,11 @@ class CircuitBreaker:
 
             try:
                 # Execute function
-                result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
+                result = (
+                    await func(*args, **kwargs)
+                    if asyncio.iscoroutinefunction(func)
+                    else func(*args, **kwargs)
+                )
 
                 # Success - update state
                 if self.state == "half_open":
@@ -375,20 +388,18 @@ class CircuitBreaker:
                     if self.success_count >= self.success_threshold:
                         self.state = "closed"
                         self.failure_count = 0
-                        logger.info(
-                            "Circuit breaker closed - service recovered")
+                        logger.info("Circuit breaker closed - service recovered")
 
                 return result
 
-            except Exception as e:
+            except Exception:
                 # Failure - update state
                 self.failure_count += 1
                 self.last_failure_time = time.time()
 
                 if self.failure_count >= self.failure_threshold:
                     self.state = "open"
-                    logger.warning(
-                        f"Circuit breaker opened due to {self.failure_count} failures")
+                    logger.warning(f"Circuit breaker opened due to {self.failure_count} failures")
 
                 raise
 
@@ -403,9 +414,11 @@ class RecoveryManager:
 
     def __init__(self, config: Any) -> None:
         self.config = config
-        self.recovery_strategies: Dict[ErrorCategory, Callable] = {}
-        self.circuit_breakers: Dict[str, CircuitBreaker] = {}
-        self.recovery_attempts: Dict[str, int] = {}
+        self.recovery_strategies: dict[ErrorCategory, Callable] = {}
+        self.circuit_breakers: dict[str, CircuitBreaker] = {}
+        self.recovery_attempts: dict[str, int] = {}
+        self.successful_recoveries: int = 0
+        self.failed_recoveries: int = 0
         self.max_recovery_attempts = 3
 
         # Register default recovery strategies
@@ -423,7 +436,7 @@ class RecoveryManager:
     async def attempt_recovery(
         self,
         error: IndexingError,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> bool:
         """
         Attempt to recover from an error.
@@ -453,19 +466,20 @@ class RecoveryManager:
             return False
 
         try:
-            logger.info(
-                f"Attempting recovery for {error.error_id} (attempt {attempts + 1})")
+            logger.info(f"Attempting recovery for {error.error_id} (attempt {attempts + 1})")
             success: bool = await strategy(error, context)
 
             if success:
                 error.recovery_attempted = True
                 error.recovery_successful = True
+                self.successful_recoveries += 1
                 # Reset attempt counter on success
                 self.recovery_attempts.pop(attempt_key, None)
                 logger.info(f"Recovery successful for {error.error_id}")
             else:
                 error.recovery_attempted = True
                 error.recovery_successful = False
+                self.failed_recoveries += 1
                 logger.warning(f"Recovery failed for {error.error_id}")
 
             return success
@@ -474,12 +488,13 @@ class RecoveryManager:
             logger.error(f"Recovery strategy failed for {error.error_id}: {e}")
             error.recovery_attempted = True
             error.recovery_successful = False
+            self.failed_recoveries += 1
             return False
 
     async def _recover_file_access(
         self,
         error: IndexingError,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> bool:
         """Recover from file access errors."""
         file_path = error.context
@@ -496,12 +511,11 @@ class RecoveryManager:
                 return True
 
             # Try to read file with different encoding
-            encodings = ['utf-8', 'latin-1', 'cp1252', 'ascii']
+            encodings = ["utf-8", "latin-1", "cp1252", "ascii"]
             for encoding in encodings:
                 try:
                     Path(file_path).read_text(encoding=encoding)
-                    logger.info(
-                        f"File {file_path} readable with encoding {encoding}")
+                    logger.info(f"File {file_path} readable with encoding {encoding}")
                     return True
                 except UnicodeDecodeError:
                     continue
@@ -516,24 +530,27 @@ class RecoveryManager:
     async def _recover_network(
         self,
         error: IndexingError,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> bool:
         """Recover from network errors."""
         # Implement exponential backoff
         attempt = self.recovery_attempts.get(f"network_{error.context}", 0)
-        backoff_time = min(60.0, 2 ** attempt)
+        backoff_time = min(60.0, 2**attempt)
 
         logger.info(f"Network recovery: waiting {backoff_time}s before retry")
         await asyncio.sleep(backoff_time)
 
-        # Test network connectivity
+        # Test network connectivity using stdlib
         try:
-            import aiohttp
-            async with aiohttp.ClientSession() as session:
-                async with session.get("https://httpbin.org/status/200", timeout=5.0) as response:
-                    if response.status == 200:
-                        logger.info("Network connectivity restored")
-                        return True
+            import urllib.request
+
+            req = urllib.request.Request(
+                "https://httpbin.org/status/200", method="HEAD"
+            )
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    logger.info("Network connectivity restored")
+                    return True
         except Exception:
             pass
 
@@ -543,29 +560,28 @@ class RecoveryManager:
     async def _recover_memory(
         self,
         error: IndexingError,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> bool:
         """Recover from memory errors."""
         # Force garbage collection
         import gc
+
         gc.collect()
 
         # Reduce batch sizes if possible
         if "batch_size" in context:
             new_batch_size = max(1, context["batch_size"] // 2)
             context["batch_size"] = new_batch_size
-            logger.info(
-                f"Reduced batch size to {new_batch_size} for memory recovery")
+            logger.info(f"Reduced batch size to {new_batch_size} for memory recovery")
             return True
 
-        logger.warning(
-            "Cannot recover from memory error - no batch size to reduce")
+        logger.warning("Cannot recover from memory error - no batch size to reduce")
         return False
 
     async def _recover_timeout(
         self,
         error: IndexingError,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> bool:
         """Recover from timeout errors."""
         # Increase timeout if possible
@@ -580,7 +596,7 @@ class RecoveryManager:
     async def _recover_parsing(
         self,
         error: IndexingError,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> bool:
         """Recover from parsing errors."""
         # For parsing errors, we usually skip the problematic content
@@ -590,12 +606,11 @@ class RecoveryManager:
     async def _recover_dependency(
         self,
         error: IndexingError,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> bool:
         """Recover from dependency errors."""
         # Try to install missing dependencies or use fallbacks
-        logger.info(
-            f"Using fallback for missing dependency in {error.context}")
+        logger.info(f"Using fallback for missing dependency in {error.context}")
         return True
 
     def get_circuit_breaker(self, service_name: str) -> CircuitBreaker:
@@ -604,21 +619,20 @@ class RecoveryManager:
             self.circuit_breakers[service_name] = CircuitBreaker()
         return self.circuit_breakers[service_name]
 
-    def get_recovery_stats(self) -> Dict[str, Any]:
+    def get_recovery_stats(self) -> dict[str, Any]:
         """Get recovery statistics."""
-        total_attempts = sum(self.recovery_attempts.values())
-
-        # Count successful recoveries (would need to track this)
-        successful_recoveries = 0  # Placeholder
+        total_attempts = self.successful_recoveries + self.failed_recoveries
 
         return {
             "total_recovery_attempts": total_attempts,
-            "successful_recoveries": successful_recoveries,
-            "recovery_success_rate": successful_recoveries / max(total_attempts, 1),
-            "active_circuit_breakers": len([
-                cb for cb in self.circuit_breakers.values()
-                if cb.state != "closed"
-            ]),
+            "successful_recoveries": self.successful_recoveries,
+            "failed_recoveries": self.failed_recoveries,
+            "recovery_success_rate": (
+                self.successful_recoveries / max(total_attempts, 1)
+            ),
+            "active_circuit_breakers": len(
+                [cb for cb in self.circuit_breakers.values() if cb.state != "closed"]
+            ),
             "recovery_strategies": list(self.recovery_strategies.keys()),
         }
 
@@ -642,7 +656,7 @@ class EnhancedErrorHandler:
         context: str,
         exception: Exception,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         attempt_recovery: bool = True,
     ) -> bool:
         """
@@ -673,10 +687,7 @@ class EnhancedErrorHandler:
         # Attempt recovery if requested
         if attempt_recovery:
             # Find the error we just added
-            error = next(
-                (e for e in self.error_collector.errors if e.error_id == error_id),
-                None
-            )
+            error = next((e for e in self.error_collector.errors if e.error_id == error_id), None)
 
             if error:
                 recovery_context = metadata or {}
@@ -695,7 +706,7 @@ class EnhancedErrorHandler:
         error_id: str,
         context: str,
         exception: Exception,
-        metadata: Optional[Dict[str, Any]],
+        metadata: dict[str, Any] | None,
     ) -> None:
         """Log error to persistent file for analysis."""
         try:
@@ -715,7 +726,7 @@ class EnhancedErrorHandler:
         except Exception as e:
             logger.error(f"Failed to log error to file: {e}")
 
-    def get_comprehensive_report(self) -> Dict[str, Any]:
+    def get_comprehensive_report(self) -> dict[str, Any]:
         """Get comprehensive error and recovery report."""
         error_summary = self.error_collector.get_error_summary()
         recovery_stats = self.recovery_manager.get_recovery_stats()
@@ -726,10 +737,11 @@ class EnhancedErrorHandler:
             "system_health": self._assess_system_health(),
         }
 
-    def _assess_system_health(self) -> Dict[str, Any]:
+    def _assess_system_health(self) -> dict[str, Any]:
         """Assess overall system health based on error patterns."""
         recent_errors = [
-            error for error in self.error_collector.errors
+            error
+            for error in self.error_collector.errors
             if time.time() - error.timestamp < 3600  # Last hour
         ]
 
@@ -739,9 +751,9 @@ class EnhancedErrorHandler:
         else:
             # Calculate health score based on error frequency and severity
             critical_errors = len(
-                [e for e in recent_errors if e.severity == ErrorSeverity.CRITICAL])
-            error_errors = len(
-                [e for e in recent_errors if e.severity == ErrorSeverity.ERROR])
+                [e for e in recent_errors if e.severity == ErrorSeverity.CRITICAL]
+            )
+            error_errors = len([e for e in recent_errors if e.severity == ErrorSeverity.ERROR])
 
             if critical_errors > 0:
                 health_score = 0.0
@@ -763,30 +775,28 @@ class EnhancedErrorHandler:
             "recommendations": self._get_health_recommendations(recent_errors),
         }
 
-    def _get_health_recommendations(self, recent_errors: List[IndexingError]) -> List[str]:
+    def _get_health_recommendations(self, recent_errors: list[IndexingError]) -> list[str]:
         """Get recommendations based on recent error patterns."""
         recommendations = []
 
         # Analyze error patterns
         category_counts: dict[ErrorCategory, int] = {}
         for error in recent_errors:
-            category_counts[error.category] = category_counts.get(
-                error.category, 0) + 1
+            category_counts[error.category] = category_counts.get(error.category, 0) + 1
 
         # Generate recommendations
         if category_counts.get(ErrorCategory.MEMORY, 0) > 5:
-            recommendations.append(
-                "Consider reducing batch sizes or increasing available memory")
+            recommendations.append("Consider reducing batch sizes or increasing available memory")
 
         if category_counts.get(ErrorCategory.NETWORK, 0) > 3:
-            recommendations.append(
-                "Check network connectivity and API rate limits")
+            recommendations.append("Check network connectivity and API rate limits")
 
         if category_counts.get(ErrorCategory.FILE_ACCESS, 0) > 10:
             recommendations.append("Review file permissions and disk space")
 
         if category_counts.get(ErrorCategory.PARSING, 0) > 20:
             recommendations.append(
-                "Consider updating language parsers or excluding problematic files")
+                "Consider updating language parsers or excluding problematic files"
+            )
 
         return recommendations

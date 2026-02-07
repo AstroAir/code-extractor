@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch import PySearch
-from pysearch import SearchConfig
-from pysearch import Query
+from pysearch import PySearch, Query, SearchConfig
 
 
 def test_pysearch_text_and_regex(tmp_path: Path) -> None:
@@ -23,8 +21,9 @@ def test_pysearch_text_and_regex(tmp_path: Path) -> None:
 def test_pysearch_run_direct(tmp_path: Path) -> None:
     p = tmp_path / "a.py"
     p.write_text("def a():\n    pass\n", encoding="utf-8")
-    eng = PySearch(SearchConfig(paths=[str(tmp_path)], include=["**/*.py"], context=0, parallel=False))
+    eng = PySearch(
+        SearchConfig(paths=[str(tmp_path)], include=["**/*.py"], context=0, parallel=False)
+    )
     q = Query(pattern="def", use_regex=False, context=0)
     res = eng.run(q)
     assert res.stats.items >= 0
-

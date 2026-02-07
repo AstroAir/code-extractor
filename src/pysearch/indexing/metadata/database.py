@@ -17,11 +17,12 @@ Features:
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import logging
 import sqlite3
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 from .models import EntityMetadata, FileMetadata, IndexQuery, IndexStats
 
@@ -39,7 +40,7 @@ class MetadataIndex:
     def __init__(self, db_path: Path) -> None:
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._connection: Optional[sqlite3.Connection] = None
+        self._connection: sqlite3.Connection | None = None
 
     async def initialize(self) -> None:
         """Initialize the metadata index database."""
@@ -101,18 +102,12 @@ class MetadataIndex:
         """)
 
         # Create indexes for efficient querying
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_files_language ON files (language)")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_files_mtime ON files (mtime)")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_files_size ON files (size)")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_entities_type ON entities (entity_type)")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_entities_name ON entities (name)")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_entities_file ON entities (file_path)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_language ON files (language)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_mtime ON files (mtime)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_size ON files (size)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_entities_type ON entities (entity_type)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_entities_name ON entities (name)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_entities_file ON entities (file_path)")
 
         self._connection.commit()
 
@@ -122,20 +117,32 @@ class MetadataIndex:
             return
 
         cursor = self._connection.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO files (
                 file_path, size, mtime, sha1, language, line_count, entity_count,
                 complexity_score, semantic_summary, imports, exports, dependencies,
                 last_indexed, access_count, last_accessed
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            metadata.file_path, metadata.size, metadata.mtime, metadata.sha1,
-            metadata.language, metadata.line_count, metadata.entity_count,
-            metadata.complexity_score, metadata.semantic_summary,
-            json.dumps(metadata.imports), json.dumps(metadata.exports),
-            json.dumps(metadata.dependencies), metadata.last_indexed,
-            metadata.access_count, metadata.last_accessed
-        ))
+        """,
+            (
+                metadata.file_path,
+                metadata.size,
+                metadata.mtime,
+                metadata.sha1,
+                metadata.language,
+                metadata.line_count,
+                metadata.entity_count,
+                metadata.complexity_score,
+                metadata.semantic_summary,
+                json.dumps(metadata.imports),
+                json.dumps(metadata.exports),
+                json.dumps(metadata.dependencies),
+                metadata.last_indexed,
+                metadata.access_count,
+                metadata.last_accessed,
+            ),
+        )
         self._connection.commit()
 
     async def add_entity_metadata(self, metadata: EntityMetadata) -> None:
@@ -144,24 +151,34 @@ class MetadataIndex:
             return
 
         cursor = self._connection.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO entities (
                 entity_id, name, entity_type, file_path, start_line, end_line,
                 signature, docstring, language, scope, complexity_score,
                 semantic_embedding, properties, last_updated
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            metadata.entity_id, metadata.name, metadata.entity_type,
-            metadata.file_path, metadata.start_line, metadata.end_line,
-            metadata.signature, metadata.docstring, metadata.language,
-            metadata.scope, metadata.complexity_score,
-            json.dumps(
-                metadata.semantic_embedding) if metadata.semantic_embedding else None,
-            json.dumps(metadata.properties), metadata.last_updated
-        ))
+        """,
+            (
+                metadata.entity_id,
+                metadata.name,
+                metadata.entity_type,
+                metadata.file_path,
+                metadata.start_line,
+                metadata.end_line,
+                metadata.signature,
+                metadata.docstring,
+                metadata.language,
+                metadata.scope,
+                metadata.complexity_score,
+                json.dumps(metadata.semantic_embedding) if metadata.semantic_embedding else None,
+                json.dumps(metadata.properties),
+                metadata.last_updated,
+            ),
+        )
         self._connection.commit()
 
-    async def query_files(self, query: IndexQuery) -> List[FileMetadata]:
+    async def query_files(self, query: IndexQuery) -> list[FileMetadata]:
         """Query files based on criteria."""
         if not self._connection:
             return []
@@ -173,8 +190,7 @@ class MetadataIndex:
         params: list[Any] = []
 
         if query.languages:
-            conditions.append(
-                f"language IN ({','.join(['?'] * len(query.languages))})")
+            conditions.append(f"language IN ({','.join(['?'] * len(query.languages))})")
             params.extend(query.languages)
 
         if query.min_size is not None:
@@ -206,41 +222,61 @@ class MetadataIndex:
         # Build full query
         sql = f"SELECT * FROM files WHERE {where_clause}"
 
-        if query.limit is not None:
-            sql += f" LIMIT {query.limit}"
+        # file_patterns are applied post-query via fnmatch (glob patterns
+        # cannot be expressed with SQLite LIKE), so fetch without LIMIT first
+        # if file_patterns are specified
+        has_file_patterns = bool(query.file_patterns)
 
-        if query.offset > 0:
-            sql += f" OFFSET {query.offset}"
+        if not has_file_patterns:
+            if query.limit is not None:
+                sql += f" LIMIT {query.limit}"
+            if query.offset > 0:
+                sql += f" OFFSET {query.offset}"
 
         cursor.execute(sql, params)
         rows = cursor.fetchall()
 
-        # Convert to FileMetadata objects
+        # Convert to FileMetadata objects, applying file_patterns filter
         files = []
         for row in rows:
             metadata = FileMetadata(
-                file_path=row['file_path'],
-                size=row['size'],
-                mtime=row['mtime'],
-                sha1=row['sha1'],
-                language=row['language'],
-                line_count=row['line_count'],
-                entity_count=row['entity_count'],
-                complexity_score=row['complexity_score'],
-                semantic_summary=row['semantic_summary'],
-                imports=json.loads(row['imports']) if row['imports'] else [],
-                exports=json.loads(row['exports']) if row['exports'] else [],
-                dependencies=json.loads(
-                    row['dependencies']) if row['dependencies'] else [],
-                last_indexed=row['last_indexed'],
-                access_count=row['access_count'],
-                last_accessed=row['last_accessed']
+                file_path=row["file_path"],
+                size=row["size"],
+                mtime=row["mtime"],
+                sha1=row["sha1"],
+                language=row["language"],
+                line_count=row["line_count"],
+                entity_count=row["entity_count"],
+                complexity_score=row["complexity_score"],
+                semantic_summary=row["semantic_summary"],
+                imports=json.loads(row["imports"]) if row["imports"] else [],
+                exports=json.loads(row["exports"]) if row["exports"] else [],
+                dependencies=json.loads(row["dependencies"]) if row["dependencies"] else [],
+                last_indexed=row["last_indexed"],
+                access_count=row["access_count"],
+                last_accessed=row["last_accessed"],
             )
+            # Apply file_patterns filter via fnmatch
+            if has_file_patterns:
+                matched = any(
+                    fnmatch.fnmatch(metadata.file_path, pattern)
+                    for pattern in query.file_patterns  # type: ignore[union-attr]
+                )
+                if not matched:
+                    continue
+
             files.append(metadata)
+
+        # Apply offset and limit for pattern-filtered results
+        if has_file_patterns:
+            if query.offset > 0:
+                files = files[query.offset:]
+            if query.limit is not None:
+                files = files[: query.limit]
 
         return files
 
-    async def query_entities(self, query: IndexQuery) -> List[EntityMetadata]:
+    async def query_entities(self, query: IndexQuery) -> list[EntityMetadata]:
         """Query entities based on criteria."""
         if not self._connection:
             return []
@@ -252,8 +288,7 @@ class MetadataIndex:
         params: list[Any] = []
 
         if query.entity_types:
-            conditions.append(
-                f"entity_type IN ({','.join(['?'] * len(query.entity_types))})")
+            conditions.append(f"entity_type IN ({','.join(['?'] * len(query.entity_types))})")
             params.extend(query.entity_types)
 
         if query.entity_names:
@@ -264,8 +299,7 @@ class MetadataIndex:
             conditions.append(f"({' OR '.join(name_conditions)})")
 
         if query.languages:
-            conditions.append(
-                f"language IN ({','.join(['?'] * len(query.languages))})")
+            conditions.append(f"language IN ({','.join(['?'] * len(query.languages))})")
             params.extend(query.languages)
 
         if query.has_docstring is not None:
@@ -300,22 +334,22 @@ class MetadataIndex:
         entities = []
         for row in rows:
             metadata = EntityMetadata(
-                entity_id=row['entity_id'],
-                name=row['name'],
-                entity_type=row['entity_type'],
-                file_path=row['file_path'],
-                start_line=row['start_line'],
-                end_line=row['end_line'],
-                signature=row['signature'],
-                docstring=row['docstring'],
-                language=row['language'],
-                scope=row['scope'],
-                complexity_score=row['complexity_score'],
-                semantic_embedding=json.loads(
-                    row['semantic_embedding']) if row['semantic_embedding'] else None,
-                properties=json.loads(
-                    row['properties']) if row['properties'] else {},
-                last_updated=row['last_updated']
+                entity_id=row["entity_id"],
+                name=row["name"],
+                entity_type=row["entity_type"],
+                file_path=row["file_path"],
+                start_line=row["start_line"],
+                end_line=row["end_line"],
+                signature=row["signature"],
+                docstring=row["docstring"],
+                language=row["language"],
+                scope=row["scope"],
+                complexity_score=row["complexity_score"],
+                semantic_embedding=(
+                    json.loads(row["semantic_embedding"]) if row["semantic_embedding"] else None
+                ),
+                properties=json.loads(row["properties"]) if row["properties"] else {},
+                last_updated=row["last_updated"],
             )
             entities.append(metadata)
 
@@ -329,8 +363,7 @@ class MetadataIndex:
         cursor = self._connection.cursor()
 
         # File statistics
-        cursor.execute(
-            "SELECT COUNT(*), AVG(size), AVG(entity_count) FROM files")
+        cursor.execute("SELECT COUNT(*), AVG(size), AVG(entity_count) FROM files")
         file_stats = cursor.fetchone()
         total_files = file_stats[0] if file_stats[0] else 0
         avg_file_size = file_stats[1] if file_stats[1] else 0.0
@@ -342,18 +375,17 @@ class MetadataIndex:
         total_entities = entity_result[0] if entity_result else 0
 
         # Language distribution
-        cursor.execute(
-            "SELECT language, COUNT(*) FROM files GROUP BY language")
+        cursor.execute("SELECT language, COUNT(*) FROM files GROUP BY language")
         languages = dict(cursor.fetchall())
 
         # Entity type distribution
-        cursor.execute(
-            "SELECT entity_type, COUNT(*) FROM entities GROUP BY entity_type")
+        cursor.execute("SELECT entity_type, COUNT(*) FROM entities GROUP BY entity_type")
         entity_types = dict(cursor.fetchall())
 
         # Database size
         cursor.execute(
-            "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
+            "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()"
+        )
         db_result = cursor.fetchone()
         db_size = db_result[0] if db_result else 0
         index_size_mb = db_size / (1024 * 1024)
@@ -365,8 +397,57 @@ class MetadataIndex:
             entity_types=entity_types,
             avg_file_size=avg_file_size,
             avg_entities_per_file=avg_entities_per_file,
-            index_size_mb=index_size_mb
+            index_size_mb=index_size_mb,
         )
+
+    async def delete_file_metadata(self, file_path: str) -> None:
+        """Delete file metadata and all associated entities."""
+        if not self._connection:
+            return
+
+        cursor = self._connection.cursor()
+
+        # Delete associated entities first (foreign key)
+        cursor.execute("DELETE FROM entities WHERE file_path = ?", (file_path,))
+
+        # Delete the file record
+        cursor.execute("DELETE FROM files WHERE file_path = ?", (file_path,))
+
+        self._connection.commit()
+        logger.debug(f"Deleted metadata for file: {file_path}")
+
+    async def delete_entity_metadata(self, entity_id: str) -> None:
+        """Delete a specific entity metadata record."""
+        if not self._connection:
+            return
+
+        cursor = self._connection.cursor()
+        cursor.execute("DELETE FROM entities WHERE entity_id = ?", (entity_id,))
+        self._connection.commit()
+
+    async def delete_entities_by_file(self, file_path: str) -> int:
+        """Delete all entities belonging to a specific file.
+
+        Returns:
+            Number of entities deleted.
+        """
+        if not self._connection:
+            return 0
+
+        cursor = self._connection.cursor()
+        cursor.execute("DELETE FROM entities WHERE file_path = ?", (file_path,))
+        deleted = cursor.rowcount
+        self._connection.commit()
+        return deleted
+
+    async def file_exists(self, file_path: str) -> bool:
+        """Check if a file exists in the metadata index."""
+        if not self._connection:
+            return False
+
+        cursor = self._connection.cursor()
+        cursor.execute("SELECT 1 FROM files WHERE file_path = ?", (file_path,))
+        return cursor.fetchone() is not None
 
     async def close(self) -> None:
         """Close the database connection."""

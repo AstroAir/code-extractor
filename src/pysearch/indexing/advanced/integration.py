@@ -6,7 +6,7 @@ engine, allowing seamless integration with the existing pysearch system while
 providing access to all enhanced features.
 
 Classes:
-    EnhancedSearchEngine: Main enhanced search engine
+    IndexSearchEngine: Main enhanced search engine
     SearchResultEnhancer: Enhances search results with additional metadata
     IndexingOrchestrator: Orchestrates indexing operations
 
@@ -19,12 +19,12 @@ Features:
 
 Example:
     Basic enhanced search:
-        >>> from pysearch.enhanced_integration import EnhancedSearchEngine
-        >>> engine = EnhancedSearchEngine(config)
+        >>> from pysearch.enhanced_integration import IndexSearchEngine
+        >>> engine = IndexSearchEngine(config)
         >>> results = await engine.search("database connection", limit=10)
 
     Advanced search with filters:
-        >>> results = await engine.enhanced_search(
+        >>> results = await engine.index_search(
         ...     query="user authentication",
         ...     languages=["python", "javascript"],
         ...     entity_types=["function", "class"],
@@ -34,25 +34,25 @@ Example:
 
 from __future__ import annotations
 
-import asyncio
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any
 
-from ...core.config import SearchConfig
 from ...analysis.content_addressing import IndexTag
-from .engine import EnhancedIndexingEngine
+from ...core.config import SearchConfig
+from ...core.types import Language
 from ...utils.logging_config import get_logger
 from ...utils.performance_monitoring import PerformanceMonitor
-from ...core.types import Language, OutputFormat
+from .engine import IndexingEngine
 
 logger = get_logger()
 
 
 @dataclass
-class EnhancedSearchResult:
+class IndexSearchResult:
     """Enhanced search result with additional metadata."""
+
     path: str
     content: str
     start_line: int
@@ -61,17 +61,17 @@ class EnhancedSearchResult:
     score: float
 
     # Enhanced metadata
-    entity_name: Optional[str] = None
-    entity_type: Optional[str] = None
-    similarity_score: Optional[float] = None
-    complexity_score: Optional[float] = None
-    quality_score: Optional[float] = None
-    dependencies: List[str] = field(default_factory=list)
-    context: Optional[str] = None
+    entity_name: str | None = None
+    entity_type: str | None = None
+    similarity_score: float | None = None
+    complexity_score: float | None = None
+    quality_score: float | None = None
+    dependencies: list[str] = field(default_factory=list)
+    context: str | None = None
 
     # Source information
     index_type: str = "unknown"
-    chunk_id: Optional[str] = None
+    chunk_id: str | None = None
 
 
 class SearchResultEnhancer:
@@ -82,15 +82,15 @@ class SearchResultEnhancer:
 
     async def enhance_results(
         self,
-        results: List[Dict[str, Any]],
+        results: list[dict[str, Any]],
         query: str,
         include_context: bool = True,
-    ) -> List[EnhancedSearchResult]:
+    ) -> list[IndexSearchResult]:
         """Enhance search results with additional metadata."""
         enhanced_results = []
 
         for result in results:
-            enhanced_result = EnhancedSearchResult(
+            enhanced_result = IndexSearchResult(
                 path=result.get("path", ""),
                 content=result.get("content", ""),
                 start_line=result.get("start_line", 1),
@@ -109,9 +109,7 @@ class SearchResultEnhancer:
 
             # Add context if requested
             if include_context:
-                enhanced_result.context = await self._extract_context(
-                    enhanced_result, query
-                )
+                enhanced_result.context = await self._extract_context(enhanced_result, query)
 
             enhanced_results.append(enhanced_result)
 
@@ -119,9 +117,9 @@ class SearchResultEnhancer:
 
     async def _extract_context(
         self,
-        result: EnhancedSearchResult,
+        result: IndexSearchResult,
         query: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Extract relevant context around the search result."""
         try:
             # Read file and extract context
@@ -129,15 +127,15 @@ class SearchResultEnhancer:
             if not file_path.exists():
                 return None
 
-            content = file_path.read_text(encoding='utf-8', errors='ignore')
-            lines = content.split('\n')
+            content = file_path.read_text(encoding="utf-8", errors="ignore")
+            lines = content.split("\n")
 
             # Get context lines around the match
             context_lines = 3
             start_idx = max(0, result.start_line - 1 - context_lines)
             end_idx = min(len(lines), result.end_line + context_lines)
 
-            context_content = '\n'.join(lines[start_idx:end_idx])
+            context_content = "\n".join(lines[start_idx:end_idx])
             return context_content
 
         except Exception as e:
@@ -150,20 +148,19 @@ class IndexingOrchestrator:
 
     def __init__(self, config: SearchConfig):
         self.config = config
-        self.indexing_engine: Optional[EnhancedIndexingEngine] = None
-        self.performance_monitor: Optional[PerformanceMonitor] = None
-        self.last_index_time: Optional[float] = None
+        self.indexing_engine: IndexingEngine | None = None
+        self.performance_monitor: PerformanceMonitor | None = None
+        self.last_index_time: float | None = None
 
     async def initialize(self) -> None:
         """Initialize the indexing orchestrator."""
-        if self.config.enable_enhanced_indexing:
-            self.indexing_engine = EnhancedIndexingEngine(self.config)
+        if self.config.enable_metadata_indexing:
+            self.indexing_engine = IndexingEngine(self.config)
             await self.indexing_engine.initialize()
 
             # Initialize performance monitoring
             cache_dir = self.config.resolve_cache_dir()
-            self.performance_monitor = PerformanceMonitor(
-                self.config, cache_dir)
+            self.performance_monitor = PerformanceMonitor(self.config, cache_dir)
             await self.performance_monitor.start_monitoring()
 
             logger.info("Enhanced indexing orchestrator initialized")
@@ -194,8 +191,7 @@ class IndexingOrchestrator:
             try:
                 async for progress in self.indexing_engine.refresh_index():
                     if progress.progress % 0.2 < 0.01:  # Log every 20%
-                        logger.info(
-                            f"Indexing progress: {progress.progress:.1%}")
+                        logger.info(f"Indexing progress: {progress.progress:.1%}")
 
                 self.last_index_time = time.time()
                 logger.info("Indexing completed successfully")
@@ -209,11 +205,22 @@ class IndexingOrchestrator:
 
     async def _check_for_changes(self) -> bool:
         """Check if any files have changed since last indexing."""
-        # This would implement change detection logic
-        # For now, return False (no changes detected)
-        return False
+        try:
+            from ..indexer import Indexer
 
-    async def get_health_status(self) -> Dict[str, Any]:
+            indexer = Indexer(self.config)
+            changed, removed, _total = indexer.scan()
+            has_changes = len(changed) > 0 or len(removed) > 0
+            if has_changes:
+                logger.debug(
+                    f"Detected changes: {len(changed)} modified, {len(removed)} removed"
+                )
+            return has_changes
+        except Exception as e:
+            logger.error(f"Error checking for changes: {e}")
+            return False
+
+    async def get_health_status(self) -> dict[str, Any]:
         """Get health status of the indexing system."""
         if not self.performance_monitor:
             return {"status": "disabled"}
@@ -236,7 +243,7 @@ class IndexingOrchestrator:
             await self.performance_monitor.stop_monitoring()
 
 
-class EnhancedSearchEngine:
+class IndexSearchEngine:
     """
     Main enhanced search engine that integrates all enhanced features.
 
@@ -266,7 +273,7 @@ class EnhancedSearchEngine:
         limit: int = 50,
         include_context: bool = True,
         auto_index: bool = True,
-    ) -> List[EnhancedSearchResult]:
+    ) -> list[IndexSearchResult]:
         """
         Perform enhanced search across all available indexes.
 
@@ -293,7 +300,7 @@ class EnhancedSearchEngine:
             tag = IndexTag(
                 directory=str(Path(self.config.paths[0]).resolve()),
                 branch="main",  # TODO: Auto-detect branch
-                artifact_id="*"
+                artifact_id="*",
             )
 
             # Search code snippets
@@ -302,7 +309,7 @@ class EnhancedSearchEngine:
                     "enhanced_code_snippets"
                 )
                 if snippets_index:
-                    snippet_results = await snippets_index.retrieve(query, tag, limit//2)
+                    snippet_results = await snippets_index.retrieve(query, tag, limit // 2)
                     for result in snippet_results:
                         result["index_type"] = "code_snippets"
                     all_results.extend(snippet_results)
@@ -315,7 +322,7 @@ class EnhancedSearchEngine:
                     "enhanced_full_text"
                 )
                 if fulltext_index:
-                    fulltext_results = await fulltext_index.retrieve(query, tag, limit//2)
+                    fulltext_results = await fulltext_index.retrieve(query, tag, limit // 2)
                     for result in fulltext_results:
                         result["index_type"] = "full_text"
                     all_results.extend(fulltext_results)
@@ -328,7 +335,7 @@ class EnhancedSearchEngine:
                     "enhanced_vectors"
                 )
                 if vector_index:
-                    vector_results = await vector_index.retrieve(query, tag, limit//2)
+                    vector_results = await vector_index.retrieve(query, tag, limit // 2)
                     for result in vector_results:
                         result["index_type"] = "semantic"
                     all_results.extend(vector_results)
@@ -337,8 +344,7 @@ class EnhancedSearchEngine:
 
         # Fallback to basic search if no enhanced results
         if not all_results:
-            logger.info(
-                "No enhanced search results, falling back to basic search")
+            logger.info("No enhanced search results, falling back to basic search")
             # TODO: Implement fallback to basic pysearch
             return []
 
@@ -356,15 +362,15 @@ class EnhancedSearchEngine:
 
         return enhanced_results
 
-    async def enhanced_search(
+    async def index_search(
         self,
         query: str,
-        languages: Optional[List[str]] = None,
-        entity_types: Optional[List[str]] = None,
-        file_patterns: Optional[List[str]] = None,
+        languages: list[str] | None = None,
+        entity_types: list[str] | None = None,
+        file_patterns: list[str] | None = None,
         semantic_threshold: float = 0.0,
         limit: int = 50,
-    ) -> List[EnhancedSearchResult]:
+    ) -> list[IndexSearchResult]:
         """
         Perform advanced search with detailed filtering options.
 
@@ -408,16 +414,18 @@ class EnhancedSearchEngine:
                 continue
 
             # Semantic threshold filter
-            if (semantic_threshold > 0 and
-                result.similarity_score is not None and
-                    result.similarity_score < semantic_threshold):
+            if (
+                semantic_threshold > 0
+                and result.similarity_score is not None
+                and result.similarity_score < semantic_threshold
+            ):
                 continue
 
             filtered_results.append(result)
 
         return filtered_results
 
-    def _deduplicate_results(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _deduplicate_results(self, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Remove duplicate results based on path and content."""
         seen = set()
         deduplicated = []
@@ -432,9 +440,9 @@ class EnhancedSearchEngine:
 
     def _rank_results(
         self,
-        results: List[Dict[str, Any]],
+        results: list[dict[str, Any]],
         query: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Rank results by relevance."""
         # Simple ranking based on multiple factors
         for result in results:
@@ -462,11 +470,11 @@ class EnhancedSearchEngine:
         # Sort by final score
         return sorted(results, key=lambda x: x.get("final_score", 0.0), reverse=True)
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get search engine statistics."""
         stats: dict[str, Any] = {
             "initialized": self._initialized,
-            "enhanced_indexing_enabled": self.config.enable_enhanced_indexing,
+            "metadata_indexing_enabled": self.config.enable_metadata_indexing,
         }
 
         if self.orchestrator.indexing_engine:
@@ -484,13 +492,13 @@ class EnhancedSearchEngine:
 
 
 # Convenience functions for backward compatibility
-async def enhanced_search(
+async def index_search(
     query: str,
     config: SearchConfig,
     limit: int = 50,
-) -> List[EnhancedSearchResult]:
+) -> list[IndexSearchResult]:
     """Convenience function for enhanced search."""
-    engine = EnhancedSearchEngine(config)
+    engine = IndexSearchEngine(config)
     try:
         return await engine.search(query, limit)
     finally:

@@ -9,17 +9,20 @@ knowledge graph building, and graph-based querying.
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pytest
 
-from pysearch import SearchConfig
-from pysearch.analysis.graphrag import EntityExtractor, RelationshipMapper
 from pysearch import (
-    CodeEntity, EntityRelationship, EntityType,
-    KnowledgeGraph, RelationType
+    CodeEntity,
+    EntityRelationship,
+    EntityType,
+    KnowledgeGraph,
+    RelationType,
+    SearchConfig,
 )
+from pysearch.analysis.graphrag import EntityExtractor, RelationshipMapper
 
 
 @pytest.fixture
@@ -82,7 +85,7 @@ MAX_RETRIES = 3
 @pytest.fixture
 def sample_javascript_code() -> str:
     """Sample JavaScript code for testing."""
-    return '''
+    return """
 /**
  * User management module
  */
@@ -119,7 +122,7 @@ function createUserManager(config) {
 }
 
 export { UserManager, createUserManager };
-'''
+"""
 
 
 @pytest.fixture
@@ -129,7 +132,7 @@ def config(temp_dir: Path) -> SearchConfig:
         paths=[str(temp_dir)],
         include=["**/*.py", "**/*.js"],
         enable_graphrag=True,
-        enable_enhanced_indexing=True
+        enable_metadata_indexing=True,
     )
 
 
@@ -140,14 +143,10 @@ class TestEntityExtractor:
         """Test EntityExtractor initialization."""
         extractor = EntityExtractor()
         assert extractor is not None
-        assert hasattr(extractor, 'language_extractors')
+        assert hasattr(extractor, "language_extractors")
 
     @pytest.mark.asyncio
-    async def test_extract_python_entities(
-        self,
-        temp_dir: Path,
-        sample_python_code: str
-    ) -> None:
+    async def test_extract_python_entities(self, temp_dir: Path, sample_python_code: str) -> None:
         """Test Python entity extraction."""
         test_file = temp_dir / "test.py"
         test_file.write_text(sample_python_code)
@@ -161,13 +160,11 @@ class TestEntityExtractor:
         assert EntityType.FUNCTION in entity_types
         assert EntityType.IMPORT in entity_types
 
-        class_entities = [
-            e for e in entities if e.entity_type == EntityType.CLASS]
+        class_entities = [e for e in entities if e.entity_type == EntityType.CLASS]
         assert len(class_entities) >= 1
         assert any(e.name == "DatabaseManager" for e in class_entities)
 
-        function_entities = [
-            e for e in entities if e.entity_type == EntityType.FUNCTION]
+        function_entities = [e for e in entities if e.entity_type == EntityType.FUNCTION]
         assert len(function_entities) >= 3
         function_names = {e.name for e in function_entities}
         assert "connect" in function_names
@@ -176,9 +173,7 @@ class TestEntityExtractor:
 
     @pytest.mark.asyncio
     async def test_extract_javascript_entities(
-        self,
-        temp_dir: Path,
-        sample_javascript_code: str
+        self, temp_dir: Path, sample_javascript_code: str
     ) -> None:
         """Test JavaScript entity extraction."""
         test_file = temp_dir / "test.js"
@@ -193,21 +188,16 @@ class TestEntityExtractor:
         assert EntityType.FUNCTION in entity_types
         assert EntityType.IMPORT in entity_types
 
-        class_entities = [
-            e for e in entities if e.entity_type == EntityType.CLASS]
+        class_entities = [e for e in entities if e.entity_type == EntityType.CLASS]
         assert any(e.name == "UserManager" for e in class_entities)
 
-        function_entities = [
-            e for e in entities if e.entity_type == EntityType.FUNCTION]
+        function_entities = [e for e in entities if e.entity_type == EntityType.FUNCTION]
         function_names = {e.name for e in function_entities}
         assert "createUserManager" in function_names
 
     @pytest.mark.asyncio
     async def test_extract_from_directory(
-        self,
-        temp_dir: Path,
-        sample_python_code: str,
-        config: SearchConfig
+        self, temp_dir: Path, sample_python_code: str, config: SearchConfig
     ) -> None:
         """Test directory-wide entity extraction."""
         (temp_dir / "module1.py").write_text(sample_python_code)
@@ -228,13 +218,10 @@ class TestRelationshipMapper:
         """Test RelationshipMapper initialization."""
         mapper = RelationshipMapper()
         assert mapper is not None
-        assert hasattr(mapper, 'dependency_analyzer')
+        assert hasattr(mapper, "dependency_analyzer")
 
     @pytest.mark.asyncio
-    async def test_map_inheritance_relationships(
-        self,
-        temp_dir: Path
-    ) -> None:
+    async def test_map_inheritance_relationships(self, temp_dir: Path) -> None:
         """Test inheritance relationship mapping."""
         base_entity = CodeEntity(
             id="base_class",
@@ -243,7 +230,7 @@ class TestRelationshipMapper:
             file_path=temp_dir / "test.py",
             start_line=1,
             end_line=5,
-            properties={"bases": []}
+            properties={"bases": []},
         )
 
         derived_entity = CodeEntity(
@@ -253,7 +240,7 @@ class TestRelationshipMapper:
             file_path=temp_dir / "test.py",
             start_line=7,
             end_line=12,
-            properties={"bases": ["BaseClass"]}
+            properties={"bases": ["BaseClass"]},
         )
 
         mapper = RelationshipMapper()
@@ -266,10 +253,7 @@ class TestRelationshipMapper:
         assert rel.target_entity_id == "base_class"
 
     @pytest.mark.asyncio
-    async def test_map_call_relationships(
-        self,
-        temp_dir: Path
-    ) -> None:
+    async def test_map_call_relationships(self, temp_dir: Path) -> None:
         """Test function call relationship mapping."""
         caller_entity = CodeEntity(
             id="caller_func",
@@ -277,7 +261,7 @@ class TestRelationshipMapper:
             entity_type=EntityType.FUNCTION,
             file_path=temp_dir / "test.py",
             start_line=1,
-            end_line=5
+            end_line=5,
         )
 
         callee_entity = CodeEntity(
@@ -286,19 +270,21 @@ class TestRelationshipMapper:
             entity_type=EntityType.FUNCTION,
             file_path=temp_dir / "test.py",
             start_line=7,
-            end_line=10
+            end_line=10,
         )
 
         file_contents = {
-            temp_dir / "test.py": "def caller():\n    result = callee()\n    return result\n\ndef callee():\n    return 42"
+            temp_dir
+            / "test.py": "def caller():\n    result = callee()\n    return result\n\ndef callee():\n    return 42"
         }
 
         mapper = RelationshipMapper()
-        relationships = await mapper._map_call_relationships([caller_entity, callee_entity], file_contents)
+        relationships = await mapper._map_call_relationships(
+            [caller_entity, callee_entity], file_contents
+        )
 
         assert len(relationships) >= 1
-        call_rels = [
-            r for r in relationships if r.relation_type == RelationType.CALLS]
+        call_rels = [r for r in relationships if r.relation_type == RelationType.CALLS]
         assert len(call_rels) >= 1
 
 
@@ -321,7 +307,7 @@ class TestKnowledgeGraph:
             entity_type=EntityType.CLASS,
             file_path=Path("test.py"),
             start_line=1,
-            end_line=5
+            end_line=5,
         )
 
         graph.add_entity(entity)
@@ -340,7 +326,7 @@ class TestKnowledgeGraph:
             id="test_rel",
             source_entity_id="entity1",
             target_entity_id="entity2",
-            relation_type=RelationType.CALLS
+            relation_type=RelationType.CALLS,
         )
 
         graph.add_relationship(relationship)
@@ -358,7 +344,7 @@ class TestKnowledgeGraph:
             entity_type=EntityType.FUNCTION,
             file_path=Path("test.py"),
             start_line=1,
-            end_line=5
+            end_line=5,
         )
         entity2 = CodeEntity(
             id="entity2",
@@ -366,7 +352,7 @@ class TestKnowledgeGraph:
             entity_type=EntityType.FUNCTION,
             file_path=Path("test.py"),
             start_line=7,
-            end_line=10
+            end_line=10,
         )
 
         graph.add_entity(entity1)
@@ -376,7 +362,7 @@ class TestKnowledgeGraph:
             id="test_rel",
             source_entity_id="entity1",
             target_entity_id="entity2",
-            relation_type=RelationType.CALLS
+            relation_type=RelationType.CALLS,
         )
         graph.add_relationship(relationship)
 

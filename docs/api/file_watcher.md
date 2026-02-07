@@ -36,8 +36,8 @@ Real-time file system monitoring for automatic index updates and change detectio
 ### Basic File Watching
 
 ```python
-from pysearch.file_watcher import WatchManager
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig
+from pysearch.utils.file_watcher import WatchManager
 
 # Create configuration
 config = SearchConfig(paths=["./src"], include=["**/*.py"])
@@ -58,8 +58,8 @@ watcher.add_handler(on_file_changed)
 ### Integration with Search Engine
 
 ```python
-from pysearch.api import PySearch
-from pysearch.file_watcher import WatchManager
+from pysearch import PySearch
+from pysearch.utils.file_watcher import WatchManager
 
 # Create search engine
 engine = PySearch(config)

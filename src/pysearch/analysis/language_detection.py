@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ..core.types import Language
+from ..languages import Language
 
 # File extension to language mapping
 EXTENSION_MAP: dict[str, Language] = {

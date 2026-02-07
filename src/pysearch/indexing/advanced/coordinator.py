@@ -19,20 +19,21 @@ Features:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncGenerator, Callable
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
+from typing import Any
 
-from .base import EnhancedCodebaseIndex
-from .locking import IndexLock
 from ...analysis.content_addressing import (
     GlobalCacheManager,
-    IndexTag,
     IndexingProgressUpdate,
+    IndexTag,
     PathAndCacheKey,
 )
 from ...core.config import SearchConfig
 from ...utils.error_handling import ErrorCollector
 from ...utils.logging_config import get_logger
+from .base import CodebaseIndex
+from .locking import IndexLock
 
 logger = get_logger()
 
@@ -47,12 +48,12 @@ class IndexCoordinator:
 
     def __init__(self, config: SearchConfig):
         self.config = config
-        self.indexes: List[EnhancedCodebaseIndex] = []
+        self.indexes: list[CodebaseIndex] = []
         self.global_cache = GlobalCacheManager(config.resolve_cache_dir())
         self.error_collector = ErrorCollector()
         self.lock = IndexLock(config.resolve_cache_dir())
 
-    def add_index(self, index: EnhancedCodebaseIndex) -> None:
+    def add_index(self, index: CodebaseIndex) -> None:
         """Add an index to the coordinator."""
         self.indexes.append(index)
         logger.info(f"Added index: {index.artifact_id}")
@@ -66,7 +67,7 @@ class IndexCoordinator:
                 return True
         return False
 
-    def get_index(self, artifact_id: str) -> Optional[EnhancedCodebaseIndex]:
+    def get_index(self, artifact_id: str) -> CodebaseIndex | None:
         """Get an index by artifact ID."""
         for index in self.indexes:
             if index.artifact_id == artifact_id:
@@ -76,9 +77,9 @@ class IndexCoordinator:
     async def refresh_all_indexes(
         self,
         tag: IndexTag,
-        current_files: Dict[str, Any],
+        current_files: dict[str, Any],
         read_file: Callable[[str], str],
-        repo_name: Optional[str] = None,
+        repo_name: str | None = None,
     ) -> AsyncGenerator[IndexingProgressUpdate, None]:
         """
         Refresh all indexes with incremental updates.
@@ -94,9 +95,7 @@ class IndexCoordinator:
         """
         if not self.indexes:
             yield IndexingProgressUpdate(
-                progress=1.0,
-                description="No indexes configured",
-                status="done"
+                progress=1.0, description="No indexes configured", status="done"
             )
             return
 
@@ -104,34 +103,30 @@ class IndexCoordinator:
         directories = [tag.directory]
         if not await self.lock.acquire(directories):
             yield IndexingProgressUpdate(
-                progress=0.0,
-                description="Failed to acquire indexing lock",
-                status="failed"
+                progress=0.0, description="Failed to acquire indexing lock", status="failed"
             )
             return
 
         try:
             # Calculate total expected time for progress tracking
-            total_expected_time = sum(
-                idx.relative_expected_time for idx in self.indexes)
+            total_expected_time = sum(idx.relative_expected_time for idx in self.indexes)
             completed_time = 0.0
 
             for index in self.indexes:
                 index_tag = IndexTag(
-                    directory=tag.directory,
-                    branch=tag.branch,
-                    artifact_id=index.artifact_id
+                    directory=tag.directory, branch=tag.branch, artifact_id=index.artifact_id
                 )
 
                 yield IndexingProgressUpdate(
                     progress=completed_time / total_expected_time,
                     description=f"Planning updates for {index.artifact_id}",
-                    status="indexing"
+                    status="indexing",
                 )
 
                 try:
                     # Calculate what needs to be updated for this index
                     from ...analysis.content_addressing import ContentAddressedIndexer
+
                     indexer = ContentAddressedIndexer(self.config)
                     refresh_results = await indexer.calculate_refresh_results(
                         index_tag, current_files, read_file
@@ -139,7 +134,7 @@ class IndexCoordinator:
 
                     # Create mark_complete callback for this index
                     def mark_complete_wrapper(
-                        items: List[PathAndCacheKey],
+                        items: list[PathAndCacheKey],
                         result_type: str,
                     ) -> None:
                         # Schedule async operations to run in the background
@@ -160,14 +155,12 @@ class IndexCoordinator:
                         asyncio.create_task(_async_mark_complete())
 
                     # Update this index
-                    index_progress = 0.0
                     async for update in index.update(
                         index_tag, refresh_results, mark_complete_wrapper, repo_name
                     ):
                         # Scale progress to overall progress
                         overall_progress = (
-                            completed_time +
-                            (update.progress * index.relative_expected_time)
+                            completed_time + (update.progress * index.relative_expected_time)
                         ) / total_expected_time
 
                         yield IndexingProgressUpdate(
@@ -175,17 +168,14 @@ class IndexCoordinator:
                             description=f"{index.artifact_id}: {update.description}",
                             status=update.status,
                             warnings=update.warnings,
-                            debug_info=update.debug_info
+                            debug_info=update.debug_info,
                         )
-                        index_progress = update.progress
 
                     completed_time += index.relative_expected_time
 
                 except Exception as e:
-                    logger.error(
-                        f"Error updating index {index.artifact_id}: {e}")
-                    self.error_collector.add_error(
-                        e, file_path=Path(index.artifact_id))
+                    logger.error(f"Error updating index {index.artifact_id}: {e}")
+                    self.error_collector.add_error(e, file_path=Path(index.artifact_id))
 
                     # Continue with other indexes
                     completed_time += index.relative_expected_time
@@ -193,7 +183,7 @@ class IndexCoordinator:
                         progress=completed_time / total_expected_time,
                         description=f"Error in {index.artifact_id}: {str(e)}",
                         status="indexing",
-                        warnings=[f"{index.artifact_id}: {str(e)}"]
+                        warnings=[f"{index.artifact_id}: {str(e)}"],
                     )
 
             # Final completion
@@ -201,8 +191,11 @@ class IndexCoordinator:
                 progress=1.0,
                 description="Indexing complete",
                 status="done",
-                warnings=[str(
-                    error) for error in self.error_collector.errors] if self.error_collector.errors else None
+                warnings=(
+                    [str(error) for error in self.error_collector.errors]
+                    if self.error_collector.errors
+                    else None
+                ),
             )
 
         finally:

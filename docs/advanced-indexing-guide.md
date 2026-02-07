@@ -51,8 +51,8 @@ pip install openai   # For embeddings (optional)
 ### Basic Usage
 
 ```python
-from pysearch.enhanced_indexing_engine import EnhancedIndexingEngine
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig
+from pysearch.indexing.advanced.engine import EnhancedIndexingEngine
 
 # Create configuration
 config = SearchConfig(
@@ -570,8 +570,8 @@ async def search_in_file(file_path, query, tag, context_lines=3) -> List[Dict[st
 
 ```python
 import asyncio
-from pysearch.enhanced_indexing_engine import EnhancedIndexingEngine
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig
+from pysearch.indexing.advanced.engine import EnhancedIndexingEngine
 
 async def main():
     # Configure enhanced indexing
@@ -580,20 +580,20 @@ async def main():
         cache_dir="./cache",
         enable_enhanced_indexing=True,
     )
-    
+
     # Initialize engine
     engine = EnhancedIndexingEngine(config)
     await engine.initialize()
-    
+
     # Index codebase
     print("Starting enhanced indexing...")
     async for progress in engine.refresh_index():
         print(f"[{progress.progress:.1%}] {progress.description}")
-        
+
         if progress.warnings:
             for warning in progress.warnings:
                 print(f"Warning: {warning}")
-    
+
     print("Indexing complete!")
 
 if __name__ == "__main__":

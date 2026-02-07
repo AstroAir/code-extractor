@@ -18,18 +18,17 @@ from __future__ import annotations
 
 import builtins
 import threading
-from typing import Set
 
 
 class DependencyTracker:
     """
     Tracks file dependencies for cache entries.
-    
+
     This class manages the mapping between files and cache entries that
     depend on them, enabling efficient invalidation when files change.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # file_path -> set of cache_keys that depend on it
         self._file_dependencies: dict[str, set[str]] = {}
         self._dependency_lock = threading.RLock()
@@ -37,7 +36,7 @@ class DependencyTracker:
     def add_dependencies(self, cache_key: str, file_paths: builtins.set[str]) -> None:
         """
         Add file dependencies for a cache key.
-        
+
         Args:
             cache_key: The cache key that depends on the files
             file_paths: Set of file paths the cache entry depends on
@@ -51,7 +50,7 @@ class DependencyTracker:
     def remove_dependencies(self, cache_key: str) -> None:
         """
         Remove all file dependencies for a cache key.
-        
+
         Args:
             cache_key: The cache key to remove dependencies for
         """
@@ -65,13 +64,13 @@ class DependencyTracker:
             for file_path in files_to_remove:
                 del self._file_dependencies[file_path]
 
-    def get_dependent_keys(self, file_path: str) -> Set[str]:
+    def get_dependent_keys(self, file_path: str) -> set[str]:
         """
         Get all cache keys that depend on a specific file.
-        
+
         Args:
             file_path: Path of the file to check
-            
+
         Returns:
             Set of cache keys that depend on the file
         """
@@ -81,7 +80,7 @@ class DependencyTracker:
     def get_dependency_count(self) -> int:
         """
         Get the total number of file dependencies tracked.
-        
+
         Returns:
             Number of files being tracked for dependencies
         """
@@ -93,10 +92,10 @@ class DependencyTracker:
         with self._dependency_lock:
             self._file_dependencies.clear()
 
-    def get_files_with_dependencies(self) -> Set[str]:
+    def get_files_with_dependencies(self) -> set[str]:
         """
         Get all files that have cache dependencies.
-        
+
         Returns:
             Set of file paths that have cache entries depending on them
         """
@@ -106,7 +105,7 @@ class DependencyTracker:
     def cleanup_empty_dependencies(self) -> int:
         """
         Remove file entries that have no dependent cache keys.
-        
+
         Returns:
             Number of file entries removed
         """

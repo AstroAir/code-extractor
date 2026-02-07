@@ -38,28 +38,47 @@ Example:
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from ..indexing.cache import CacheManager
+from ..indexing.indexer import Indexer
+from ..integrations.multi_repo import MultiRepoSearchEngine, MultiRepoSearchResult, RepositoryInfo
+from ..search.boolean import evaluate_boolean_query_with_items, parse_boolean_query
+from ..search.matchers import search_in_file
+from ..search.scorer import (
+    RankingStrategy,
+    cluster_results_by_similarity,
+    deduplicate_overlapping_results,
+    sort_items,
+)
+from ..storage.qdrant_client import QdrantConfig
+from ..utils.error_handling import ErrorCollector, create_error_report
+from ..utils.file_watcher import FileEvent
+from ..utils.logging_config import SearchLogger, get_logger
+from ..utils.metadata_filters import apply_metadata_filters, get_file_author
+from ..utils.utils import create_file_metadata
 from .config import SearchConfig
 from .history import SearchHistory
-from .integrations.advanced_search import AdvancedSearchManager
+from .history.history_core import SearchHistoryEntry
+from .integrations.hybrid_search import HybridSearchManager
 from .integrations.cache_integration import CacheIntegrationManager
 from .integrations.dependency_integration import DependencyIntegrationManager
-from .integrations.enhanced_indexing_integration import EnhancedIndexingIntegrationManager
+from .integrations.indexing_integration import IndexingIntegrationManager
 from .integrations.file_watching import FileWatchingManager
 from .integrations.graphrag_integration import GraphRAGIntegrationManager
 from .integrations.multi_repo_integration import MultiRepoIntegrationManager
 from .integrations.parallel_processing import ParallelSearchManager
-from .types import GraphRAGQuery, OutputFormat, Query, SearchItem, SearchResult, SearchStats
-from ..indexing.indexer import Indexer
-from ..search.matchers import search_in_file
-from ..search.scorer import RankingStrategy, sort_items, deduplicate_overlapping_results
-from ..storage.qdrant_client import QdrantConfig
-from ..utils.error_handling import ErrorCollector
-from ..utils.logging_config import SearchLogger, get_logger
-from ..utils.metadata_filters import apply_metadata_filters, get_file_author
-from ..utils.utils import create_file_metadata, read_text_safely
+from .types import (
+    CountResult,
+    GraphRAGQuery,
+    OutputFormat,
+    Query,
+    SearchItem,
+    SearchResult,
+    SearchStats,
+)
 
 
 class PySearch:
@@ -112,7 +131,7 @@ class PySearch:
         logger: SearchLogger | None = None,
         qdrant_config: QdrantConfig | None = None,
         enable_graphrag: bool = False,
-        enable_enhanced_indexing: bool = False
+        enable_metadata_indexing: bool = False,
     ) -> None:
         """
         Initialize the PySearch engine.
@@ -122,12 +141,12 @@ class PySearch:
             logger: Custom logger instance. If None, uses default logger.
             qdrant_config: Qdrant vector database configuration for GraphRAG.
             enable_graphrag: Whether to enable GraphRAG capabilities.
-            enable_enhanced_indexing: Whether to enable enhanced metadata indexing.
+            enable_metadata_indexing: Whether to enable metadata indexing.
         """
         # Core components
         self.cfg = config or SearchConfig()
         self.cfg.enable_graphrag = enable_graphrag
-        self.cfg.enable_enhanced_indexing = enable_enhanced_indexing
+        self.cfg.enable_metadata_indexing = enable_metadata_indexing
 
         self.indexer = Indexer(self.cfg)
         self.history = SearchHistory(self.cfg)
@@ -135,19 +154,26 @@ class PySearch:
         self.error_collector = ErrorCollector()
 
         # Integration managers
-        self.advanced_search = AdvancedSearchManager(self.cfg)
+        self.hybrid_search = HybridSearchManager(self.cfg)
         self.cache_integration = CacheIntegrationManager(self.cfg)
         self.dependency_integration = DependencyIntegrationManager(self.cfg)
         self.file_watching = FileWatchingManager(self.cfg)
         self.graphrag_integration = GraphRAGIntegrationManager(self.cfg, qdrant_config)
-        self.enhanced_indexing_integration = EnhancedIndexingIntegrationManager(self.cfg)
+        self.indexing_integration = IndexingIntegrationManager(self.cfg)
         self.multi_repo_integration = MultiRepoIntegrationManager(self.cfg)
         self.parallel_processing = ParallelSearchManager(self.cfg)
 
+        # Initialize state attributes
+        self._caching_enabled = False
+        self._multi_repo_enabled = False
+        self.cache_manager: Any = None
+        self.watch_manager: Any = None  # Will be set by file watching integration if needed
+        self.multi_repo_engine: Any = None
+
         # Set up dependencies between managers
-        self.advanced_search.set_dependencies(self.error_collector, self.logger)
+        self.hybrid_search.set_dependencies(self.error_collector, self.logger)
         self.graphrag_integration.set_dependencies(self.logger, self.error_collector)
-        self.enhanced_indexing_integration.set_dependencies(self.logger, self.error_collector)
+        self.indexing_integration.set_dependencies(self.logger, self.error_collector)
         self.dependency_integration.set_logger(self.logger)
         self.file_watching.set_indexer(self.indexer)
 
@@ -155,25 +181,27 @@ class PySearch:
         """Initialize GraphRAG components."""
         await self.graphrag_integration.initialize()
 
-    async def initialize_enhanced_indexing(self) -> None:
-        """Initialize enhanced indexing components."""
-        await self.enhanced_indexing_integration.initialize()
+    async def initialize_metadata_indexing(self) -> None:
+        """Initialize metadata indexing components."""
+        await self.indexing_integration.initialize()
 
     async def build_knowledge_graph(self, force_rebuild: bool = False) -> bool:
         """Build the GraphRAG knowledge graph."""
         return await self.graphrag_integration.build_knowledge_graph(force_rebuild)
 
-    async def build_enhanced_index(self, include_semantic: bool = True, force_rebuild: bool = False) -> bool:
-        """Build the enhanced metadata index."""
-        return await self.enhanced_indexing_integration.build_index(force_rebuild)
+    async def build_metadata_index(
+        self, include_semantic: bool = True, force_rebuild: bool = False
+    ) -> bool:
+        """Build the metadata index."""
+        return await self.indexing_integration.build_index(force_rebuild)
 
     async def graphrag_search(self, query: GraphRAGQuery) -> Any | None:
         """Perform GraphRAG-based search."""
         return await self.graphrag_integration.query_graph(query)
 
-    async def enhanced_index_search(self, query: Any) -> dict[str, Any] | None:
-        """Search using the enhanced metadata index."""
-        return await self.enhanced_indexing_integration.query_index(query)
+    async def metadata_index_search(self, query: Any) -> dict[str, Any] | None:
+        """Search using the metadata index."""
+        return await self.indexing_integration.query_index(query)
 
     def _search_file(self, path: Path, query: Query) -> list[SearchItem]:
         text = self._get_cached_file_content(path)
@@ -193,7 +221,24 @@ class PySearch:
             if not apply_metadata_filters(metadata, query.metadata_filters):
                 return []
 
-        return search_in_file(path, text, query)
+        # Handle boolean queries
+        if query.use_boolean:
+            try:
+                boolean_query = parse_boolean_query(query.pattern)
+                # Get basic matches first, then filter with boolean logic
+                basic_items = search_in_file(path, text, query)
+                items = evaluate_boolean_query_with_items(boolean_query, text, basic_items)
+            except Exception as e:
+                self.logger.warning(f"Boolean query error in {path}: {e}")
+                return []
+        else:
+            items = search_in_file(path, text, query)
+
+        # Apply per-file limit if specified
+        if query.max_per_file is not None and len(items) > query.max_per_file:
+            items = items[: query.max_per_file]
+
+        return items
 
     def _get_cached_file_content(self, path: Path) -> str:
         """
@@ -212,7 +257,7 @@ class PySearch:
 
     def _get_cache_key(self, query: Query) -> str:
         """Generate cache key for search query."""
-        return f"{query.pattern}:{query.use_regex}:{query.use_ast}:{query.context}:{hash(str(query.filters))}:{hash(str(query.metadata_filters))}"
+        return self.cache_integration._generate_cache_key(query)
 
     def _is_cache_valid(self, timestamp: float) -> bool:
         """Check if cache entry is still valid."""
@@ -279,7 +324,6 @@ class PySearch:
             self.error_collector.add_error(e)
             # Continue with empty file list
             changed = []
-            _removed: list[str] = []
             total_seen = 0
 
         paths = changed or list(self.indexer.iter_all_paths())
@@ -296,8 +340,7 @@ class PySearch:
         # Sort results by relevance with configurable strategy
         try:
             # Use hybrid ranking by default, could be configurable
-            items = sort_items(items, self.cfg, query.pattern,
-                               RankingStrategy.HYBRID)
+            items = sort_items(items, self.cfg, query.pattern, RankingStrategy.HYBRID)
             # Remove overlapping results for cleaner output
             items = deduplicate_overlapping_results(items)
         except Exception as e:
@@ -335,8 +378,6 @@ class PySearch:
             self.cache_integration.cache_result(query, result)
 
         return result
-
-
 
     def clear_caches(self) -> None:
         """Clear all internal caches."""
@@ -396,16 +437,71 @@ class PySearch:
         )
         return self.run(q)
 
+    def search_count_only(
+        self,
+        pattern: str,
+        regex: bool = False,
+        use_boolean: bool = False,
+        **kwargs: Any,
+    ) -> CountResult:
+        r"""
+        Perform a count-only search that returns only match counts, not content.
+
+        This method is optimized for fast counting and doesn't return actual
+        match content, making it suitable for quick exploration or validation.
+
+        Args:
+            pattern: Search pattern (text, regex, or boolean query)
+            regex: Whether to treat pattern as regex (default: False)
+            use_boolean: Whether to use boolean query logic (default: False)
+            **kwargs: Additional parameters for filtering
+
+        Returns:
+            CountResult containing match counts and statistics
+
+        Example:
+            >>> # Count function definitions
+            >>> result = engine.search_count_only("def ")
+            >>> print(f"Found {result.total_matches} function definitions")
+            >>>
+            >>> # Count with boolean logic
+            >>> result = engine.search_count_only("(async AND handler) NOT test", use_boolean=True)
+            >>> print(f"Found {result.total_matches} matches in {result.files_matched} files")
+        """
+        # Create query with count_only flag
+        query = Query(
+            pattern=pattern,
+            use_regex=regex,
+            use_boolean=use_boolean,
+            count_only=True,
+            context=0,  # No context needed for counting
+            filters=kwargs.get("filters"),
+            metadata_filters=kwargs.get("metadata_filters"),
+            search_docstrings=self.cfg.enable_docstrings,
+            search_comments=self.cfg.enable_comments,
+            search_strings=self.cfg.enable_strings,
+        )
+
+        # Run search to get items
+        result = self.run(query)
+
+        # Convert to count result
+        return CountResult(
+            total_matches=len(result.items),
+            files_matched=result.stats.files_matched,
+            stats=result.stats,
+        )
+
     async def hybrid_search(
         self,
         pattern: str,
         use_graphrag: bool = True,
-        use_enhanced_index: bool = True,
+        use_metadata_index: bool = True,
         graphrag_max_hops: int = 2,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """
-        Perform hybrid search combining traditional search, GraphRAG, and enhanced indexing.
+        Perform hybrid search combining traditional search, GraphRAG, and metadata indexing.
 
         This method provides a unified interface that leverages all available search
         capabilities to provide comprehensive results.
@@ -413,38 +509,34 @@ class PySearch:
         Args:
             pattern: Search pattern or query
             use_graphrag: Whether to include GraphRAG results
-            use_enhanced_index: Whether to include enhanced index results
+            use_metadata_index: Whether to include metadata index results
             graphrag_max_hops: Maximum hops for GraphRAG traversal
             **kwargs: Additional parameters for traditional search
 
         Returns:
             Dictionary containing results from all enabled search methods
         """
-        return await self.advanced_search.hybrid_search(
+        return await self.hybrid_search.hybrid_search(
             pattern=pattern,
             traditional_search_func=self.run,
             graphrag_search_func=self.graphrag_search if use_graphrag else None,
-            enhanced_index_search_func=self.enhanced_index_search if use_enhanced_index else None,
+            metadata_index_search_func=self.metadata_index_search if use_metadata_index else None,
             use_graphrag=use_graphrag,
-            use_enhanced_index=use_enhanced_index,
+            use_metadata_index=use_metadata_index,
             graphrag_max_hops=graphrag_max_hops,
-            **kwargs
+            **kwargs,
         )
 
     async def close_async_components(self) -> None:
         """Close async components properly."""
         await self.graphrag_integration.close()
-        await self.enhanced_indexing_integration.close()
+        await self.indexing_integration.close()
 
-    def search_semantic_advanced(
-        self,
-        query: str,
-        threshold: float = 0.1,
-        max_results: int = 100,
-        **kwargs: Any
+    def search_semantic(
+        self, query: str, threshold: float = 0.1, max_results: int = 100, **kwargs: Any
     ) -> SearchResult:
         """
-        Perform advanced semantic search with embedding-based similarity.
+        Perform semantic search with embedding-based similarity.
 
         This method uses sophisticated semantic analysis including:
         - Vector-based similarity using TF-IDF embeddings
@@ -463,16 +555,14 @@ class PySearch:
 
         Example:
             >>> # Find database-related code
-            >>> results = engine.search_semantic_advanced("database connection")
+            >>> results = engine.search_semantic("database connection")
             >>>
             >>> # Find web API implementations
-            >>> results = engine.search_semantic_advanced("web api", threshold=0.2)
+            >>> results = engine.search_semantic("web api", threshold=0.2)
             >>>
             >>> # Find testing utilities
-            >>> results = engine.search_semantic_advanced("test utilities", max_results=50)
+            >>> results = engine.search_semantic("test utilities", max_results=50)
         """
-        start_time = time.time()
-
         # Clear previous errors
         self.error_collector.clear()
 
@@ -488,7 +578,8 @@ class PySearch:
         try:
             changed, removed, total_seen = self.indexer.scan()
             self.logger.debug(
-                f"Indexer scan: {len(changed)} changed, {len(removed)} removed, {total_seen} total")
+                f"Indexer scan: {len(changed)} changed, {len(removed)} removed, {total_seen} total"
+            )
         except Exception as e:
             self.error_collector.add_error(e)
             # Continue with empty file list
@@ -496,21 +587,17 @@ class PySearch:
 
         paths = changed or list(self.indexer.iter_all_paths())
 
-        # Delegate to advanced search manager
-        return self.advanced_search.search_semantic_advanced(
+        # Delegate to hybrid search manager
+        return self.hybrid_search.search_semantic(
             query=query,
             file_paths=paths,
             get_file_content_func=self._get_cached_file_content,
             threshold=threshold,
             max_results=max_results,
-            **kwargs
+            **kwargs,
         )
 
-    def analyze_dependencies(
-        self,
-        directory: Path | None = None,
-        recursive: bool = True
-    ) -> Any:
+    def analyze_dependencies(self, directory: Path | None = None, recursive: bool = True) -> Any:
         """
         Analyze code dependencies and build a dependency graph.
 
@@ -564,11 +651,7 @@ class PySearch:
         """
         return self.dependency_integration.get_dependency_metrics(graph)
 
-    def find_dependency_impact(
-        self,
-        module: str,
-        graph: Any | None = None
-    ) -> dict[str, Any]:
+    def find_dependency_impact(self, module: str, graph: Any | None = None) -> dict[str, Any]:
         """
         Analyze the impact of changes to a specific module.
 
@@ -594,10 +677,7 @@ class PySearch:
         """
         return self.dependency_integration.find_dependency_impact(module, graph)
 
-    def suggest_refactoring_opportunities(
-        self,
-        graph: Any | None = None
-    ) -> list[dict[str, Any]]:
+    def suggest_refactoring_opportunities(self, graph: Any | None = None) -> list[dict[str, Any]]:
         """
         Suggest refactoring opportunities based on dependency analysis.
 
@@ -624,10 +704,7 @@ class PySearch:
         return self.dependency_integration.suggest_refactoring_opportunities(graph)
 
     def enable_auto_watch(
-        self,
-        debounce_delay: float = 0.5,
-        batch_size: int = 50,
-        max_batch_delay: float = 5.0
+        self, debounce_delay: float = 0.5, batch_size: int = 50, max_batch_delay: float = 5.0
     ) -> bool:
         """
         Enable automatic file watching for real-time index updates.
@@ -690,14 +767,14 @@ class PySearch:
             >>> for name, watcher_stats in stats.items():
             ...     print(f"  {name}: {watcher_stats['events_processed']} events processed")
         """
-        return self.watch_manager.get_all_stats()
+        return self.file_watching.get_watch_stats()
 
     def add_custom_watcher(
         self,
         name: str,
         path: Path | str,
         change_handler: Callable[[list[FileEvent]], None],
-        **kwargs: Any
+        **kwargs: Any,
     ) -> bool:
         """
         Add a custom file watcher with a specific change handler.
@@ -725,12 +802,8 @@ class PySearch:
             ...     my_handler
             ... )
         """
-        return self.watch_manager.add_watcher(
-            name=name,
-            path=path,
-            config=self.cfg,
-            change_handler=change_handler,
-            **kwargs
+        return self.file_watching.add_custom_watcher(
+            name=name, path=path, change_handler=change_handler, **kwargs
         )
 
     def remove_watcher(self, name: str) -> bool:
@@ -743,7 +816,7 @@ class PySearch:
         Returns:
             True if watcher was removed successfully, False otherwise
         """
-        return self.watch_manager.remove_watcher(name)
+        return self.file_watching.remove_watcher(name)
 
     def list_watchers(self) -> list[str]:
         """
@@ -752,7 +825,7 @@ class PySearch:
         Returns:
             List of watcher names
         """
-        return self.watch_manager.list_watchers()
+        return self.file_watching.list_watchers()
 
     def enable_caching(
         self,
@@ -760,7 +833,7 @@ class PySearch:
         cache_dir: Path | str | None = None,
         max_size: int = 1000,
         default_ttl: float = 3600,
-        compression: bool = False
+        compression: bool = False,
     ) -> bool:
         """
         Enable search result caching for improved performance.
@@ -803,7 +876,7 @@ class PySearch:
                 cache_dir=cache_dir,
                 max_size=max_size,
                 default_ttl=default_ttl,
-                compression=compression
+                compression=compression,
             )
 
             self._caching_enabled = True
@@ -870,7 +943,7 @@ class PySearch:
             ...     print(f"Total entries: {stats['total_entries']}")
         """
         if self.cache_manager:
-            return self.cache_manager.get_stats()
+            return self.cache_manager.get_stats()  # type: ignore[no-any-return]
         return {}
 
     def invalidate_cache_for_file(self, file_path: Path | str) -> int:
@@ -892,41 +965,16 @@ class PySearch:
             >>> print(f"Invalidated {count} cached results")
         """
         if self.cache_manager:
-            return self.cache_manager.invalidate_by_file(str(file_path))
+            return self.cache_manager.invalidate_by_file(str(file_path))  # type: ignore[no-any-return]
         return 0
 
     def _generate_cache_key(self, query: Query) -> str:
         """Generate a cache key for a search query."""
-        # Create a deterministic key from query parameters
-        key_parts = [
-            f"pattern:{query.pattern}",
-            f"regex:{query.use_regex}",
-            f"ast:{query.use_ast}",
-            f"semantic:{query.use_semantic}",
-            f"context:{query.context}",
-        ]
-
-        if query.filters:
-            key_parts.append(f"filters:{hash(str(query.filters))}")
-
-        if query.metadata_filters:
-            key_parts.append(f"metadata:{hash(str(query.metadata_filters))}")
-
-        # Include configuration that affects results
-        key_parts.extend([
-            f"paths:{hash(tuple(sorted(self.cfg.paths)))}",
-            f"include:{hash(tuple(sorted(self.cfg.include or [])))}",
-            f"exclude:{hash(tuple(sorted(self.cfg.exclude or [])))}"
-        ])
-
-        return "|".join(key_parts)
+        return self.cache_integration._generate_cache_key(query)
 
     def _get_file_dependencies(self, result: SearchResult) -> set[str]:
         """Extract file dependencies from search result."""
-        dependencies = set()
-        for item in result.items:
-            dependencies.add(str(item.file))
-        return dependencies
+        return {str(p) for p in self.cache_integration._get_file_dependencies(result)}
 
     def enable_multi_repo(self, max_workers: int = 4) -> bool:
         """
@@ -956,8 +1004,7 @@ class PySearch:
             return True
 
         try:
-            self.multi_repo_engine = MultiRepoSearchEngine(
-                max_workers=max_workers)
+            self.multi_repo_engine = MultiRepoSearchEngine(max_workers=max_workers)
             self._multi_repo_enabled = True
             self.logger.info("Multi-repository search enabled")
             return True
@@ -996,7 +1043,7 @@ class PySearch:
         path: Path | str,
         config: SearchConfig | None = None,
         priority: str = "normal",
-        **metadata: Any
+        **metadata: Any,
     ) -> bool:
         """
         Add a repository to multi-repository search.
@@ -1030,12 +1077,8 @@ class PySearch:
             self.logger.error("Multi-repository search not enabled")
             return False
 
-        return self.multi_repo_engine.add_repository(
-            name=name,
-            path=path,
-            config=config,
-            priority=priority,
-            **metadata
+        return self.multi_repo_engine.add_repository(  # type: ignore[no-any-return]
+            name=name, path=path, config=config, priority=priority, **metadata
         )
 
     def remove_repository(self, name: str) -> bool:
@@ -1051,7 +1094,7 @@ class PySearch:
         if not self._multi_repo_enabled or not self.multi_repo_engine:
             return False
 
-        return self.multi_repo_engine.remove_repository(name)
+        return self.multi_repo_engine.remove_repository(name)  # type: ignore[no-any-return]
 
     def list_repositories(self) -> list[str]:
         """
@@ -1063,7 +1106,7 @@ class PySearch:
         if not self._multi_repo_enabled or not self.multi_repo_engine:
             return []
 
-        return self.multi_repo_engine.list_repositories()
+        return self.multi_repo_engine.list_repositories()  # type: ignore[no-any-return]
 
     def get_repository_info(self, name: str) -> RepositoryInfo | None:
         """
@@ -1078,7 +1121,7 @@ class PySearch:
         if not self._multi_repo_enabled or not self.multi_repo_engine:
             return None
 
-        return self.multi_repo_engine.get_repository_info(name)
+        return self.multi_repo_engine.get_repository_info(name)  # type: ignore[no-any-return]
 
     def search_all_repositories(
         self,
@@ -1089,7 +1132,7 @@ class PySearch:
         context: int = 2,
         max_results: int = 1000,
         aggregate_results: bool = True,
-        timeout: float = 30.0
+        timeout: float = 30.0,
     ) -> MultiRepoSearchResult | None:
         """
         Search across all repositories in the multi-repository system.
@@ -1125,7 +1168,7 @@ class PySearch:
             self.logger.error("Multi-repository search not enabled")
             return None
 
-        return self.multi_repo_engine.search_all(
+        return self.multi_repo_engine.search_all(  # type: ignore[no-any-return]
             pattern=pattern,
             use_regex=use_regex,
             use_ast=use_ast,
@@ -1133,7 +1176,7 @@ class PySearch:
             context=context,
             max_results=max_results,
             aggregate_results=aggregate_results,
-            timeout=timeout
+            timeout=timeout,
         )
 
     def search_specific_repositories(
@@ -1142,7 +1185,7 @@ class PySearch:
         query: Query,
         max_results: int = 1000,
         aggregate_results: bool = True,
-        timeout: float = 30.0
+        timeout: float = 30.0,
     ) -> MultiRepoSearchResult | None:
         """
         Search specific repositories with a pre-built query.
@@ -1170,12 +1213,12 @@ class PySearch:
             self.logger.error("Multi-repository search not enabled")
             return None
 
-        return self.multi_repo_engine.search_repositories(
+        return self.multi_repo_engine.search_repositories(  # type: ignore[no-any-return]
             repositories=repositories,
             query=query,
             max_results=max_results,
             aggregate_results=aggregate_results,
-            timeout=timeout
+            timeout=timeout,
         )
 
     def get_multi_repo_health(self) -> dict[str, Any]:
@@ -1188,7 +1231,7 @@ class PySearch:
         if not self._multi_repo_enabled or not self.multi_repo_engine:
             return {}
 
-        return self.multi_repo_engine.get_health_status()
+        return self.multi_repo_engine.get_health_status()  # type: ignore[no-any-return]
 
     def get_multi_repo_stats(self) -> dict[str, Any]:
         """
@@ -1200,7 +1243,7 @@ class PySearch:
         if not self._multi_repo_enabled or not self.multi_repo_engine:
             return {}
 
-        return self.multi_repo_engine.get_search_statistics()
+        return self.multi_repo_engine.get_search_statistics()  # type: ignore[no-any-return]
 
     # New advanced search methods
     def fuzzy_search(
@@ -1253,7 +1296,7 @@ class PySearch:
             min_similarity: Minimum similarity score
             **kwargs: Additional search parameters
         """
-        from ..search.fuzzy import FuzzyAlgorithm
+        from ..search.fuzzy import FuzzyAlgorithm, fuzzy_pattern
 
         # Parse algorithms
         if algorithms:
@@ -1270,15 +1313,41 @@ class PySearch:
                 FuzzyAlgorithm.JARO_WINKLER,
             ]
 
-        # For now, use the first algorithm for regex generation
-        # In a full implementation, you'd want to process results differently
-        if fuzzy_algos:
-            from ..search.fuzzy import fuzzy_pattern
-
-            fuzzy_regex = fuzzy_pattern(pattern, max_distance, fuzzy_algos[0])
-            return self.search(fuzzy_regex, regex=True, **kwargs)
-        else:
+        if not fuzzy_algos:
             return self.search(pattern, regex=False, **kwargs)
+
+        # Run search with each algorithm's regex and merge results
+        all_items: list[SearchItem] = []
+        seen_keys: set[tuple[str, int]] = set()
+
+        for algo in fuzzy_algos:
+            try:
+                fuzzy_regex = fuzzy_pattern(pattern, max_distance, algo)
+                result = self.search(fuzzy_regex, regex=True, **kwargs)
+                for item in result.items:
+                    key = (str(item.file), item.start_line)
+                    if key not in seen_keys:
+                        seen_keys.add(key)
+                        all_items.append(item)
+            except Exception:
+                continue
+
+        # Re-sort and deduplicate combined results
+        from ..search.scorer import deduplicate_overlapping_results
+
+        all_items = sort_items(all_items, self.cfg, pattern)
+        all_items = deduplicate_overlapping_results(all_items)
+
+        return SearchResult(
+            items=all_items,
+            stats=SearchStats(
+                files_scanned=0,
+                files_matched=len({it.file for it in all_items}),
+                items=len(all_items),
+                elapsed_ms=0.0,
+                indexed_files=self.indexer.count_indexed(),
+            ),
+        )
 
     def phonetic_search(
         self, pattern: str, algorithm: str = "soundex", **kwargs: Any
@@ -1361,7 +1430,7 @@ class PySearch:
 
     def get_search_sessions(self, limit: int | None = None) -> list[Any]:
         """Get search sessions, most recent first."""
-        return self.history.get_sessions(limit)
+        return self.history.get_sessions(limit)  # type: ignore[no-any-return]
 
     def end_current_session(self) -> None:
         """Manually end the current search session."""
@@ -1515,9 +1584,7 @@ class PySearch:
 
         # Re-sort with specified strategy
         try:
-            _all_files = {item.file for item in result.items}
-            sorted_items = sort_items(
-                result.items, self.cfg, pattern, strategy)
+            sorted_items = sort_items(result.items, self.cfg, pattern, strategy)
 
             # Cluster results if requested
             if cluster_results:
@@ -1592,8 +1659,7 @@ class PySearch:
             elif any(char in pattern for char in ["_", "-", "."]):
                 analysis["query_type"] = "identifier"
                 analysis["recommended_strategy"] = "hybrid"
-                analysis["suggestions"].append(
-                    "Identifiers work well with hybrid ranking")
+                analysis["suggestions"].append("Identifiers work well with hybrid ranking")
             else:
                 analysis["query_type"] = "simple"
                 analysis["recommended_strategy"] = "popularity"
@@ -1607,18 +1673,15 @@ class PySearch:
                 analysis["file_spread"] = unique_files
 
                 if unique_files > 10:
-                    analysis["suggestions"].append(
-                        "Many files found - consider clustering results")
+                    analysis["suggestions"].append("Many files found - consider clustering results")
 
                 # Calculate result diversity
                 if len(results.items) > 1:
                     clusters = cluster_results_by_similarity(results.items)
-                    analysis["result_diversity"] = len(
-                        clusters) / len(results.items)
+                    analysis["result_diversity"] = len(clusters) / len(results.items)
 
                     if analysis["result_diversity"] < 0.3:
-                        analysis["suggestions"].append(
-                            "Low diversity - results are very similar")
+                        analysis["suggestions"].append("Low diversity - results are very similar")
                     elif analysis["result_diversity"] > 0.8:
                         analysis["suggestions"].append(
                             "High diversity - results are quite different"
@@ -1633,24 +1696,3 @@ class PySearch:
     def cleanup_old_cache_entries(self, days_old: int = 30) -> int:
         """Clean up old cache entries."""
         return self.indexer.cleanup_old_entries(days_old)
-
-
-# Helper function for process pool (must be at module level)
-def _search_file_batch(paths: list[Path], query: Query) -> list[list[SearchItem]]:
-    """Process a batch of files in a separate process."""
-    from ..search.matchers import search_in_file
-    from ..utils.utils import read_text_safely
-
-    results = []
-    for path in paths:
-        try:
-            text = read_text_safely(path)
-            if text is not None:
-                result = search_in_file(path, text, query)
-                results.append(result)
-            else:
-                results.append([])
-        except Exception:
-            results.append([])
-
-    return results

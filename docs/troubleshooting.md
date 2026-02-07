@@ -30,7 +30,7 @@ pysearch find --pattern "import" --path . --stats
 
 # Check configuration
 python -c "
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig
 config = SearchConfig()
 print('✅ Configuration loaded successfully')
 print(f'Paths: {config.paths}')
@@ -577,8 +577,8 @@ except Exception as e:
 3. **Test configuration**:
 
    ```python
-   from pysearch.config import SearchConfig
-   
+   from pysearch import SearchConfig
+
    # Load with explicit validation
    config = SearchConfig()
    print(f"Loaded paths: {config.paths}")

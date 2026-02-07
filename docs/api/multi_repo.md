@@ -50,7 +50,7 @@ Multi-repository search capabilities for searching across multiple codebases sim
 ### Basic Multi-Repository Search
 
 ```python
-from pysearch.multi_repo import MultiRepoSearchEngine
+from pysearch.integrations.multi_repo import MultiRepoSearchEngine
 
 # Initialize multi-repo engine
 engine = MultiRepoSearchEngine()
@@ -105,14 +105,14 @@ results = engine.search_with_configs("TODO", configs)
 ### Advanced Multi-Repository Operations
 
 ```python
-from pysearch.types import Query, ASTFilters
+from pysearch import Query, ASTFilters
 
 # Complex query across repositories
 filters = ASTFilters(func_name=".*handler", decorator="route")
 query = Query(
     pattern="def",
     use_ast=True,
-    ast_filters=filters,
+    filters=filters,
     context=5
 )
 
@@ -145,8 +145,7 @@ print(f"Languages: {stats.languages}")
 ### Repository-Specific Configuration
 
 ```python
-from pysearch.config import SearchConfig
-from pysearch.types import Language
+from pysearch import SearchConfig, Language
 
 # Configure each repository differently
 engine.configure_repository("frontend", SearchConfig(

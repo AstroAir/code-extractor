@@ -1,12 +1,12 @@
 """
 Enhanced indexing engine for coordinating all indexing operations.
 
-This module provides the main EnhancedIndexingEngine class that serves as the
+This module provides the main IndexingEngine class that serves as the
 high-level interface for enhanced indexing operations, managing multiple index
 types and providing comprehensive progress tracking.
 
 Classes:
-    EnhancedIndexingEngine: Main indexing engine
+    IndexingEngine: Main indexing engine
 
 Features:
     - High-level indexing interface
@@ -18,32 +18,32 @@ Features:
 
 Example:
     Basic enhanced indexing:
-        >>> from pysearch.indexing.advanced.engine import EnhancedIndexingEngine
+        >>> from pysearch.indexing.advanced.engine import IndexingEngine
         >>> from pysearch.config import SearchConfig
         >>>
         >>> config = SearchConfig(paths=["./src"])
-        >>> engine = EnhancedIndexingEngine(config)
+        >>> engine = IndexingEngine(config)
         >>> await engine.refresh_index()
 """
 
 from __future__ import annotations
 
 import asyncio
-import subprocess
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any
 
-from .coordinator import IndexCoordinator
-from ...analysis.content_addressing import IndexTag, IndexingProgressUpdate
+from ...analysis.content_addressing import IndexingProgressUpdate, IndexTag
 from ...core.config import SearchConfig
 from ...utils.error_handling import ErrorCollector
 from ...utils.logging_config import get_logger
 from ...utils.utils import file_meta, iter_files, read_text_safely
+from .coordinator import IndexCoordinator
 
 logger = get_logger()
 
 
-class EnhancedIndexingEngine:
+class IndexingEngine:
     """
     Main enhanced indexing engine that coordinates all indexing operations.
 
@@ -68,35 +68,39 @@ class EnhancedIndexingEngine:
         """Load default index implementations."""
         # Import and add default indexes
         try:
-            from ..indexes.code_snippets_index import EnhancedCodeSnippetsIndex
-            self.coordinator.add_index(EnhancedCodeSnippetsIndex(self.config))
+            from ..indexes.code_snippets_index import CodeSnippetsIndex
+
+            self.coordinator.add_index(CodeSnippetsIndex(self.config))
         except ImportError:
             logger.warning("Code snippets index not available")
 
         try:
-            from ..indexes.full_text_index import EnhancedFullTextIndex
-            self.coordinator.add_index(EnhancedFullTextIndex(self.config))
+            from ..indexes.full_text_index import FullTextIndex
+
+            self.coordinator.add_index(FullTextIndex(self.config))
         except ImportError:
             logger.warning("Full text index not available")
 
         try:
-            from ..indexes.chunk_index import EnhancedChunkIndex
-            self.coordinator.add_index(EnhancedChunkIndex(self.config))
+            from ..indexes.chunk_index import ChunkIndex
+
+            self.coordinator.add_index(ChunkIndex(self.config))
         except ImportError:
             logger.warning("Chunk index not available")
 
-        if self.config.enable_enhanced_indexing:
+        if self.config.enable_metadata_indexing:
             try:
-                from ..indexes.vector_index import EnhancedVectorIndex
-                self.coordinator.add_index(EnhancedVectorIndex(self.config))
+                from ..indexes.vector_index import VectorIndex
+
+                self.coordinator.add_index(VectorIndex(self.config))
             except ImportError:
                 logger.warning("Vector index not available")
 
     async def refresh_index(
         self,
-        directories: Optional[List[str]] = None,
-        branch: Optional[str] = None,
-        repo_name: Optional[str] = None,
+        directories: list[str] | None = None,
+        branch: str | None = None,
+        repo_name: str | None = None,
     ) -> AsyncGenerator[IndexingProgressUpdate, None]:
         """
         Refresh indexes for specified directories.
@@ -116,12 +120,13 @@ class EnhancedIndexingEngine:
         if branch is None:
             try:
                 import subprocess
+
                 result = subprocess.run(
                     ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                     cwd=directories[0],
                     capture_output=True,
                     text=True,
-                    timeout=5.0
+                    timeout=5.0,
                 )
                 branch = result.stdout.strip() if result.returncode == 0 else "main"
             except Exception:
@@ -131,12 +136,13 @@ class EnhancedIndexingEngine:
         if repo_name is None:
             try:
                 import subprocess
+
                 result = subprocess.run(
                     ["git", "config", "--get", "remote.origin.url"],
                     cwd=directories[0],
                     capture_output=True,
                     text=True,
-                    timeout=5.0
+                    timeout=5.0,
                 )
                 if result.returncode == 0:
                     url = result.stdout.strip()
@@ -146,16 +152,12 @@ class EnhancedIndexingEngine:
 
         for directory in directories:
             yield IndexingProgressUpdate(
-                progress=0.0,
-                description=f"Starting indexing for {directory}",
-                status="loading"
+                progress=0.0, description=f"Starting indexing for {directory}", status="loading"
             )
 
             # Discover files
             yield IndexingProgressUpdate(
-                progress=0.1,
-                description=f"Discovering files in {directory}",
-                status="indexing"
+                progress=0.1, description=f"Discovering files in {directory}", status="indexing"
             )
 
             current_files = {}
@@ -181,17 +183,13 @@ class EnhancedIndexingEngine:
                     self.error_collector.add_error(e, file_path=file_path)
 
             yield IndexingProgressUpdate(
-                progress=0.2,
-                description=f"Found {file_count} files to process",
-                status="indexing"
+                progress=0.2, description=f"Found {file_count} files to process", status="indexing"
             )
 
             # Create tag for this indexing operation
             tag = IndexTag(
-                directory=directory,
-                branch=branch,
-                artifact_id="*"  # Will be replaced per index
-            )
+                directory=directory, branch=branch, artifact_id="*"
+            )  # Will be replaced per index
 
             # Read file function
             def read_file(path: str) -> str:
@@ -207,9 +205,7 @@ class EnhancedIndexingEngine:
             ):
                 if self._paused:
                     yield IndexingProgressUpdate(
-                        progress=update.progress,
-                        description="Indexing paused",
-                        status="paused"
+                        progress=update.progress, description="Indexing paused", status="paused"
                     )
 
                     while self._paused and not self._cancel_event.is_set():
@@ -219,28 +215,27 @@ class EnhancedIndexingEngine:
                         yield IndexingProgressUpdate(
                             progress=update.progress,
                             description="Indexing cancelled",
-                            status="cancelled"
+                            status="cancelled",
                         )
                         return
 
                 # Scale progress to account for file discovery
-                scaled_progress = progress_offset + \
-                    (update.progress * progress_scale)
+                scaled_progress = progress_offset + (update.progress * progress_scale)
 
                 yield IndexingProgressUpdate(
                     progress=scaled_progress,
                     description=update.description,
                     status=update.status,
                     warnings=update.warnings,
-                    debug_info=update.debug_info
+                    debug_info=update.debug_info,
                 )
 
     async def refresh_file(
         self,
         file_path: str,
         directory: str,
-        branch: Optional[str] = None,
-        repo_name: Optional[str] = None,
+        branch: str | None = None,
+        repo_name: str | None = None,
     ) -> None:
         """
         Refresh indexes for a single file.
@@ -268,11 +263,7 @@ class EnhancedIndexingEngine:
             }
 
             # Create tag
-            tag = IndexTag(
-                directory=directory,
-                branch=branch,
-                artifact_id="*"
-            )
+            tag = IndexTag(directory=directory, branch=branch, artifact_id="*")
 
             # Read file function
             def read_file(path: str) -> str:
@@ -315,7 +306,7 @@ class EnhancedIndexingEngine:
         """Check if indexing is cancelled."""
         return self._cancel_event.is_set()
 
-    async def get_index_stats(self) -> Dict[str, Any]:
+    async def get_index_stats(self) -> dict[str, Any]:
         """Get statistics for all indexes."""
         stats = {
             "total_indexes": len(self.coordinator.indexes),
@@ -333,7 +324,7 @@ class EnhancedIndexingEngine:
 
         return stats
 
-    async def _get_cache_stats(self) -> Dict[str, Any]:
+    async def _get_cache_stats(self) -> dict[str, Any]:
         """Get global cache statistics."""
         # This would query the global cache database for statistics
         # Implementation depends on GlobalCacheManager

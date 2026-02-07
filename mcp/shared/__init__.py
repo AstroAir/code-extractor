@@ -1,11 +1,11 @@
 """
 PySearch MCP Shared Utilities
 
-This module contains shared utilities and components used across MCP servers.
+This module contains shared utilities and components used by the MCP server.
 
 Available modules:
-- mcp_composition: Composition utilities for chaining operations
-- mcp_progress: Progress reporting functionality
-- mcp_prompts: Prompt templates for common scenarios
-- mcp_resources: Resource management utilities
+- validation: Input validation, security sanitization, and rate limiting
+- session_manager: Context-aware session management with learning
+- progress: Progress tracking for long-running operations
+- resource_manager: LRU cache and resource analytics
 """

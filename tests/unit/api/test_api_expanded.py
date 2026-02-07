@@ -8,30 +8,27 @@ and advanced search scenarios.
 
 from __future__ import annotations
 
-import asyncio
-import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Any
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from pysearch import PySearch
-from pysearch import SearchConfig
 from pysearch import (
-    Query,
-    OutputFormat,
-    Language,
     ASTFilters,
-    MetadataFilters,
     GraphRAGQuery,
+    Language,
+    MetadataFilters,
+    OutputFormat,
+    PySearch,
+    Query,
+    SearchConfig,
     SearchResult,
-    SearchStats
+    SearchStats,
 )
-from pysearch.storage.qdrant_client import QdrantConfig
 from pysearch.indexing.metadata import IndexQuery
+from pysearch.storage.qdrant_client import QdrantConfig
 
 
 class TestPySearchInitialization:
@@ -59,11 +56,7 @@ class TestPySearchInitialization:
     def test_initialization_with_custom_config(self, tmp_path: Path) -> None:
         """Test PySearch initialization with custom configuration."""
         config = SearchConfig(
-            paths=[str(tmp_path)],
-            include=["**/*.py"],
-            context=10,
-            parallel=True,
-            workers=2
+            paths=[str(tmp_path)], include=["**/*.py"], context=10, parallel=True, workers=2
         )
 
         engine = PySearch(config)
@@ -78,27 +71,20 @@ class TestPySearchInitialization:
         config = SearchConfig(paths=[str(tmp_path)])
         qdrant_config = QdrantConfig(host="localhost", port=6333)
 
-        engine = PySearch(
-            config=config,
-            qdrant_config=qdrant_config,
-            enable_graphrag=True
-        )
+        engine = PySearch(config=config, qdrant_config=qdrant_config, enable_graphrag=True)
 
         assert engine.enable_graphrag is True
         assert engine.qdrant_config == qdrant_config
         assert not engine._graphrag_initialized
 
-    def test_initialization_with_enhanced_indexing(self, tmp_path: Path) -> None:
-        """Test PySearch initialization with enhanced indexing enabled."""
+    def test_initialization_with_metadata_indexing(self, tmp_path: Path) -> None:
+        """Test PySearch initialization with metadata indexing enabled."""
         config = SearchConfig(paths=[str(tmp_path)])
 
-        engine = PySearch(
-            config=config,
-            enable_enhanced_indexing=True
-        )
+        engine = PySearch(config=config, enable_metadata_indexing=True)
 
-        assert engine.enable_enhanced_indexing is True
-        assert not engine._enhanced_indexing_initialized
+        assert engine.cfg.enable_metadata_indexing is True
+        assert not engine.indexing_integration._index_initialized
 
     def test_initialization_with_custom_logger(self, tmp_path: Path) -> None:
         """Test PySearch initialization with custom logger."""
@@ -123,7 +109,7 @@ class TestPySearchCacheManagement:
         engine._file_content_cache[test_path] = (time.time(), "test content")
         engine._search_result_cache["test_query"] = (
             time.time(),
-            SearchResult(items=[], stats=SearchStats())
+            SearchResult(items=[], stats=SearchStats()),
         )
 
         assert len(engine._file_content_cache) == 1
@@ -234,7 +220,7 @@ class TestPySearchErrorHandling:
         engine = PySearch(config)
 
         # Mock indexer to raise exception
-        with patch.object(engine.indexer, 'scan', side_effect=Exception("Scan error")):
+        with patch.object(engine.indexer, "scan", side_effect=Exception("Scan error")):
             query = Query(pattern="test")
             result = engine.run(query)
 
@@ -252,15 +238,13 @@ class TestPySearchAdvancedFeatures:
         config = SearchConfig(paths=[str(tmp_path)])
         qdrant_config = QdrantConfig(host="localhost", port=6333)
 
-        engine = PySearch(
-            config=config,
-            qdrant_config=qdrant_config,
-            enable_graphrag=True
-        )
+        engine = PySearch(config=config, qdrant_config=qdrant_config, enable_graphrag=True)
 
         # Mock the GraphRAG components
-        with patch('pysearch.api.GraphRAGEngine') as mock_graphrag, \
-             patch('pysearch.api.QdrantVectorStore') as mock_vector_store:
+        with (
+            patch("pysearch.api.GraphRAGEngine") as mock_graphrag,
+            patch("pysearch.api.QdrantVectorStore") as mock_vector_store,
+        ):
 
             mock_graphrag_instance = AsyncMock()
             mock_graphrag.return_value = mock_graphrag_instance
@@ -274,24 +258,21 @@ class TestPySearchAdvancedFeatures:
             assert engine._vector_store is not None
 
     @pytest.mark.asyncio
-    async def test_enhanced_indexing_initialization(self, tmp_path: Path) -> None:
-        """Test enhanced indexing initialization."""
+    async def test_metadata_indexing_initialization(self, tmp_path: Path) -> None:
+        """Test metadata indexing initialization."""
         config = SearchConfig(paths=[str(tmp_path)])
 
-        engine = PySearch(
-            config=config,
-            enable_enhanced_indexing=True
-        )
+        engine = PySearch(config=config, enable_metadata_indexing=True)
 
-        # Mock the enhanced indexer
-        with patch('pysearch.api.MetadataIndexer') as mock_indexer:
+        # Mock the metadata indexer
+        with patch("pysearch.api.MetadataIndexer") as mock_indexer:
             mock_indexer_instance = AsyncMock()
             mock_indexer.return_value = mock_indexer_instance
 
-            await engine.initialize_enhanced_indexing()
+            await engine.initialize_metadata_indexing()
 
-            assert engine._enhanced_indexing_initialized is True
-            assert engine._enhanced_indexer is not None
+            assert engine.indexing_integration._index_initialized is True
+            assert engine.indexing_integration._indexer is not None
 
     @pytest.mark.asyncio
     async def test_graphrag_search(self, tmp_path: Path) -> None:
@@ -299,27 +280,26 @@ class TestPySearchAdvancedFeatures:
         config = SearchConfig(paths=[str(tmp_path)])
         qdrant_config = QdrantConfig(host="localhost", port=6333)
 
-        engine = PySearch(
-            config=config,
-            qdrant_config=qdrant_config,
-            enable_graphrag=True
-        )
+        engine = PySearch(config=config, qdrant_config=qdrant_config, enable_graphrag=True)
 
         # Mock GraphRAG components
-        with patch.object(engine, 'initialize_graphrag') as mock_init, \
-             patch.object(engine, '_graphrag_engine') as mock_engine:
+        with (
+            patch.object(engine, "initialize_graphrag") as mock_init,
+            patch.object(engine, "_graphrag_engine") as mock_engine,
+        ):
 
             mock_init.return_value = None
             engine._graphrag_initialized = True
 
             # Create a proper GraphRAGResult mock
             from pysearch import GraphRAGResult
+
             mock_result = GraphRAGResult(
                 entities=[],
                 relationships=[],
                 similarity_scores={},
                 query=GraphRAGQuery(pattern="test query"),
-                metadata={}
+                metadata={},
             )
             mock_engine.query_graph = AsyncMock(return_value=mock_result)
 
@@ -329,27 +309,26 @@ class TestPySearchAdvancedFeatures:
             assert result == mock_result
 
     @pytest.mark.asyncio
-    async def test_enhanced_index_search(self, tmp_path: Path) -> None:
-        """Test enhanced index search functionality."""
+    async def test_metadata_index_search(self, tmp_path: Path) -> None:
+        """Test metadata index search functionality."""
         config = SearchConfig(paths=[str(tmp_path)])
 
-        engine = PySearch(
-            config=config,
-            enable_enhanced_indexing=True
-        )
+        engine = PySearch(config=config, enable_metadata_indexing=True)
 
-        # Mock enhanced indexer
-        with patch.object(engine, 'initialize_enhanced_indexing') as mock_init, \
-             patch.object(engine, '_enhanced_indexer') as mock_indexer:
+        # Mock metadata indexer
+        with (
+            patch.object(engine, "initialize_metadata_indexing") as mock_init,
+            patch.object(engine.indexing_integration, "_indexer") as mock_indexer,
+        ):
 
             mock_init.return_value = None
-            engine._enhanced_indexing_initialized = True
+            engine.indexing_integration._index_initialized = True
 
             mock_result = {"files": ["test.py"], "entities": [], "stats": {}}
             mock_indexer.query_index = AsyncMock(return_value=mock_result)
 
             query = IndexQuery(semantic_query="test")
-            result = await engine.enhanced_index_search(query)
+            result = await engine.metadata_index_search(query)
 
             assert result == mock_result
 
@@ -386,14 +365,14 @@ class TestPySearchHybridSearch:
         assert "traditional" in result
 
     @pytest.mark.asyncio
-    async def test_hybrid_search_with_enhanced_indexing_disabled(self, tmp_path: Path) -> None:
-        """Test hybrid search when enhanced indexing is disabled."""
+    async def test_hybrid_search_with_metadata_indexing_disabled(self, tmp_path: Path) -> None:
+        """Test hybrid search when metadata indexing is disabled."""
         config = SearchConfig(paths=[str(tmp_path)])
-        engine = PySearch(config, enable_enhanced_indexing=False)
+        engine = PySearch(config, enable_metadata_indexing=False)
 
         result = await engine.hybrid_search("test")
 
-        assert result.get("enhanced_index") is None
+        assert result.get("metadata_index") is None
         assert "traditional" in result
 
     @pytest.mark.asyncio
@@ -403,7 +382,7 @@ class TestPySearchHybridSearch:
         engine = PySearch(config)
 
         # Mock traditional search to raise exception
-        with patch.object(engine, 'run', side_effect=Exception("Search error")):
+        with patch.object(engine, "run", side_effect=Exception("Search error")):
             result = await engine.hybrid_search("test")
 
             # Should handle error gracefully
@@ -540,7 +519,9 @@ class TestPySearchParallelization:
             test_file.write_text(f"def test{i}():\n    return {i}")
 
         # Mock process pool to fail
-        with patch('concurrent.futures.ProcessPoolExecutor', side_effect=Exception("Process pool error")):
+        with patch(
+            "concurrent.futures.ProcessPoolExecutor", side_effect=Exception("Process pool error")
+        ):
             query = Query(pattern="def")
             result = engine.run(query)
 

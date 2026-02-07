@@ -6,7 +6,7 @@ This directory contains advanced indexing functionality that extends the basic i
 
 The advanced indexing system provides:
 
-- **Enhanced indexing engine** with advanced algorithms and optimizations
+- **Indexing engine** with advanced algorithms and optimizations
 - **Seamless integration** with the main search system
 - **Advanced code-aware chunking** strategies for better content organization
 - **Performance monitoring** and health checks
@@ -16,14 +16,14 @@ The advanced indexing system provides:
 
 ### Core Engine (`engine.py`)
 
-- `EnhancedCodebaseIndex`: Abstract base class for all advanced index types
+- `CodebaseIndex`: Abstract base class for all advanced index types
 - `IndexCoordinator`: Coordinates multiple index types for unified search
-- `EnhancedIndexingEngine`: Main indexing engine with tag-based management
+- `IndexingEngine`: Main indexing engine with tag-based management
 - `IndexLock`: Prevents concurrent indexing operations
 
 ### Integration (`integration.py`)
 
-- `EnhancedSearchEngine`: Main search engine integrating all advanced features
+- `IndexSearchEngine`: Main search engine integrating all advanced features
 - `SearchResultEnhancer`: Enhances search results with additional metadata
 - `IndexingOrchestrator`: Orchestrates indexing operations across repositories
 
@@ -60,20 +60,20 @@ The advanced indexing system provides:
 ### Basic Enhanced Indexing
 
 ```python
-from pysearch.indexing.advanced.engine import EnhancedIndexingEngine
+from pysearch.indexing.advanced.engine import IndexingEngine
 from pysearch.core.config import SearchConfig
 
 config = SearchConfig(paths=["./src"])
-engine = EnhancedIndexingEngine(config)
+engine = IndexingEngine(config)
 await engine.refresh_index()
 ```
 
 ### Advanced Search
 
 ```python
-from pysearch.indexing.advanced.integration import EnhancedSearchEngine
+from pysearch.indexing.advanced.integration import IndexSearchEngine
 
-engine = EnhancedSearchEngine(config)
+engine = IndexSearchEngine(config)
 results = await engine.search("database connection", limit=10)
 ```
 

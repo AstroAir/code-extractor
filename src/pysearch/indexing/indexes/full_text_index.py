@@ -10,19 +10,26 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 import time
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any
 
-from ...analysis.content_addressing import IndexTag, IndexingProgressUpdate, MarkCompleteCallback, PathAndCacheKey, RefreshIndexResults
-from ..advanced.engine import EnhancedCodebaseIndex
+from ...analysis.content_addressing import (
+    IndexingProgressUpdate,
+    IndexTag,
+    MarkCompleteCallback,
+    PathAndCacheKey,  # noqa: F401
+    RefreshIndexResults,
+)
 from ...analysis.language_detection import detect_language
 from ...utils.logging_config import get_logger
 from ...utils.utils import read_text_safely
+from ..advanced.base import CodebaseIndex
 
 logger = get_logger()
 
 
-class EnhancedFullTextIndex(EnhancedCodebaseIndex):
+class FullTextIndex(CodebaseIndex):
     """
     Enhanced full-text search index using SQLite FTS5.
 
@@ -42,17 +49,13 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
         self.config = config
         self.cache_dir = config.resolve_cache_dir()
         self.db_path = self.cache_dir / "full_text.db"
-        self._connection: Optional[sqlite3.Connection] = None
+        self._connection: sqlite3.Connection | None = None
         self._lock = asyncio.Lock()
 
     async def _get_connection(self) -> sqlite3.Connection:
         """Get database connection, creating tables if needed."""
         if self._connection is None:
-            self._connection = sqlite3.connect(
-                self.db_path,
-                check_same_thread=False,
-                timeout=30.0
-            )
+            self._connection = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0)
             self._connection.execute("PRAGMA journal_mode=WAL")
             self._connection.execute("PRAGMA busy_timeout=3000")
             await self._create_tables()
@@ -116,14 +119,18 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
         tag: IndexTag,
         results: RefreshIndexResults,
         mark_complete: MarkCompleteCallback,
-        repo_name: Optional[str] = None,
+        repo_name: str | None = None,
     ) -> AsyncGenerator[IndexingProgressUpdate, None]:
         """Update the full-text search index."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
 
-        total_operations = len(results.compute) + len(results.delete) + \
-            len(results.add_tag) + len(results.remove_tag)
+        total_operations = (
+            len(results.compute)
+            + len(results.delete)
+            + len(results.add_tag)
+            + len(results.remove_tag)
+        )
         completed_operations = 0
 
         # Process compute operations (new files)
@@ -131,7 +138,7 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
             yield IndexingProgressUpdate(
                 progress=completed_operations / max(total_operations, 1),
                 description=f"Indexing content of {Path(item.path).name}",
-                status="indexing"
+                status="indexing",
             )
 
             try:
@@ -145,29 +152,45 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
                 file_type = Path(item.path).suffix.lower()
 
                 # Insert into FTS table
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT OR REPLACE INTO fts_content (path, content, language, file_type)
                     VALUES (?, ?, ?, ?)
-                """, (item.path, content, language.value, file_type))
+                """,
+                    (item.path, content, language.value, file_type),
+                )
 
                 # Insert metadata
-                line_count = len(content.split('\n'))
-                file_size = len(content.encode('utf-8'))
+                line_count = len(content.split("\n"))
+                file_size = len(content.encode("utf-8"))
                 current_time = time.time()
 
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     INSERT OR REPLACE INTO fts_metadata
                     (path, content_hash, language, file_size, line_count, created_at)
                     VALUES (?, ?, ?, ?, ?, ?)
-                """, (item.path, item.cache_key, language.value, file_size, line_count, current_time))
+                """,
+                    (
+                        item.path,
+                        item.cache_key,
+                        language.value,
+                        file_size,
+                        line_count,
+                        current_time,
+                    ),
+                )
 
                 metadata_id = cursor.lastrowid
 
                 # Add tag association
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT OR REPLACE INTO fts_tags (metadata_id, tag, created_at)
                     VALUES (?, ?, ?)
-                """, (metadata_id, tag_string, current_time))
+                """,
+                    (metadata_id, tag_string, current_time),
+                )
 
                 conn.commit()
                 mark_complete([item], "compute")
@@ -177,15 +200,74 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
                 logger.error(f"Error processing file {item.path}: {e}")
                 completed_operations += 1
 
-        # Process other operations (simplified for brevity)
-        for item in results.add_tag + results.remove_tag + results.delete:
-            completed_operations += 1
-            mark_complete([item], "processed")
+        # Process add_tag operations (existing content, new tag)
+        for item in results.add_tag:
+            try:
+                cursor = conn.execute(
+                    "SELECT id FROM fts_metadata WHERE path = ? AND content_hash = ?",
+                    (item.path, item.cache_key),
+                )
+                for row in cursor.fetchall():
+                    conn.execute(
+                        """
+                        INSERT OR REPLACE INTO fts_tags (metadata_id, tag, created_at)
+                        VALUES (?, ?, ?)
+                    """,
+                        (row[0], tag_string, time.time()),
+                    )
+                conn.commit()
+                mark_complete([item], "add_tag")
+                completed_operations += 1
+            except Exception as e:
+                logger.error(f"Error adding tag for {item.path}: {e}")
+                completed_operations += 1
+
+        # Process remove_tag operations
+        for item in results.remove_tag:
+            try:
+                cursor = conn.execute(
+                    """
+                    SELECT ft.id FROM fts_tags ft
+                    JOIN fts_metadata fm ON ft.metadata_id = fm.id
+                    WHERE fm.path = ? AND fm.content_hash = ? AND ft.tag = ?
+                """,
+                    (item.path, item.cache_key, tag_string),
+                )
+                tag_ids = [row[0] for row in cursor.fetchall()]
+                for tag_id in tag_ids:
+                    conn.execute("DELETE FROM fts_tags WHERE id = ?", (tag_id,))
+                conn.commit()
+                mark_complete([item], "remove_tag")
+                completed_operations += 1
+            except Exception as e:
+                logger.error(f"Error removing tag for {item.path}: {e}")
+                completed_operations += 1
+
+        # Process delete operations
+        for item in results.delete:
+            try:
+                # Delete FTS content
+                conn.execute("DELETE FROM fts_content WHERE path = ?", (item.path,))
+
+                # Find metadata IDs and delete tags first
+                cursor = conn.execute(
+                    "SELECT id FROM fts_metadata WHERE path = ? AND content_hash = ?",
+                    (item.path, item.cache_key),
+                )
+                metadata_ids = [row[0] for row in cursor.fetchall()]
+                for metadata_id in metadata_ids:
+                    conn.execute("DELETE FROM fts_tags WHERE metadata_id = ?", (metadata_id,))
+                    conn.execute("DELETE FROM fts_metadata WHERE id = ?", (metadata_id,))
+
+                conn.commit()
+                mark_complete([item], "delete")
+                completed_operations += 1
+            except Exception as e:
+                logger.error(f"Error deleting content for {item.path}: {e}")
+                completed_operations += 1
 
         yield IndexingProgressUpdate(
-            progress=1.0,
-            description="Full-text indexing complete",
-            status="done"
+            progress=1.0, description="Full-text indexing complete", status="done"
         )
 
     async def retrieve(
@@ -194,7 +276,7 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
         tag: IndexTag,
         limit: int = 50,
         **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Retrieve files matching the full-text query."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
@@ -221,7 +303,8 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
         where_clause = " AND ".join(where_conditions)
 
         # Execute search
-        cursor = conn.execute(f"""
+        cursor = conn.execute(
+            f"""
             SELECT
                 fc.path,
                 fc.content,
@@ -236,19 +319,23 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
             WHERE fts_content MATCH ? AND {where_clause}
             ORDER BY rank
             LIMIT ?
-        """, [fts_query] + params + [limit])
+        """,
+            [fts_query] + params + [limit],
+        )
 
         results = []
         for row in cursor.fetchall():
-            results.append({
-                "path": row[0],
-                "content": row[1],
-                "language": row[2],
-                "file_type": row[3],
-                "file_size": row[4],
-                "line_count": row[5],
-                "rank": row[6],
-            })
+            results.append(
+                {
+                    "path": row[0],
+                    "content": row[1],
+                    "language": row[2],
+                    "file_type": row[3],
+                    "file_size": row[4],
+                    "line_count": row[5],
+                    "rank": row[6],
+                }
+            )
 
         return results
 
@@ -264,7 +351,7 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
             escaped_term = term.replace('"', '""')
 
             # Add as phrase if contains spaces, otherwise as term
-            if ' ' in escaped_term:
+            if " " in escaped_term:
                 fts_terms.append(f'"{escaped_term}"')
             else:
                 fts_terms.append(escaped_term)
@@ -277,25 +364,28 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
         query: str,
         tag: IndexTag,
         context_lines: int = 3,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search for query within a specific file with context."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
 
         # Get file content
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT fc.content FROM fts_content fc
             JOIN fts_metadata fm ON fc.path = fm.path
             JOIN fts_tags ft ON fm.id = ft.metadata_id
             WHERE fc.path = ? AND ft.tag = ?
-        """, (file_path, tag_string))
+        """,
+            (file_path, tag_string),
+        )
 
         row = cursor.fetchone()
         if not row:
             return []
 
         content = row[0]
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         # Find matching lines
         matches = []
@@ -307,46 +397,57 @@ class EnhancedFullTextIndex(EnhancedCodebaseIndex):
                 start_line = max(0, i - context_lines)
                 end_line = min(len(lines), i + context_lines + 1)
 
-                context_content = '\n'.join(lines[start_line:end_line])
+                context_content = "\n".join(lines[start_line:end_line])
 
-                matches.append({
-                    "line_number": i + 1,
-                    "line_content": line,
-                    "context": context_content,
-                    "start_line": start_line + 1,
-                    "end_line": end_line,
-                })
+                matches.append(
+                    {
+                        "line_number": i + 1,
+                        "line_content": line,
+                        "context": context_content,
+                        "start_line": start_line + 1,
+                        "end_line": end_line,
+                    }
+                )
 
         return matches
 
-    async def get_statistics(self, tag: IndexTag) -> Dict[str, Any]:
+    async def get_statistics(self, tag: IndexTag) -> dict[str, Any]:
         """Get statistics for this full-text index."""
         conn = await self._get_connection()
         tag_string = tag.to_string()
 
         # Total files
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT COUNT(*) FROM fts_metadata fm
             JOIN fts_tags ft ON fm.id = ft.metadata_id
             WHERE ft.tag = ?
-        """, (tag_string,))
+        """,
+            (tag_string,),
+        )
         total_files = cursor.fetchone()[0]
 
         # Files by language
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT fm.language, COUNT(*) FROM fts_metadata fm
             JOIN fts_tags ft ON fm.id = ft.metadata_id
             WHERE ft.tag = ?
             GROUP BY fm.language
-        """, (tag_string,))
+        """,
+            (tag_string,),
+        )
         files_by_language = dict(cursor.fetchall())
 
         # Total size and lines
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT SUM(fm.file_size), SUM(fm.line_count) FROM fts_metadata fm
             JOIN fts_tags ft ON fm.id = ft.metadata_id
             WHERE ft.tag = ?
-        """, (tag_string,))
+        """,
+            (tag_string,),
+        )
         totals = cursor.fetchone()
 
         return {

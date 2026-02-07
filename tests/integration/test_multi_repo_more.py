@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pysearch import SearchConfig
+from pysearch import SearchConfig, SearchResult, SearchStats
 from pysearch.integrations.multi_repo import MultiRepoSearchResult, RepositoryManager
-from pysearch import SearchResult, SearchStats
 
 
 def test_multi_repo_aggregation_and_health(tmp_path: Path) -> None:
@@ -21,4 +20,3 @@ def test_multi_repo_aggregation_and_health(tmp_path: Path) -> None:
     repo_path = tmp_path / "present"
     repo_path.mkdir()
     assert rm.add_repository("r1", repo_path, config=SearchConfig(paths=[str(repo_path)]))
-

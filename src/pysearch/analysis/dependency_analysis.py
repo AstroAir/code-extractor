@@ -46,9 +46,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .language_detection import detect_language
 from ..core.types import Language
 from ..utils.utils import read_text_safely
+from .language_detection import detect_language
 
 
 @dataclass
@@ -126,10 +126,7 @@ class DependencyGraph:
             existing_edge.weight += 1
         else:
             edge = DependencyEdge(
-                source=source,
-                target=target,
-                import_nodes=[import_node],
-                weight=1
+                source=source, target=target, import_nodes=[import_node], weight=1
             )
             self.edges[source].append(edge)
             self.reverse_edges[target].append(edge)
@@ -195,11 +192,11 @@ class DependencyGraph:
                     "target": edge.target,
                     "weight": edge.weight,
                     "type": edge.edge_type,
-                    "imports": len(edge.import_nodes)
+                    "imports": len(edge.import_nodes),
                 }
                 for edges in self.edges.values()
                 for edge in edges
-            ]
+            ],
         }
 
 
@@ -253,11 +250,9 @@ class CircularDependencyDetector:
         for dependency in self.graph.get_dependencies(node):
             if dependency not in self.index:
                 self._strongconnect(dependency)
-                self.lowlinks[node] = min(
-                    self.lowlinks[node], self.lowlinks[dependency])
+                self.lowlinks[node] = min(self.lowlinks[node], self.lowlinks[dependency])
             elif dependency in self.on_stack:
-                self.lowlinks[node] = min(
-                    self.lowlinks[node], self.index[dependency])
+                self.lowlinks[node] = min(self.lowlinks[node], self.index[dependency])
 
         if self.lowlinks[node] == self.index[node]:
             scc = []
@@ -362,7 +357,7 @@ class DependencyAnalyzer:
                             alias=alias.asname,
                             line_number=node.lineno,
                             import_type="import",
-                            language=Language.PYTHON
+                            language=Language.PYTHON,
                         )
                         imports.append(import_node)
 
@@ -380,7 +375,7 @@ class DependencyAnalyzer:
                             is_relative=is_relative,
                             import_type="from",
                             language=Language.PYTHON,
-                            metadata={"level": level}
+                            metadata={"level": level},
                         )
                         imports.append(import_node)
 
@@ -393,14 +388,15 @@ class DependencyAnalyzer:
     def _parse_python_imports_regex(self, content: str) -> list[ImportNode]:
         """Fallback regex-based Python import parsing."""
         imports = []
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         for line_num, line in enumerate(lines, 1):
             line = line.strip()
 
             # import module [as alias]
             import_match = re.match(
-                r'import\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*(?:as\s+([a-zA-Z_][a-zA-Z0-9_]*))?', line)
+                r"import\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*(?:as\s+([a-zA-Z_][a-zA-Z0-9_]*))?", line
+            )
             if import_match:
                 module, alias = import_match.groups()
                 import_node = ImportNode(
@@ -408,13 +404,16 @@ class DependencyAnalyzer:
                     alias=alias,
                     line_number=line_num,
                     import_type="import",
-                    language=Language.PYTHON
+                    language=Language.PYTHON,
                 )
                 imports.append(import_node)
 
             # from module import name [as alias]
             from_match = re.match(
-                r'from\s+(\.*)([a-zA-Z_][a-zA-Z0-9_.]*)\s+import\s+([a-zA-Z_][a-zA-Z0-9_.*]*)\s*(?:as\s+([a-zA-Z_][a-zA-Z0-9_]*))?', line)
+                r"from\s+(\.*)([a-zA-Z_][a-zA-Z0-9_.]*)\s+import\s+"
+                r"([a-zA-Z_][a-zA-Z0-9_.*]*)\s*(?:as\s+([a-zA-Z_][a-zA-Z0-9_]*))?",
+                line,
+            )
             if from_match:
                 dots, module, name, alias = from_match.groups()
                 is_relative = bool(dots)
@@ -425,7 +424,7 @@ class DependencyAnalyzer:
                     line_number=line_num,
                     is_relative=is_relative,
                     import_type="from",
-                    language=Language.PYTHON
+                    language=Language.PYTHON,
                 )
                 imports.append(import_node)
 
@@ -434,14 +433,15 @@ class DependencyAnalyzer:
     def _parse_javascript_imports(self, content: str, file_path: Path) -> list[ImportNode]:
         """Parse JavaScript/TypeScript import statements."""
         imports = []
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         for line_num, line in enumerate(lines, 1):
             line = line.strip()
 
             # import name from 'module'
             import_match = re.match(
-                r'import\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s+from\s+["\']([^"\']+)["\']', line)
+                r'import\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s+from\s+["\']([^"\']+)["\']', line
+            )
             if import_match:
                 name, module = import_match.groups()
                 import_node = ImportNode(
@@ -449,20 +449,21 @@ class DependencyAnalyzer:
                     alias=name,
                     line_number=line_num,
                     import_type="import",
-                    language=Language.JAVASCRIPT
+                    language=Language.JAVASCRIPT,
                 )
                 imports.append(import_node)
 
             # import { name } from 'module'
             destructure_match = re.match(
-                r'import\s+\{\s*([^}]+)\s*\}\s+from\s+["\']([^"\']+)["\']', line)
+                r'import\s+\{\s*([^}]+)\s*\}\s+from\s+["\']([^"\']+)["\']', line
+            )
             if destructure_match:
                 names, module = destructure_match.groups()
-                for name in names.split(','):
+                for name in names.split(","):
                     name = name.strip()
                     alias = None
-                    if ' as ' in name:
-                        name, alias = name.split(' as ')
+                    if " as " in name:
+                        name, alias = name.split(" as ")
                         name, alias = name.strip(), alias.strip()
 
                     import_node = ImportNode(
@@ -471,13 +472,15 @@ class DependencyAnalyzer:
                         from_module=module,
                         line_number=line_num,
                         import_type="destructure",
-                        language=Language.JAVASCRIPT
+                        language=Language.JAVASCRIPT,
                     )
                     imports.append(import_node)
 
             # require('module')
             require_match = re.match(
-                r'(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*require\s*\(\s*["\']([^"\']+)["\']\s*\)', line)
+                r'(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*require\s*\(\s*["\']([^"\']+)["\']\s*\)',
+                line,
+            )
             if require_match:
                 name, module = require_match.groups()
                 import_node = ImportNode(
@@ -485,7 +488,7 @@ class DependencyAnalyzer:
                     alias=name,
                     line_number=line_num,
                     import_type="require",
-                    language=Language.JAVASCRIPT
+                    language=Language.JAVASCRIPT,
                 )
                 imports.append(import_node)
 
@@ -494,22 +497,21 @@ class DependencyAnalyzer:
     def _parse_java_imports(self, content: str, file_path: Path) -> list[ImportNode]:
         """Parse Java import statements."""
         imports = []
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         for line_num, line in enumerate(lines, 1):
             line = line.strip()
 
             # import package.Class;
-            import_match = re.match(
-                r'import\s+(?:static\s+)?([a-zA-Z_][a-zA-Z0-9_.]*)\s*;', line)
+            import_match = re.match(r"import\s+(?:static\s+)?([a-zA-Z_][a-zA-Z0-9_.]*)\s*;", line)
             if import_match:
                 module = import_match.group(1)
-                is_static = 'static' in line
+                is_static = "static" in line
                 import_node = ImportNode(
                     module=module,
                     line_number=line_num,
                     import_type="static" if is_static else "import",
-                    language=Language.JAVA
+                    language=Language.JAVA,
                 )
                 imports.append(import_node)
 
@@ -518,21 +520,20 @@ class DependencyAnalyzer:
     def _parse_csharp_imports(self, content: str, file_path: Path) -> list[ImportNode]:
         """Parse C# using statements."""
         imports = []
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         for line_num, line in enumerate(lines, 1):
             line = line.strip()
 
             # using Namespace;
-            using_match = re.match(
-                r'using\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*;', line)
+            using_match = re.match(r"using\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*;", line)
             if using_match:
                 namespace = using_match.group(1)
                 import_node = ImportNode(
                     module=namespace,
                     line_number=line_num,
                     import_type="using",
-                    language=Language.CSHARP
+                    language=Language.CSHARP,
                 )
                 imports.append(import_node)
 
@@ -541,7 +542,7 @@ class DependencyAnalyzer:
     def _parse_go_imports(self, content: str, file_path: Path) -> list[ImportNode]:
         """Parse Go import statements."""
         imports = []
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         in_import_block = False
         for line_num, line in enumerate(lines, 1):
@@ -552,26 +553,22 @@ class DependencyAnalyzer:
             if single_import:
                 package = single_import.group(1)
                 import_node = ImportNode(
-                    module=package,
-                    line_number=line_num,
-                    import_type="import",
-                    language=Language.GO
+                    module=package, line_number=line_num, import_type="import", language=Language.GO
                 )
                 imports.append(import_node)
 
             # import ( ... )
-            if line.startswith('import ('):
+            if line.startswith("import ("):
                 in_import_block = True
                 continue
 
             if in_import_block:
-                if line == ')':
+                if line == ")":
                     in_import_block = False
                     continue
 
                 # "package" or alias "package"
-                import_match = re.match(
-                    r'(?:([a-zA-Z_][a-zA-Z0-9_]*)\s+)?"([^"]+)"', line)
+                import_match = re.match(r'(?:([a-zA-Z_][a-zA-Z0-9_]*)\s+)?"([^"]+)"', line)
                 if import_match:
                     alias, package = import_match.groups()
                     import_node = ImportNode(
@@ -579,7 +576,7 @@ class DependencyAnalyzer:
                         alias=alias,
                         line_number=line_num,
                         import_type="import",
-                        language=Language.GO
+                        language=Language.GO,
                     )
                     imports.append(import_node)
 
@@ -589,22 +586,21 @@ class DependencyAnalyzer:
         """Get module name from file path based on language conventions."""
         if language == Language.PYTHON:
             # Convert file path to Python module notation
-            parts = file_path.with_suffix('').parts
-            if parts[-1] == '__init__':
+            parts = file_path.with_suffix("").parts
+            if parts[-1] == "__init__":
                 parts = parts[:-1]
-            return '.'.join(parts)
+            return ".".join(parts)
 
         elif language in (Language.JAVASCRIPT, Language.TYPESCRIPT):
             # Use relative path for JS/TS
-            return str(file_path.with_suffix(''))
+            return str(file_path.with_suffix(""))
 
         elif language == Language.JAVA:
             # Extract package from file content if possible
             try:
                 content = read_text_safely(file_path)
                 if content:
-                    package_match = re.search(
-                        r'package\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*;', content)
+                    package_match = re.search(r"package\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*;", content)
                     if package_match:
                         package = package_match.group(1)
                         class_name = file_path.stem
@@ -628,12 +624,12 @@ class DependencyAnalyzer:
 
         # Basic counts
         metrics.total_modules = len(self.graph.nodes)
-        metrics.total_dependencies = sum(len(edges)
-                                         for edges in self.graph.edges.values())
+        metrics.total_dependencies = sum(len(edges) for edges in self.graph.edges.values())
 
         if metrics.total_modules > 0:
-            metrics.average_dependencies_per_module = metrics.total_dependencies / \
-                metrics.total_modules
+            metrics.average_dependencies_per_module = (
+                metrics.total_dependencies / metrics.total_modules
+            )
 
         # Circular dependencies
         detector = CircularDependencyDetector(self.graph)
@@ -648,21 +644,18 @@ class DependencyAnalyzer:
 
         # Dead modules (modules with no dependents)
         metrics.dead_modules = [
-            module for module in self.graph.nodes
-            if not self.graph.get_dependents(module)
+            module for module in self.graph.nodes if not self.graph.get_dependents(module)
         ]
 
         # Highly coupled modules (modules with many dependencies)
         dependency_counts = {
-            module: len(self.graph.get_dependencies(module))
-            for module in self.graph.nodes
+            module: len(self.graph.get_dependencies(module)) for module in self.graph.nodes
         }
         if dependency_counts:
             avg_deps = sum(dependency_counts.values()) / len(dependency_counts)
             threshold = avg_deps * 2  # Modules with 2x average dependencies
             metrics.highly_coupled_modules = [
-                module for module, count in dependency_counts.items()
-                if count > threshold
+                module for module, count in dependency_counts.items() if count > threshold
             ]
 
         return metrics
@@ -712,8 +705,7 @@ class DependencyAnalyzer:
 
         for module in self.graph.nodes:
             afferent_coupling[module] = len(self.graph.get_dependents(module))
-            efferent_coupling[module] = len(
-                self.graph.get_dependencies(module))
+            efferent_coupling[module] = len(self.graph.get_dependencies(module))
 
         # Instability (I) = Ce / (Ca + Ce)
         # Ranges from 0 (stable) to 1 (unstable)
@@ -727,21 +719,22 @@ class DependencyAnalyzer:
                 instability[module] = 0.0
 
         # Average metrics
-        metrics['average_afferent_coupling'] = sum(
-            afferent_coupling.values()) / len(afferent_coupling)
-        metrics['average_efferent_coupling'] = sum(
-            efferent_coupling.values()) / len(efferent_coupling)
-        metrics['average_instability'] = sum(
-            instability.values()) / len(instability)
+        metrics["average_afferent_coupling"] = sum(afferent_coupling.values()) / len(
+            afferent_coupling
+        )
+        metrics["average_efferent_coupling"] = sum(efferent_coupling.values()) / len(
+            efferent_coupling
+        )
+        metrics["average_instability"] = sum(instability.values()) / len(instability)
 
         # Find most/least stable modules
         if instability:
             most_stable = min(instability.items(), key=lambda x: x[1])
             most_unstable = max(instability.items(), key=lambda x: x[1])
-            metrics['most_stable_module'] = most_stable[0]
-            metrics['most_stable_score'] = most_stable[1]
-            metrics['most_unstable_module'] = most_unstable[0]
-            metrics['most_unstable_score'] = most_unstable[1]
+            metrics["most_stable_module"] = most_stable[0]
+            metrics["most_stable_score"] = most_stable[1]
+            metrics["most_unstable_module"] = most_unstable[0]
+            metrics["most_unstable_score"] = most_unstable[1]
 
         return metrics
 
@@ -764,13 +757,11 @@ class DependencyAnalyzer:
         # Transitive dependents (all modules that could be affected)
         transitive_dependents = set()
         for dependent in direct_dependents:
-            transitive_dependents.update(
-                self.graph.get_transitive_dependencies(dependent))
+            transitive_dependents.update(self.graph.get_transitive_dependencies(dependent))
 
         # Dependencies that would need to be considered
         direct_dependencies = self.graph.get_dependencies(module)
-        transitive_dependencies = self.graph.get_transitive_dependencies(
-            module)
+        transitive_dependencies = self.graph.get_transitive_dependencies(module)
 
         return {
             "module": module,
@@ -780,9 +771,8 @@ class DependencyAnalyzer:
             "direct_dependencies": direct_dependencies,
             "transitive_dependencies": list(transitive_dependencies),
             "impact_score": self._calculate_impact_score(
-                len(direct_dependents),
-                len(transitive_dependents)
-            )
+                len(direct_dependents), len(transitive_dependents)
+            ),
         }
 
     def _calculate_impact_score(self, direct: int, transitive: int) -> float:
@@ -809,13 +799,15 @@ class DependencyAnalyzer:
         detector = CircularDependencyDetector(self.graph)
         cycles = detector.find_cycles()
         for cycle in cycles:
-            suggestions.append({
-                "type": "break_circular_dependency",
-                "priority": "high",
-                "modules": cycle,
-                "description": f"Break circular dependency: {' -> '.join(cycle)}",
-                "rationale": "Circular dependencies make code harder to test and maintain"
-            })
+            suggestions.append(
+                {
+                    "type": "break_circular_dependency",
+                    "priority": "high",
+                    "modules": cycle,
+                    "description": f"Break circular dependency: {' -> '.join(cycle)}",
+                    "rationale": "Circular dependencies make code harder to test and maintain",
+                }
+            )
 
         # Suggest splitting highly coupled modules
         for module in metrics.highly_coupled_modules:
@@ -826,18 +818,20 @@ class DependencyAnalyzer:
                 "module": module,
                 "dependency_count": len(dependencies),
                 "description": f"Consider splitting {module} (has {len(dependencies)} dependencies)",
-                "rationale": "High coupling makes modules harder to maintain and test"
+                "rationale": "High coupling makes modules harder to maintain and test",
             }
             suggestions.append(suggestion)
 
         # Suggest removing dead modules
         for module in metrics.dead_modules:
-            suggestions.append({
-                "type": "remove_dead_code",
-                "priority": "low",
-                "module": module,
-                "description": f"Consider removing unused module: {module}",
-                "rationale": "Dead code increases maintenance burden"
-            })
+            suggestions.append(
+                {
+                    "type": "remove_dead_code",
+                    "priority": "low",
+                    "module": module,
+                    "description": f"Consider removing unused module: {module}",
+                    "rationale": "Dead code increases maintenance burden",
+                }
+            )
 
         return suggestions
