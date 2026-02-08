@@ -36,8 +36,8 @@ The indexer provides efficient file scanning and caching capabilities with incre
 ### Basic Indexing
 
 ```python
-from pysearch.indexer import Indexer
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig
+from pysearch.indexing import Indexer
 
 config = SearchConfig(
     paths=["./src"],
@@ -140,5 +140,5 @@ The cache is stored as JSON with the following structure:
 ## Related
 
 - [Configuration](config.md) - Indexer configuration options
-- [Performance](../performance.md) - Performance tuning guide
+- [Performance](../guide/performance.md) - Performance tuning guide
 - [Utils](utils.md) - File utilities

@@ -1,0 +1,124 @@
+/* Main stylesheet for the sample web application */
+
+:root {
+    --color-primary: #3b82f6;
+    --color-secondary: #64748b;
+    --color-success: #22c55e;
+    --color-error: #ef4444;
+    --color-bg: #ffffff;
+    --color-text: #1e293b;
+    --font-family: "Inter", system-ui, -apple-system, sans-serif;
+    --border-radius: 8px;
+    --spacing-unit: 8px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family);
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 calc(var(--spacing-unit) * 3);
+}
+
+/* Header */
+.header {
+    background: var(--color-primary);
+    color: white;
+    padding: calc(var(--spacing-unit) * 2) 0;
+}
+
+.header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+/* Navigation */
+.nav {
+    display: flex;
+    gap: calc(var(--spacing-unit) * 2);
+    align-items: center;
+}
+
+.nav a {
+    color: white;
+    text-decoration: none;
+    padding: var(--spacing-unit) calc(var(--spacing-unit) * 2);
+    border-radius: var(--border-radius);
+    transition: background-color 0.2s ease;
+}
+
+.nav a:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Cards */
+.card {
+    border: 1px solid #e2e8f0;
+    border-radius: var(--border-radius);
+    padding: calc(var(--spacing-unit) * 3);
+    margin-bottom: calc(var(--spacing-unit) * 2);
+    transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-unit) calc(var(--spacing-unit) * 2);
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background: var(--color-primary);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2563eb;
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: calc(var(--spacing-unit) * 2);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: var(--spacing-unit);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: var(--spacing-unit) calc(var(--spacing-unit) * 1.5);
+    border: 1px solid #cbd5e1;
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+}
+
+/* Utilities */
+.text-center { text-align: center; }
+.text-muted { color: var(--color-secondary); }
+.mt-2 { margin-top: calc(var(--spacing-unit) * 2); }
+.mb-2 { margin-bottom: calc(var(--spacing-unit) * 2); }

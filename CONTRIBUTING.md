@@ -111,6 +111,9 @@ make docs-serve   # Serve docs locally for development
 
 # Validation
 make validate     # Run full validation suite
+
+# Note: Cache directories (.mypy_cache, .pytest_cache, etc.) are
+# automatically managed and cleaned by 'make clean'
 ```
 
 ### IDE Setup
@@ -129,7 +132,7 @@ Settings (`.vscode/settings.json`):
 
 ```json
 {
-    "python.defaultInterpreterPath": "./venv/bin/python",
+    "python.defaultInterpreterPath": "./.venv/bin/python",
     "python.linting.enabled": true,
     "python.linting.ruffEnabled": true,
     "python.formatting.provider": "black",
@@ -638,8 +641,8 @@ git branch -d feat/semantic-search-improvements
 
 If you have questions about contributing:
 
-1. **Check the [FAQ](docs/faq.md)**
-2. **Search [GitHub Discussions](https://github.com/your-org/pysearch/discussions)**
+1. **Check the [FAQ](docs/help/faq.md)**
+2. **Search [GitHub Discussions](https://github.com/AstroAir/pysearch/discussions)**
 3. **Create a new discussion** for general questions
 4. **Open an issue** for specific problems
 

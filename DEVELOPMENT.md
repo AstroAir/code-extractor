@@ -38,8 +38,17 @@ cd pysearch
 │   ├── dev-install.sh     # Development setup
 │   ├── validate-project.sh # Project validation
 │   └── run-mcp-server.sh  # MCP server runner
-└── configs/               # Configuration files
+├── configs/               # Configuration files
+└── .venv/                 # Virtual environment (development)
 ```
+
+### Clean Development Environment
+
+The project maintains a clean development environment:
+- **Cache directories** (`.mypy_cache`, `.pytest_cache`, etc.) are automatically managed
+- **Build artifacts** are excluded and regenerated as needed
+- **Single virtual environment** (`.venv/`) for consistent development
+- **No duplicate environments** or unnecessary files
 
 ## Development Workflow
 
@@ -150,6 +159,8 @@ make release
 1. **Import Errors**: Ensure you've installed in editable mode: `pip install -e .`
 2. **MCP Server Issues**: Check that all dependencies are installed: `pip install -e ".[dev]"`
 3. **Test Failures**: Run `make clean` to clear caches, then `make test`
+4. **Cache Issues**: All cache directories are automatically managed and regenerated when needed
+5. **Virtual Environment**: Use `.venv/` for consistent development environment
 
 ### Getting Help
 

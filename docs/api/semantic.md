@@ -198,7 +198,7 @@ score = semantic_similarity_score(code, "machine learning")
 ### Semantic Weights
 
 ```python
-from pysearch.config import SearchConfig
+from pysearch import SearchConfig
 
 # Adjust semantic scoring weight
 config = SearchConfig(

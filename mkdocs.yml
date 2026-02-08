@@ -1,9 +1,9 @@
 site_name: pysearch Documentation
 site_description: High-performance, context-aware search engine for Python codebases
-site_url: https://your-org.github.io/pysearch/
+site_url: https://AstroAir.github.io/pysearch/
 
-repo_url: https://github.com/your-org/pysearch
-repo_name: your-org/pysearch
+repo_url: https://github.com/AstroAir/pysearch
+repo_name: AstroAir/pysearch
 
 theme:
   name: material
@@ -40,15 +40,15 @@ theme:
 nav:
   - Home: index.md
   - Getting Started:
-    - Installation: installation.md
-    - Quick Start: usage.md
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
   - User Guide:
-    - Usage Guide: usage.md
-    - Configuration: configuration.md
-    - CLI Reference: cli-reference.md
-    - Performance: performance.md
+    - Usage Guide: guide/usage.md
+    - Configuration: guide/configuration.md
+    - CLI Reference: guide/cli-reference.md
+    - Performance: guide/performance.md
   - API Reference:
-    - Overview: api-reference.md
+    - Overview: api/index.md
     - Core API:
       - PySearch: api/pysearch.md
       - Configuration: api/config.md
@@ -60,27 +60,32 @@ nav:
       - Formatter: api/formatter.md
     - Advanced Features:
       - Semantic Search: api/semantic.md
-      - Multi-Repository: api/multi_repo.md
-      - File Watching: api/file_watcher.md
+      - Multi-Repository: api/multi-repo.md
+      - File Watching: api/file-watcher.md
       - History: api/history.md
     - Utilities:
       - Utils: api/utils.md
-      - Error Handling: api/error_handling.md
-      - Language Detection: api/language_detection.md
+      - Error Handling: api/error-handling.md
+      - Language Detection: api/language-detection.md
   - MCP Integration:
-    - Overview: mcp-overview.md
-    - Tutorial: mcp-tutorial.md
-    - API Reference: mcp-api.md
-    - Advanced Features: mcp-advanced.md
+    - Overview: mcp/index.md
+    - Tutorial: mcp/tutorial.md
+    - API Reference: mcp/api.md
+    - Server Guide: mcp/server-guide.md
+    - Advanced Features: mcp/advanced.md
   - Advanced Topics:
-    - Architecture: architecture.md
-    - Performance Tuning: performance.md
+    - Architecture: advanced/architecture.md
+    - Enhanced Features: advanced/features.md
+    - Indexing Guide: advanced/indexing-guide.md
+    - Indexing Architecture: advanced/indexing-architecture.md
+    - GraphRAG: advanced/graphrag.md
   - Help & Support:
-    - FAQ: faq.md
-    - Troubleshooting: troubleshooting.md
+    - FAQ: help/faq.md
+    - Troubleshooting: help/troubleshooting.md
   - Development:
-    - Style Guide: style-guide.md
-    - Roadmap: roadmap.md
+    - Style Guide: development/style-guide.md
+    - Maintenance: development/maintenance.md
+    - Roadmap: development/roadmap.md
 
 markdown_extensions:
   - admonition
@@ -139,5 +144,5 @@ plugins:
       enable_creation_date: true
       type: timeago
   - git-committers:
-      repository: your-org/pysearch
+      repository: AstroAir/pysearch
       branch: main

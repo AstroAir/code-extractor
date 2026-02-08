@@ -300,7 +300,7 @@ def safe_file_operation(path):
 
 ## Related
 
-- [Language Detection](language_detection.md) - File type detection
-- [Error Handling](error_handling.md) - Error management utilities
+- [Language Detection](language-detection.md) - File type detection
+- [Error Handling](error-handling.md) - Error management utilities
 - [Indexer](indexer.md) - File indexing utilities
 - [Types](types.md) - Data types and structures

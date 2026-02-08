@@ -1,0 +1,282 @@
+{
+  "generated_at": "2026-02-08T12:00:00Z",
+  "project": {
+    "name": "pysearch",
+    "description": "High-performance, context-aware search engine for Python codebases",
+    "version": "0.1.0",
+    "type": "Python Project",
+    "repository": "https://github.com/AstroAir/pysearch"
+  },
+  "root_documentation": "CLAUDE.md",
+  "modules": [
+    {
+      "path": "src/pysearch/core",
+      "name": "Core",
+      "description": "Main API, configuration, types, history, and integration managers",
+      "documentation": "src/pysearch/core/CLAUDE.md",
+      "entry_points": ["src/pysearch/core/api.py", "src/pysearch/core/config.py"],
+      "key_files": [
+        "src/pysearch/core/api.py",
+        "src/pysearch/core/config.py",
+        "src/pysearch/core/types/basic_types.py",
+        "src/pysearch/core/types/graphrag_types.py",
+        "src/pysearch/core/history/__init__.py",
+        "src/pysearch/core/managers/__init__.py"
+      ],
+      "has_tests": true,
+      "test_directory": "tests/unit/core/"
+    },
+    {
+      "path": "src/pysearch/indexing",
+      "name": "Indexing",
+      "description": "File scanning, caching, metadata management, and advanced indexing",
+      "documentation": "src/pysearch/indexing/CLAUDE.md",
+      "entry_points": ["src/pysearch/indexing/indexer.py", "src/pysearch/indexing/advanced/engine.py"],
+      "key_files": [
+        "src/pysearch/indexing/indexer.py",
+        "src/pysearch/indexing/cache/manager.py",
+        "src/pysearch/indexing/metadata/indexer.py",
+        "src/pysearch/indexing/advanced/engine.py",
+        "src/pysearch/indexing/indexes/full_text_index.py"
+      ],
+      "has_tests": true,
+      "test_directory": "tests/unit/indexing/"
+    },
+    {
+      "path": "src/pysearch/search",
+      "name": "Search",
+      "description": "Pattern matching, fuzzy search, semantic search, and scoring",
+      "documentation": "src/pysearch/search/CLAUDE.md",
+      "entry_points": ["src/pysearch/search/matchers.py"],
+      "key_files": [
+        "src/pysearch/search/matchers.py",
+        "src/pysearch/search/fuzzy.py",
+        "src/pysearch/search/boolean.py",
+        "src/pysearch/search/semantic.py",
+        "src/pysearch/search/scorer.py"
+      ],
+      "has_tests": true,
+      "test_directory": "tests/unit/search/"
+    },
+    {
+      "path": "src/pysearch/analysis",
+      "name": "Analysis",
+      "description": "Code analysis, language detection, and GraphRAG",
+      "documentation": "src/pysearch/analysis/CLAUDE.md",
+      "entry_points": [
+        "src/pysearch/analysis/dependency_analysis.py",
+        "src/pysearch/analysis/language_detection.py",
+        "src/pysearch/analysis/graphrag/engine.py"
+      ],
+      "key_files": [
+        "src/pysearch/analysis/dependency_analysis.py",
+        "src/pysearch/analysis/language_detection.py",
+        "src/pysearch/analysis/language_support.py",
+        "src/pysearch/analysis/content_addressing.py",
+        "src/pysearch/analysis/graphrag/core.py",
+        "src/pysearch/analysis/graphrag/engine.py"
+      ],
+      "has_tests": true,
+      "test_directory": "tests/unit/analysis/"
+    },
+    {
+      "path": "src/pysearch/cli",
+      "name": "CLI",
+      "description": "Command-line interface with comprehensive commands",
+      "documentation": "src/pysearch/cli/CLAUDE.md",
+      "entry_points": ["src/pysearch/cli/main.py"],
+      "key_files": [
+        "src/pysearch/cli/main.py",
+        "src/pysearch/cli/__init__.py"
+      ],
+      "has_tests": true,
+      "test_directory": "tests/unit/cli/"
+    },
+    {
+      "path": "src/pysearch/utils",
+      "name": "Utils",
+      "description": "Utilities, error handling, file watching, and performance monitoring",
+      "documentation": "src/pysearch/utils/CLAUDE.md",
+      "key_files": [
+        "src/pysearch/utils/error_handling.py",
+        "src/pysearch/utils/formatter.py",
+        "src/pysearch/utils/file_watcher.py",
+        "src/pysearch/utils/logging_config.py",
+        "src/pysearch/utils/metadata_filters.py",
+        "src/pysearch/utils/performance_monitoring.py",
+        "src/pysearch/utils/helpers.py"
+      ],
+      "has_tests": true,
+      "test_directory": "tests/unit/utils/"
+    },
+    {
+      "path": "src/pysearch/storage",
+      "name": "Storage",
+      "description": "Vector database and storage backends",
+      "documentation": "src/pysearch/storage/CLAUDE.md",
+      "entry_points": ["src/pysearch/storage/qdrant_client.py"],
+      "key_files": [
+        "src/pysearch/storage/qdrant_client.py",
+        "src/pysearch/storage/vector_db.py"
+      ],
+      "has_tests": true,
+      "test_directory": "tests/unit/storage/"
+    },
+    {
+      "path": "src/pysearch/integrations",
+      "name": "Integrations",
+      "description": "Multi-repo, distributed, IDE integrations",
+      "documentation": "src/pysearch/integrations/CLAUDE.md",
+      "key_files": [
+        "src/pysearch/integrations/multi_repo.py",
+        "src/pysearch/integrations/distributed_indexing.py",
+        "src/pysearch/integrations/ide_hooks.py"
+      ],
+      "has_tests": true,
+      "test_directory": "tests/unit/integrations/"
+    },
+    {
+      "path": "mcp",
+      "name": "MCP Servers",
+      "description": "Model Context Protocol servers for LLM integration",
+      "documentation": "mcp/CLAUDE.md",
+      "entry_points": [
+        "mcp/servers/pysearch_mcp_server.py"
+      ],
+      "key_files": [
+        "mcp/servers/pysearch_mcp_server.py",
+        "mcp/shared/validation.py",
+        "mcp/shared/session_manager.py",
+        "mcp/shared/progress.py",
+        "mcp/shared/resource_manager.py",
+        "mcp/mcp_config.json"
+      ],
+      "has_tests": true,
+      "test_directory": "tests/integration/"
+    }
+  ],
+  "coverage": {
+    "total_python_files": 95,
+    "total_test_files": 65,
+    "total_doc_files": 60,
+    "scanned_files": 95,
+    "coverage_percentage": 100,
+    "modules_documented": 9,
+    "module_documentation_files": 10,
+    "ignored_patterns": [
+      ".venv/**",
+      ".git/**",
+      ".github/**",
+      ".pytest_cache/**",
+      ".mypy_cache/**",
+      ".ruff_cache/**",
+      "dist/**",
+      "build/**",
+      "__pycache__/**",
+      "*.pyc",
+      "*.pyo",
+      "*.log",
+      "*.egg-info/**"
+    ],
+    "ignore_source": ".gitignore"
+  },
+  "gaps": {
+    "missing_submodule_docs": [],
+    "recommended_next_scan": [
+      "src/pysearch/core/managers/*.py",
+      "src/pysearch/indexing/advanced/*.py",
+      "src/pysearch/indexing/cache/*.py",
+      "src/pysearch/indexing/metadata/*.py"
+    ]
+  },
+  "key_directories": {
+    "source": "src/pysearch/",
+    "tests": "tests/",
+    "docs": "docs/",
+    "scripts": "scripts/",
+    "mcp": "mcp/",
+    "configs": "configs/",
+    "config": {
+      "main": "pyproject.toml",
+      "makefile": "Makefile",
+      "gitignore": ".gitignore"
+    }
+  },
+  "development_commands": {
+    "setup": "make dev",
+    "test": "make test",
+    "lint": "make lint",
+    "format": "make format",
+    "typecheck": "make type",
+    "validate": "make validate",
+    "clean": "make clean",
+    "docs": "make docs",
+    "docs_serve": "make docs-serve"
+  },
+  "dependencies": {
+    "core": [
+      "rich>=13.7.1",
+      "orjson>=3.10.7",
+      "regex>=2024.5.15",
+      "pathspec>=0.12.1",
+      "click>=8.1.7",
+      "pydantic>=2.7.0",
+      "fastmcp>=2.11.0",
+      "fuzzywuzzy>=0.18.0",
+      "python-levenshtein>=0.21.0",
+      "rapidfuzz>=3.0.0",
+      "qdrant-client>=1.7.0",
+      "numpy>=1.24.0"
+    ],
+    "dev": [
+      "pytest",
+      "pytest-cov",
+      "coverage[toml]",
+      "hypothesis",
+      "mypy",
+      "ruff",
+      "black",
+      "pygments",
+      "pytest-benchmark",
+      "pytest-asyncio",
+      "types-regex",
+      "mkdocs-material",
+      "mkdocstrings[python]"
+    ],
+    "optional": {
+      "semantic": [
+        "sentence-transformers>=2.2.0",
+        "transformers>=4.30.0",
+        "torch>=2.0.0",
+        "scikit-learn>=1.3.0"
+      ],
+      "vector": [
+        "qdrant-client>=1.7.0",
+        "faiss-cpu>=1.7.0"
+      ],
+      "watch": [
+        "watchdog>=4.0.0",
+        "psutil>=5.9.0"
+      ]
+    }
+  },
+  "file_counts": {
+    "source_files": 95,
+    "test_files": 65,
+    "documentation_files": 60,
+    "configuration_files": 3,
+    "total_files": 223
+  },
+  "test_coverage": {
+    "target": ">85%",
+    "current": "Not available",
+    "test_markers": ["unit", "integration", "e2e", "benchmark", "slow", "fast"]
+  },
+  "truncated": false,
+  "next_steps": [
+    "Create sub-module documentation for core/managers, indexing/advanced, indexing/cache, indexing/metadata",
+    "Add more usage examples to module documentation",
+    "Update architecture diagrams with any new components",
+    "Continue monitoring for coverage gaps"
+  ]
+}

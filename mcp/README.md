@@ -1,104 +1,97 @@
-# PySearch MCP Servers
+# PySearch MCP Server
 
-This directory contains Model Context Protocol (MCP) server implementations for PySearch, providing LLM-accessible interfaces to PySearch functionality.
+Production-ready MCP (Model Context Protocol) server for PySearch, built with FastMCP.
+Exposes all PySearch code search capabilities as tools for LLM consumption.
 
 ## Directory Structure
 
 ```
 mcp/
-├── servers/                    # MCP server implementations
-│   ├── mcp_server.py          # Main MCP server with advanced features
-│   ├── basic_mcp_server.py    # Basic/legacy MCP server
-│   ├── fastmcp_server.py      # FastMCP-based server
-│   └── pysearch_mcp_server.py # Alternative implementation
-├── shared/                     # Shared MCP utilities
-│   ├── composition.py         # Search composition utilities
-│   ├── progress.py            # Progress reporting
-│   ├── prompts.py             # Prompt templates
-│   └── resources.py           # Resource management
-├── mcp_config.json            # MCP configuration
-└── README.md                  # This file
+├── servers/
+│   └── pysearch_mcp_server.py    # Consolidated FastMCP server (all features)
+├── shared/
+│   ├── validation.py             # Input validation & security
+│   ├── session_manager.py        # Context-aware session management
+│   ├── progress.py               # Progress tracking for long operations
+│   └── resource_manager.py       # LRU cache & resource analytics
+├── mcp_config.json               # MCP client configuration
+└── README.md                     # This file
 ```
 
-## Available Servers
-
-### Main MCP Server (`mcp_server.py`)
-
-The primary MCP server with comprehensive advanced features:
-
-- Fuzzy search with configurable similarity thresholds
-- Multi-pattern search with logical operators
-- File content analysis and complexity metrics
-- Advanced search result ranking
-- Comprehensive filtering capabilities
-- Progress reporting for long operations
-- Context-aware search sessions
-- MCP resource management
-- Prompt templates for common scenarios
-- Composition support for chaining operations
-
-### Basic MCP Server (`basic_mcp_server.py`)
-
-Legacy/simple implementation with core functionality:
-
-- Text and regex pattern search
-- AST-based search with filters
-- Configuration management
-- Search history and statistics
-
-### FastMCP Server (`fastmcp_server.py`)
-
-FastMCP framework-based implementation:
-
-- All main server features
-- Optimized performance
-- Enhanced error handling
-- Better resource management
-
-## Usage
-
-### Running a Server
+## Quick Start
 
 ```bash
-# Main server (recommended)
-python mcp/servers/mcp_server.py
+# Install dependencies
+pip install fastmcp
 
-# Basic server (legacy)
-python mcp/servers/basic_mcp_server.py
+# Run with STDIO transport (default, for MCP clients)
+python -m mcp.servers.pysearch_mcp_server
 
-# FastMCP server
-python mcp/servers/fastmcp_server.py
+# Or use FastMCP CLI
+fastmcp run mcp/servers/pysearch_mcp_server.py
+
+# HTTP transport (for web services)
+python -m mcp.servers.pysearch_mcp_server --transport http --host 127.0.0.1 --port 9000
 ```
 
-### Configuration
+## Available Tools (19)
 
-Edit `mcp_config.json` to customize server behavior:
+| Category | Tool | Description |
+|----------|------|-------------|
+| Core Search | `search_text` | Text pattern search across files |
+| Core Search | `search_regex` | Regex pattern search with regex-specific validation |
+| Core Search | `search_ast` | AST-based structural search with filters |
+| Core Search | `search_semantic` | Semantic concept search with expansion |
+| Advanced | `search_fuzzy` | Fuzzy approximate string matching |
+| Advanced | `search_multi_pattern` | Multi-pattern search with AND/OR |
+| Advanced | `suggest_corrections` | Spelling corrections from codebase identifiers |
+| Advanced | `search_word_fuzzy` | Word-level fuzzy search with similarity algorithms |
+| Analysis | `analyze_file` | File metrics (lines, functions, classes) |
+| Config | `configure_search` | Update search configuration |
+| Config | `get_search_config` | Get current configuration |
+| Config | `get_supported_languages` | List supported languages |
+| Config | `clear_caches` | Clear caches, optimize resources, cleanup sessions |
+| Utility | `get_search_history` | Recent search history |
+| Utility | `get_server_health` | Comprehensive health: cache, sessions, operations, memory |
+| Session | `create_session` | Create context-aware search session |
+| Session | `get_session_info` | Session details, intent, recommendations |
+| Progress | `get_operation_progress` | Query progress of running operations |
+| Progress | `cancel_operation` | Cancel a running operation |
+
+All search tools accept an optional `session_id` parameter for context-aware tracking.
+
+## MCP Resources
+
+| URI | Description |
+|-----|-------------|
+| `pysearch://config/current` | Current search configuration |
+| `pysearch://history/searches` | Search history |
+| `pysearch://stats/overview` | Comprehensive statistics with session & progress data |
+| `pysearch://sessions/analytics` | Session management analytics |
+| `pysearch://languages/supported` | Supported languages |
+
+## MCP Client Configuration
+
+Add to your MCP client config (e.g., Claude Desktop, Cursor):
 
 ```json
 {
-  "default_paths": ["."],
-  "include_patterns": ["**/*.py"],
-  "exclude_patterns": ["**/__pycache__/**"],
-  "max_results": 100,
-  "context_lines": 3
+  "mcpServers": {
+    "pysearch": {
+      "command": "python",
+      "args": ["-m", "mcp.servers.pysearch_mcp_server"],
+      "env": {"PYTHONPATH": "/path/to/code-extractor"}
+    }
+  }
 }
 ```
 
 ## Integration
 
-These servers are designed to work with MCP-compatible LLM clients, providing seamless access to PySearch's powerful code search capabilities within AI-assisted development workflows.
+The server integrates with all PySearch core features:
 
-## Documentation
-
-Comprehensive documentation for MCP integration is available in the [main documentation](../docs/mcp-overview.md):
-
-- [MCP Overview](../docs/mcp-overview.md) - Introduction to MCP integration
-- [MCP Tutorial](../docs/mcp-tutorial.md) - Step-by-step guide to using MCP with PySearch
-- [MCP API Reference](../docs/mcp-api.md) - Detailed API documentation for all MCP tools
-- [Advanced MCP Features](../docs/mcp-advanced.md) - In-depth coverage of advanced capabilities
-
-Additional resources:
-- `MCP_SERVER_README.md` - Detailed server documentation
-- `MCP_SERVER_SUMMARY.md` - Quick reference
-- `ENHANCED_FEATURES_README.md` - Enhanced features documentation
-- `ENHANCED_IMPLEMENTATION_SUMMARY.md` - Implementation details
+- **PySearch engine** — Full text/regex/AST/semantic search
+- **Input validation** — Security sanitization, rate limiting, path traversal protection
+- **Session management** — Context-aware sessions with intent detection
+- **Resource caching** — LRU cache with analytics and health monitoring
+- **Progress tracking** — Real-time progress for long-running operations

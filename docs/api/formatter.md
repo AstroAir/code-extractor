@@ -262,8 +262,8 @@ pysearch find --pattern "def main" --format highlight
 ### API Integration
 
 ```python
-from pysearch.api import PySearch
-from pysearch.types import OutputFormat
+from pysearch import PySearch, OutputFormat
+from pysearch.utils.formatter import format_result
 
 engine = PySearch(config)
 results = engine.search("def main")
@@ -276,5 +276,5 @@ print(formatted)
 ## Related
 
 - [Types](types.md) - Result and output types
-- [CLI Reference](../cli-reference.md) - Command-line formatting options
+- [CLI Reference](../guide/cli-reference.md) - Command-line formatting options
 - [Utils](utils.md) - Utility functions for formatting

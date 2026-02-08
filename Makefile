@@ -15,7 +15,7 @@ help:
 	@echo "  cov         - Show coverage summary"
 	@echo "  htmlcov     - Open HTML coverage"
 	@echo "  bench       - Run pytest benchmarks"
-	@echo "  clean       - Cleanup build/test artifacts"
+	@echo "  clean       - Cleanup build/test artifacts and cache files"
 	@echo "  pre-commit  - Run pre-commit on all files"
 	@echo "  hooks       - Install pre-commit hooks"
 	@echo "  docs        - Build docs with mkdocs"
@@ -63,9 +63,11 @@ bench:
 
 clean:
 	rm -rf build/ dist/ sdist/ wheels/
-	rm -rf .pytest_cache/ .mypy_cache/ .ruff_cache/ .coverage/ htmlcov/ .benchmarks/
+	rm -rf .pytest_cache/ .mypy_cache/ .mypy_cache_temp/ .ruff_cache/ .coverage/ htmlcov/ .benchmarks/
+	rm -rf .pysearch-cache/ coverage.xml
 	rm -rf site/ .mkdocs_cache/ docs_build/ .docstring_cache/ .api_docs_cache/
-	find . -type d -name "__pycache__" -exec rm -rf {} +
+	rm -rf src/*.egg-info/
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 pre-commit:
 	pre-commit run --all-files
@@ -123,8 +125,7 @@ release:
 
 mcp-servers:
 	@echo "Testing MCP servers..."
-	$(PYTHON) -c "import mcp.servers.mcp_server; print('✅ Basic MCP server imports successfully')"
-	$(PYTHON) -c "import mcp.servers.enhanced_mcp_server; print('✅ Enhanced MCP server imports successfully')"
+	$(PYTHON) -c "import mcp.servers.pysearch_mcp_server; print('✅ PySearch MCP server imports successfully')"
 	@echo "✅ All MCP servers validated"
 
 check-structure:
@@ -132,10 +133,8 @@ check-structure:
 	@test -d src/pysearch || (echo "❌ src/pysearch directory missing" && exit 1)
 	@test -d mcp/servers || (echo "❌ mcp/servers directory missing" && exit 1)
 	@test -d mcp/shared || (echo "❌ mcp/shared directory missing" && exit 1)
-	@test -d tools || (echo "❌ tools directory missing" && exit 1)
 	@test -d tests || (echo "❌ tests directory missing" && exit 1)
 	@test -d docs || (echo "❌ docs directory missing" && exit 1)
-	@test -d examples || (echo "❌ examples directory missing" && exit 1)
 	@test -d scripts || (echo "❌ scripts directory missing" && exit 1)
 	@test -f pyproject.toml || (echo "❌ pyproject.toml missing" && exit 1)
 	@test -f README.md || (echo "❌ README.md missing" && exit 1)

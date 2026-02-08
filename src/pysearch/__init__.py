@@ -74,46 +74,90 @@ Use Cases:
     - Documentation and comment analysis
 
 For detailed documentation, examples, and advanced usage patterns, see:
-    - docs/usage.md for getting started
-    - docs/configuration.md for configuration options
-    - docs/architecture.md for implementation details
+    - docs/guide/usage.md for getting started
+    - docs/guide/configuration.md for configuration options
+    - docs/advanced/architecture.md for implementation details
     - examples/ directory for practical examples
-    - Project repository: https://github.com/your-org/pysearch
+    - Project repository: https://github.com/AstroAir/pysearch
 """
 
-from .api import PySearch
-from .config import SearchConfig
-from .error_handling import (
+from .analysis.language_detection import detect_language, get_supported_languages
+from .core.api import PySearch
+from .core.config import SearchConfig
+from .core.history import SearchHistory
+from .core.types import (
+    ASTFilters,
+    CodeEntity,
+    EntityRelationship,
+    EntityType,
+    FileMetadata,
+    GraphRAGQuery,
+    GraphRAGResult,
+    KnowledgeGraph,
+    Language,
+    MatchSpan,
+    MetadataFilters,
+    OutputFormat,
+    Query,
+    RelationType,
+    SearchItem,
+    SearchResult,
+    SearchStats,
+)
+from .utils.error_handling import (
     EncodingError,
     FileAccessError,
     ParsingError,
     PermissionError,
     SearchError,
 )
-from .history import SearchHistory
-from .language_detection import detect_language, get_supported_languages
-from .logging_config import configure_logging, disable_logging, enable_debug_logging, get_logger
-from .metadata_filters import create_metadata_filters
-from .types import (
-    ASTFilters,
-    FileMetadata,
-    Language,
-    MatchSpan,
-    MetadataFilters,
-    OutputFormat,
-    Query,
-    SearchItem,
-    SearchResult,
-    SearchStats,
+from .utils.logging_config import (
+    configure_logging,
+    disable_logging,
+    enable_debug_logging,
+    get_logger,
 )
+from .utils.metadata_filters import create_metadata_filters
+
+# Metadata indexing functionality (optional)
+try:
+    from .indexing.advanced.engine import IndexingEngine  # noqa: F401
+    from .indexing.advanced.integration import (  # noqa: F401
+        IndexSearchEngine,
+        IndexSearchResult,
+        index_search,
+        ensure_indexed,
+    )
+
+    METADATA_INDEXING_AVAILABLE = True
+except ImportError:
+    METADATA_INDEXING_AVAILABLE = False
+
+# Storage functionality (optional)
+try:
+    from .storage import qdrant_client
+
+    QDRANT_AVAILABLE = True
+except ImportError:
+    QDRANT_AVAILABLE = False
+    qdrant_client = None  # type: ignore
+
+# Indexing functionality
+try:
+    from .indexing import indexer
+
+    INDEXER_AVAILABLE = True
+except ImportError:
+    INDEXER_AVAILABLE = False
+    indexer = None  # type: ignore
 
 # Package metadata
 __version__ = "0.1.0"
-__author__ = "Kilo Code"
-__email__ = "contact@kilocode.dev"
+__author__ = "Max Qian"
+__email__ = "astro_air@126.com"
 __license__ = "MIT"
 __description__ = "High-performance, context-aware search engine for Python codebases"
-__url__ = "https://github.com/your-org/pysearch"
+__url__ = "https://github.com/AstroAir/pysearch"
 
 # Public API
 __all__ = [
@@ -132,6 +176,13 @@ __all__ = [
     "Language",
     "FileMetadata",
     "MetadataFilters",
+    "GraphRAGQuery",
+    "GraphRAGResult",
+    "KnowledgeGraph",
+    "CodeEntity",
+    "EntityRelationship",
+    "EntityType",
+    "RelationType",
     # Utility functions
     "detect_language",
     "get_supported_languages",
@@ -154,4 +205,22 @@ __all__ = [
     "__license__",
     "__description__",
     "__url__",
+    # Metadata indexing availability
+    "METADATA_INDEXING_AVAILABLE",
+    "QDRANT_AVAILABLE",
+    "INDEXER_AVAILABLE",
+    "qdrant_client",
+    "indexer",
 ]
+
+# Add metadata indexing functionality to __all__ if available
+if METADATA_INDEXING_AVAILABLE:
+    __all__.extend(
+        [
+            "IndexSearchEngine",
+            "IndexSearchResult",
+            "IndexingEngine",
+            "index_search",
+            "ensure_indexed",
+        ]
+    )
