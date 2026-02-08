@@ -15,17 +15,19 @@
             "pattern": {"type": "string", "description": "Text pattern to search for", "required": true},
             "paths": {"type": "array", "items": {"type": "string"}, "description": "Optional list of paths to search", "required": false},
             "context": {"type": "integer", "description": "Number of context lines around matches", "default": 3, "required": false},
-            "case_sensitive": {"type": "boolean", "description": "Whether search should be case sensitive", "default": false, "required": false}
+            "case_sensitive": {"type": "boolean", "description": "Whether search should be case sensitive", "default": false, "required": false},
+            "session_id": {"type": "string", "description": "Optional session ID for context-aware search tracking", "required": false}
           }
         },
         {
           "name": "search_regex",
-          "description": "Search for regex patterns in files",
+          "description": "Search for regex patterns in files with regex-specific validation",
           "parameters": {
             "pattern": {"type": "string", "description": "Regular expression pattern to search for", "required": true},
             "paths": {"type": "array", "items": {"type": "string"}, "description": "Optional list of paths to search", "required": false},
             "context": {"type": "integer", "description": "Number of context lines around matches", "default": 3, "required": false},
-            "case_sensitive": {"type": "boolean", "description": "Whether search should be case sensitive", "default": false, "required": false}
+            "case_sensitive": {"type": "boolean", "description": "Whether search should be case sensitive", "default": false, "required": false},
+            "session_id": {"type": "string", "description": "Optional session ID for context-aware search tracking", "required": false}
           }
         },
         {
@@ -38,7 +40,8 @@
             "decorator": {"type": "string", "description": "Regex pattern to match decorator names", "required": false},
             "imported": {"type": "string", "description": "Regex pattern to match imported symbols", "required": false},
             "paths": {"type": "array", "items": {"type": "string"}, "description": "Optional list of paths to search", "required": false},
-            "context": {"type": "integer", "description": "Number of context lines around matches", "default": 3, "required": false}
+            "context": {"type": "integer", "description": "Number of context lines around matches", "default": 3, "required": false},
+            "session_id": {"type": "string", "description": "Optional session ID for context-aware search tracking", "required": false}
           }
         },
         {
@@ -47,7 +50,8 @@
           "parameters": {
             "concept": {"type": "string", "description": "Semantic concept to search for (e.g., 'database', 'authentication')", "required": true},
             "paths": {"type": "array", "items": {"type": "string"}, "description": "Optional list of paths to search", "required": false},
-            "context": {"type": "integer", "description": "Number of context lines around matches", "default": 3, "required": false}
+            "context": {"type": "integer", "description": "Number of context lines around matches", "default": 3, "required": false},
+            "session_id": {"type": "string", "description": "Optional session ID for context-aware search tracking", "required": false}
           }
         },
         {
@@ -58,7 +62,8 @@
             "similarity_threshold": {"type": "number", "description": "Minimum similarity score (0.0-1.0)", "default": 0.6, "required": false},
             "max_results": {"type": "integer", "description": "Maximum number of results", "default": 100, "required": false},
             "paths": {"type": "array", "items": {"type": "string"}, "description": "Optional list of paths to search", "required": false},
-            "context": {"type": "integer", "description": "Number of context lines around matches", "default": 3, "required": false}
+            "context": {"type": "integer", "description": "Number of context lines around matches", "default": 3, "required": false},
+            "session_id": {"type": "string", "description": "Optional session ID for context-aware search tracking", "required": false}
           }
         },
         {
@@ -68,6 +73,30 @@
             "patterns": {"type": "array", "items": {"type": "string"}, "description": "List of patterns to search for", "required": true},
             "operator": {"type": "string", "description": "Logical operator: AND or OR", "default": "OR", "required": false},
             "use_regex": {"type": "boolean", "description": "Whether patterns are regular expressions", "default": false, "required": false},
+            "paths": {"type": "array", "items": {"type": "string"}, "description": "Optional list of paths to search", "required": false},
+            "context": {"type": "integer", "description": "Number of context lines around matches", "default": 3, "required": false},
+            "session_id": {"type": "string", "description": "Optional session ID for context-aware search tracking", "required": false}
+          }
+        },
+        {
+          "name": "suggest_corrections",
+          "description": "Suggest spelling corrections for a word based on codebase identifiers",
+          "parameters": {
+            "word": {"type": "string", "description": "Word to find corrections for", "required": true},
+            "max_suggestions": {"type": "integer", "description": "Maximum number of suggestions", "default": 10, "required": false},
+            "algorithm": {"type": "string", "description": "Similarity algorithm: levenshtein, damerau_levenshtein, jaro_winkler, soundex, metaphone", "default": "damerau_levenshtein", "required": false},
+            "paths": {"type": "array", "items": {"type": "string"}, "description": "Optional list of paths to scan for identifiers", "required": false}
+          }
+        },
+        {
+          "name": "search_word_fuzzy",
+          "description": "Word-level fuzzy search using actual similarity algorithms",
+          "parameters": {
+            "pattern": {"type": "string", "description": "Word or short phrase to search for", "required": true},
+            "max_distance": {"type": "integer", "description": "Maximum edit distance for distance-based algorithms", "default": 2, "required": false},
+            "min_similarity": {"type": "number", "description": "Minimum similarity score 0.0-1.0", "default": 0.6, "required": false},
+            "algorithms": {"type": "array", "items": {"type": "string"}, "description": "List of algorithm names", "required": false},
+            "max_results": {"type": "integer", "description": "Maximum number of results", "default": 100, "required": false},
             "paths": {"type": "array", "items": {"type": "string"}, "description": "Optional list of paths to search", "required": false},
             "context": {"type": "integer", "description": "Number of context lines around matches", "default": 3, "required": false}
           }
@@ -104,7 +133,7 @@
         },
         {
           "name": "clear_caches",
-          "description": "Clear search engine and resource caches",
+          "description": "Clear search engine caches, optimize resources, and cleanup stale sessions",
           "parameters": {}
         },
         {
@@ -116,14 +145,44 @@
         },
         {
           "name": "get_server_health",
-          "description": "Get server health status and diagnostics",
+          "description": "Get comprehensive server health: cache, validation, sessions, operations, memory",
           "parameters": {}
+        },
+        {
+          "name": "create_session",
+          "description": "Create a context-aware search session for tracking patterns and intent",
+          "parameters": {
+            "user_id": {"type": "string", "description": "Optional user identifier for personalized experience", "required": false},
+            "priority": {"type": "string", "description": "Session priority: low, normal, high, critical", "default": "normal", "required": false}
+          }
+        },
+        {
+          "name": "get_session_info",
+          "description": "Get session details, inferred intent, contextual recommendations, and analytics",
+          "parameters": {
+            "session_id": {"type": "string", "description": "The session ID to query", "required": true}
+          }
+        },
+        {
+          "name": "get_operation_progress",
+          "description": "Get progress of active operations or a specific operation",
+          "parameters": {
+            "operation_id": {"type": "string", "description": "Optional specific operation ID to query", "required": false}
+          }
+        },
+        {
+          "name": "cancel_operation",
+          "description": "Cancel a running operation",
+          "parameters": {
+            "operation_id": {"type": "string", "description": "The operation ID to cancel", "required": true}
+          }
         }
       ],
       "resources": [
         {"uri": "pysearch://config/current", "description": "Current search configuration"},
         {"uri": "pysearch://history/searches", "description": "Search history"},
-        {"uri": "pysearch://stats/overview", "description": "Server statistics overview"},
+        {"uri": "pysearch://stats/overview", "description": "Comprehensive statistics with session and progress data"},
+        {"uri": "pysearch://sessions/analytics", "description": "Session management analytics"},
         {"uri": "pysearch://languages/supported", "description": "Supported programming languages"}
       ]
     }

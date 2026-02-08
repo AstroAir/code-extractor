@@ -125,8 +125,7 @@ release:
 
 mcp-servers:
 	@echo "Testing MCP servers..."
-	$(PYTHON) -c "import mcp.servers.mcp_server; print('✅ Basic MCP server imports successfully')"
-	$(PYTHON) -c "import mcp.servers.enhanced_mcp_server; print('✅ Enhanced MCP server imports successfully')"
+	$(PYTHON) -c "import mcp.servers.pysearch_mcp_server; print('✅ PySearch MCP server imports successfully')"
 	@echo "✅ All MCP servers validated"
 
 check-structure:
@@ -134,10 +133,8 @@ check-structure:
 	@test -d src/pysearch || (echo "❌ src/pysearch directory missing" && exit 1)
 	@test -d mcp/servers || (echo "❌ mcp/servers directory missing" && exit 1)
 	@test -d mcp/shared || (echo "❌ mcp/shared directory missing" && exit 1)
-	@test -d tools || (echo "❌ tools directory missing" && exit 1)
 	@test -d tests || (echo "❌ tests directory missing" && exit 1)
 	@test -d docs || (echo "❌ docs directory missing" && exit 1)
-	@test -d examples || (echo "❌ examples directory missing" && exit 1)
 	@test -d scripts || (echo "❌ scripts directory missing" && exit 1)
 	@test -f pyproject.toml || (echo "❌ pyproject.toml missing" && exit 1)
 	@test -f README.md || (echo "❌ README.md missing" && exit 1)

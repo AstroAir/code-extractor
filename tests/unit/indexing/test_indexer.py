@@ -73,3 +73,55 @@ class TestIndexer:
         indexer = Indexer(cfg)
         stats = indexer.get_cache_stats()
         assert isinstance(stats, dict)
+
+    def test_update_file_new(self, tmp_path: Path):
+        """update_file should add a new file to the index."""
+        f = tmp_path / "new.py"
+        f.write_text("a = 1", encoding="utf-8")
+        cfg = SearchConfig(paths=[str(tmp_path)], include=["**/*.py"], cache_dir=tmp_path / "cache")
+        indexer = Indexer(cfg)
+        indexer.load()
+        assert indexer.count_indexed() == 0
+        result = indexer.update_file(f)
+        assert result is True
+        assert indexer.count_indexed() == 1
+
+    def test_update_file_existing(self, tmp_path: Path):
+        """update_file should update metadata for an already-indexed file."""
+        f = tmp_path / "exist.py"
+        f.write_text("a = 1", encoding="utf-8")
+        cfg = SearchConfig(paths=[str(tmp_path)], include=["**/*.py"], cache_dir=tmp_path / "cache")
+        indexer = Indexer(cfg)
+        indexer.scan()
+        count_before = indexer.count_indexed()
+        # Modify the file
+        f.write_text("a = 2", encoding="utf-8")
+        result = indexer.update_file(f)
+        assert result is True
+        assert indexer.count_indexed() == count_before  # no new entry
+
+    def test_update_file_nonexistent(self, tmp_path: Path):
+        """update_file should return False for a file that doesn't exist."""
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        indexer = Indexer(cfg)
+        result = indexer.update_file(tmp_path / "missing.py")
+        assert result is False
+
+    def test_remove_file(self, tmp_path: Path):
+        """remove_file should remove a file from the index."""
+        f = tmp_path / "rm.py"
+        f.write_text("pass", encoding="utf-8")
+        cfg = SearchConfig(paths=[str(tmp_path)], include=["**/*.py"], cache_dir=tmp_path / "cache")
+        indexer = Indexer(cfg)
+        indexer.scan()
+        assert indexer.count_indexed() >= 1
+        result = indexer.remove_file(f)
+        assert result is True
+        assert indexer.count_indexed() == 0
+
+    def test_remove_file_not_indexed(self, tmp_path: Path):
+        """remove_file should return False for a file not in the index."""
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        indexer = Indexer(cfg)
+        result = indexer.remove_file(tmp_path / "never_added.py")
+        assert result is False

@@ -206,6 +206,47 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "cache: Cache-related tests")
 
 
+# ---------------------------------------------------------------------------
+# Real sample_repo fixtures
+# ---------------------------------------------------------------------------
+
+SAMPLE_REPO_PATH = Path(__file__).resolve().parent.parent / "test_data" / "sample_repo"
+
+
+@pytest.fixture(scope="session")
+def real_project_path() -> Path:
+    """Return the path to the real sample_repo test fixture.
+
+    This is a complete multi-module Python project located at
+    test_data/sample_repo/ designed for realistic integration testing.
+    """
+    assert SAMPLE_REPO_PATH.is_dir(), f"sample_repo not found at {SAMPLE_REPO_PATH}"
+    return SAMPLE_REPO_PATH
+
+
+@pytest.fixture(scope="session")
+def real_search_engine(real_project_path: Path) -> PySearch:
+    """Create a PySearch engine pre-configured for the sample_repo."""
+    cfg = SearchConfig(
+        paths=[str(real_project_path)],
+        include=["**/*.py"],
+        exclude=["**/__pycache__/**", "**/.pysearch-cache/**"],
+        context=2,
+        parallel=False,
+    )
+    return PySearch(cfg)
+
+
+@pytest.fixture(scope="session")
+def real_dependency_analyzer(real_project_path: Path):
+    """Create a DependencyAnalyzer pre-analysed for the sample_repo/src."""
+    from pysearch.analysis.dependency_analysis import DependencyAnalyzer
+
+    analyzer = DependencyAnalyzer()
+    analyzer.analyze_directory(real_project_path / "src")
+    return analyzer
+
+
 # Common test data patterns
 TEST_PATTERNS = {
     "function_def": r"def\s+\w+\s*\(",

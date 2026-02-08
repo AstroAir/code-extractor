@@ -17,10 +17,12 @@ from .main import (
     cli,
     config_cmd,
     deps_cmd,
+    errors_cmd,
     find_cmd,
     history_cmd,
     index_cmd,
     main,
+    repo_cmd,
     semantic_cmd,
     watch_cmd,
 )
@@ -37,4 +39,6 @@ __all__ = [
     "watch_cmd",
     "cache_cmd",
     "config_cmd",
+    "repo_cmd",
+    "errors_cmd",
 ]

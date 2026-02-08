@@ -64,6 +64,11 @@ class ParallelSearchManager:
     def __init__(self, config: SearchConfig) -> None:
         self.config = config
         self.cpu_count = os.cpu_count() or 4
+        self._logger: Any = None
+
+    def set_logger(self, logger: Any) -> None:
+        """Set logger for parallel processing operations."""
+        self._logger = logger
 
     def search_files(
         self,

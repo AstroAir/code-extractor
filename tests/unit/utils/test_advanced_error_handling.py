@@ -1,13 +1,13 @@
-"""Tests for pysearch.utils.advanced_error_handling module."""
+"""Tests for pysearch.utils.error_handling module (advanced error handling classes)."""
 
 from __future__ import annotations
 
 import pytest
 
-from pysearch.utils.advanced_error_handling import (
+from pysearch.utils.error_handling import (
+    AdvancedErrorCollector,
     CircuitBreaker,
     ErrorCategory,
-    ErrorCollector as AdvancedErrorCollector,
     ErrorSeverity,
     IndexingError,
     RecoveryManager,

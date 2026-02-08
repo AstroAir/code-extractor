@@ -10,10 +10,12 @@ from pysearch.cli import (
     cli,
     config_cmd,
     deps_cmd,
+    errors_cmd,
     find_cmd,
     history_cmd,
     index_cmd,
     main,
+    repo_cmd,
     semantic_cmd,
     watch_cmd,
 )
@@ -55,12 +57,18 @@ class TestExports:
     def test_config_cmd_exported(self):
         assert callable(config_cmd)
 
+    def test_repo_cmd_exported(self):
+        assert callable(repo_cmd)
+
+    def test_errors_cmd_exported(self):
+        assert callable(errors_cmd)
+
     def test_all_list(self):
         import pysearch.cli as cli_module
 
         expected = {
             "main", "cli", "find_cmd", "history_cmd", "bookmarks_cmd",
             "semantic_cmd", "index_cmd", "deps_cmd", "watch_cmd",
-            "cache_cmd", "config_cmd",
+            "cache_cmd", "config_cmd", "repo_cmd", "errors_cmd",
         }
         assert set(cli_module.__all__) == expected

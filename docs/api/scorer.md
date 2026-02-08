@@ -214,4 +214,4 @@ Different ranking strategies optimize for different use cases:
 
 - [Types](types.md) - SearchItem and scoring types
 - [Configuration](config.md) - Ranking configuration options
-- [Performance](../performance.md) - Performance optimization guide
+- [Performance](../guide/performance.md) - Performance optimization guide

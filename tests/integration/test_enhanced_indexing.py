@@ -36,7 +36,7 @@ import pytest
 advanced_chunking = pytest.importorskip("src.pysearch.advanced_chunking")
 config_mod = pytest.importorskip("src.pysearch.config")
 content_addr_mod = pytest.importorskip("src.pysearch.content_addressing")
-error_handling_mod = pytest.importorskip("src.pysearch.utils.advanced_error_handling")
+error_handling_mod = pytest.importorskip("src.pysearch.utils.error_handling")
 indexing_engine_mod = pytest.importorskip("src.pysearch.enhanced_indexing_engine")
 lang_support_mod = pytest.importorskip("src.pysearch.enhanced_language_support")
 perf_mon_mod = pytest.importorskip("src.pysearch.performance_monitoring")
@@ -53,7 +53,7 @@ ContentAddress = content_addr_mod.ContentAddress
 GlobalCacheManager = content_addr_mod.GlobalCacheManager
 IndexTag = content_addr_mod.IndexTag
 
-ErrorCollector = error_handling_mod.ErrorCollector
+ErrorCollector = error_handling_mod.AdvancedErrorCollector
 ErrorSeverity = error_handling_mod.ErrorSeverity
 RecoveryManager = error_handling_mod.RecoveryManager
 
@@ -360,7 +360,7 @@ class TestErrorHandling:
         recovery_manager = RecoveryManager(config)
 
         # Test file access recovery
-        from src.pysearch.utils.advanced_error_handling import (  # type: ignore[import-not-found]
+        from src.pysearch.utils.error_handling import (  # type: ignore[import-not-found]
             ErrorCategory,
             IndexingError,
         )

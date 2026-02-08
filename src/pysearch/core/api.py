@@ -37,15 +37,15 @@ Example:
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from ..indexing.cache import CacheManager
 from ..indexing.indexer import Indexer
-from ..integrations.multi_repo import MultiRepoSearchEngine, MultiRepoSearchResult, RepositoryInfo
-from ..search.boolean import evaluate_boolean_query_with_items, parse_boolean_query
+from ..integrations.multi_repo import MultiRepoSearchResult, RepositoryInfo
+from ..search.boolean import evaluate_boolean_query_with_items, extract_terms, parse_boolean_query
 from ..search.matchers import search_in_file
 from ..search.scorer import (
     RankingStrategy,
@@ -54,6 +54,8 @@ from ..search.scorer import (
     sort_items,
 )
 from ..storage.qdrant_client import QdrantConfig
+from ..storage.vector_db import EmbeddingConfig, MultiProviderVectorManager
+from ..indexing.cache import CacheManager
 from ..utils.error_handling import ErrorCollector, create_error_report
 from ..utils.file_watcher import FileEvent
 from ..utils.logging_config import SearchLogger, get_logger
@@ -68,6 +70,8 @@ from .managers.dependency_integration import DependencyIntegrationManager
 from .managers.indexing_integration import IndexingIntegrationManager
 from .managers.file_watching import FileWatchingManager
 from .managers.graphrag_integration import GraphRAGIntegrationManager
+from .managers.distributed_indexing_integration import DistributedIndexingManager
+from .managers.ide_integration import IDEIntegrationManager
 from .managers.multi_repo_integration import MultiRepoIntegrationManager
 from .managers.parallel_processing import ParallelSearchManager
 from .types import (
@@ -154,28 +158,38 @@ class PySearch:
         self.error_collector = ErrorCollector()
 
         # Integration managers
-        self.hybrid_search = HybridSearchManager(self.cfg)
+        self.hybrid_search_manager = HybridSearchManager(self.cfg)
         self.cache_integration = CacheIntegrationManager(self.cfg)
         self.dependency_integration = DependencyIntegrationManager(self.cfg)
         self.file_watching = FileWatchingManager(self.cfg)
         self.graphrag_integration = GraphRAGIntegrationManager(self.cfg, qdrant_config)
         self.indexing_integration = IndexingIntegrationManager(self.cfg)
+        self.distributed_indexing = DistributedIndexingManager(self.cfg)
+        self.ide_integration = IDEIntegrationManager(self.cfg)
         self.multi_repo_integration = MultiRepoIntegrationManager(self.cfg)
         self.parallel_processing = ParallelSearchManager(self.cfg)
 
-        # Initialize state attributes
-        self._caching_enabled = False
-        self._multi_repo_enabled = False
-        self.cache_manager: Any = None
-        self.watch_manager: Any = None  # Will be set by file watching integration if needed
-        self.multi_repo_engine: Any = None
-
         # Set up dependencies between managers
-        self.hybrid_search.set_dependencies(self.error_collector, self.logger)
+        self.hybrid_search_manager.set_dependencies(self.error_collector, self.logger)
         self.graphrag_integration.set_dependencies(self.logger, self.error_collector)
         self.indexing_integration.set_dependencies(self.logger, self.error_collector)
         self.dependency_integration.set_logger(self.logger)
         self.file_watching.set_indexer(self.indexer)
+        self.file_watching.set_cache_invalidation_callback(self._on_files_changed)
+        self.parallel_processing.set_logger(self.logger)
+
+    def _on_files_changed(self, changed_paths: list[Path]) -> None:
+        """Callback invoked by the file watcher when files change.
+
+        Invalidates file content and search result caches so that subsequent
+        searches return up-to-date results.
+        """
+        for file_path in changed_paths:
+            self.cache_integration.invalidate_file_cache(file_path)
+        # Also invalidate the legacy search result cache entirely since we
+        # cannot cheaply determine which cached results depend on which files
+        # in the legacy (non-CacheManager) path.
+        self.cache_integration._search_result_cache.clear()
 
     async def initialize_graphrag(self) -> None:
         """Initialize GraphRAG components."""
@@ -225,9 +239,35 @@ class PySearch:
         if query.use_boolean:
             try:
                 boolean_query = parse_boolean_query(query.pattern)
-                # Get basic matches first, then filter with boolean logic
-                basic_items = search_in_file(path, text, query)
-                items = evaluate_boolean_query_with_items(boolean_query, text, basic_items)
+                # Extract individual terms and search for each to build candidate items
+                terms = extract_terms(boolean_query)
+                all_items: list[SearchItem] = []
+                seen_spans: set[tuple[int, int]] = set()
+                for term in terms:
+                    # Use case-insensitive regex to match boolean evaluator behaviour
+                    escaped_term = f"(?i){re.escape(term)}"
+                    term_query = Query(
+                        pattern=escaped_term,
+                        use_regex=True,
+                        use_boolean=False,
+                        context=query.context,
+                        output=query.output,
+                        filters=query.filters,
+                        metadata_filters=query.metadata_filters,
+                        search_docstrings=query.search_docstrings,
+                        search_comments=query.search_comments,
+                        search_strings=query.search_strings,
+                        count_only=query.count_only,
+                        max_per_file=None,
+                    )
+                    term_items = search_in_file(path, text, term_query)
+                    for item in term_items:
+                        key = (item.start_line, item.end_line)
+                        if key not in seen_spans:
+                            seen_spans.add(key)
+                            all_items.append(item)
+                # Apply boolean logic to filter the collected items
+                items = evaluate_boolean_query_with_items(boolean_query, text, all_items)
             except Exception as e:
                 self.logger.warning(f"Boolean query error in {path}: {e}")
                 return []
@@ -240,7 +280,7 @@ class PySearch:
 
         return items
 
-    def _get_cached_file_content(self, path: Path) -> str:
+    def _get_cached_file_content(self, path: Path) -> str | None:
         """
         Get file content with caching based on modification time.
 
@@ -250,10 +290,9 @@ class PySearch:
             path: Path to the file to read
 
         Returns:
-            File content as string if successful, empty string if file cannot be read
+            File content as string if successful, None if file cannot be read
         """
-        content = self.cache_integration.get_cached_file_content(path)
-        return content if content is not None else ""
+        return self.cache_integration.get_cached_file_content(path)
 
     def _get_cache_key(self, query: Query) -> str:
         """Generate cache key for search query."""
@@ -313,20 +352,24 @@ class PySearch:
 
         t0 = time.perf_counter()
 
-        try:
-            changed, removed, total_seen = self.indexer.scan()
-            self.indexer.save()
-            self.logger.debug(
-                f"Indexer scan: {total_seen} files seen, {len(changed or [])} changed"
-            )
-        except Exception as e:
-            self.logger.error(f"Error during indexing: {e}")
-            self.error_collector.add_error(e)
-            # Continue with empty file list
-            changed = []
-            total_seen = 0
+        # When auto-watch is active the index is kept up-to-date
+        # incrementally, so we can skip the expensive full scan.
+        if self.file_watching.is_auto_watch_enabled():
+            self.indexer.load()  # ensure index is loaded
+            total_seen = self.indexer.count_indexed()
+        else:
+            try:
+                changed, removed, total_seen = self.indexer.scan()
+                self.indexer.save()
+                self.logger.debug(
+                    f"Indexer scan: {total_seen} files seen, {len(changed or [])} changed"
+                )
+            except Exception as e:
+                self.logger.error(f"Error during indexing: {e}")
+                self.error_collector.add_error(e)
+                total_seen = 0
 
-        paths = changed or list(self.indexer.iter_all_paths())
+        paths = list(self.indexer.iter_all_paths())
         self.logger.debug(f"Searching in {len(paths)} files")
 
         # Execute search using parallel processing manager
@@ -475,6 +518,7 @@ class PySearch:
             use_boolean=use_boolean,
             count_only=True,
             context=0,  # No context needed for counting
+            max_per_file=kwargs.get("max_per_file"),
             filters=kwargs.get("filters"),
             metadata_filters=kwargs.get("metadata_filters"),
             search_docstrings=self.cfg.enable_docstrings,
@@ -516,7 +560,7 @@ class PySearch:
         Returns:
             Dictionary containing results from all enabled search methods
         """
-        return await self.hybrid_search.hybrid_search(
+        return await self.hybrid_search_manager.hybrid_search(
             pattern=pattern,
             traditional_search_func=self.run,
             graphrag_search_func=self.graphrag_search if use_graphrag else None,
@@ -575,20 +619,22 @@ class PySearch:
         )
 
         # Get files to search
+        changed = []
+        removed = []
+        total_seen = 0
         try:
             changed, removed, total_seen = self.indexer.scan()
             self.logger.debug(
                 f"Indexer scan: {len(changed)} changed, {len(removed)} removed, {total_seen} total"
             )
         except Exception as e:
+            self.logger.error(f"Error during indexing for semantic search: {e}")
             self.error_collector.add_error(e)
-            # Continue with empty file list
-            changed, removed, total_seen = [], [], 0
 
-        paths = changed or list(self.indexer.iter_all_paths())
+        paths = list(self.indexer.iter_all_paths())
 
         # Delegate to hybrid search manager
-        return self.hybrid_search.search_semantic(
+        return self.hybrid_search_manager.search_semantic(
             query=query,
             file_paths=paths,
             get_file_content_func=self._get_cached_file_content,
@@ -702,6 +748,29 @@ class PySearch:
             ...     print()
         """
         return self.dependency_integration.suggest_refactoring_opportunities(graph)
+
+    def check_dependency_path(
+        self, source: str, target: str, graph: Any | None = None
+    ) -> bool:
+        """
+        Check if there is a dependency path from source module to target module.
+
+        This uses graph traversal (BFS) to determine if a transitive dependency
+        exists between two modules in the dependency graph.
+
+        Args:
+            source: Source module name
+            target: Target module name
+            graph: Dependency graph to use (if None, analyzes current project)
+
+        Returns:
+            True if a dependency path exists from source to target
+
+        Example:
+            >>> has_path = engine.check_dependency_path("src.core.api", "src.utils.helpers")
+            >>> print(f"Dependency path exists: {has_path}")
+        """
+        return self.dependency_integration.check_dependency_path(source, target, graph)
 
     def enable_auto_watch(
         self, debounce_delay: float = 0.5, batch_size: int = 50, max_batch_delay: float = 5.0
@@ -866,26 +935,18 @@ class PySearch:
             ...     default_ttl=7200  # 2 hours
             ... )
         """
-        if self._caching_enabled:
-            self.logger.warning("Caching already enabled")
-            return True
-
-        try:
-            self.cache_manager = CacheManager(
-                backend=backend,
-                cache_dir=cache_dir,
-                max_size=max_size,
-                default_ttl=default_ttl,
-                compression=compression,
-            )
-
-            self._caching_enabled = True
+        result = self.cache_integration.enable_caching(
+            backend=backend,
+            cache_dir=cache_dir,
+            max_size=max_size,
+            default_ttl=default_ttl,
+            compression=compression,
+        )
+        if result:
             self.logger.info(f"Caching enabled with {backend} backend")
-            return True
-
-        except Exception as e:
-            self.logger.error(f"Failed to enable caching: {e}")
-            return False
+        else:
+            self.logger.error("Failed to enable caching")
+        return result
 
     def disable_caching(self) -> None:
         """
@@ -897,16 +958,8 @@ class PySearch:
             >>> engine.disable_caching()
             >>> print("Caching disabled")
         """
-        if not self._caching_enabled or not self.cache_manager:
-            return
-
-        try:
-            self.cache_manager.shutdown()
-            self.cache_manager = None
-            self._caching_enabled = False
-            self.logger.info("Caching disabled")
-        except Exception as e:
-            self.logger.error(f"Error disabling caching: {e}")
+        self.cache_integration.disable_caching()
+        self.logger.info("Caching disabled")
 
     def is_caching_enabled(self) -> bool:
         """
@@ -915,7 +968,7 @@ class PySearch:
         Returns:
             True if caching is enabled, False otherwise
         """
-        return self._caching_enabled
+        return self.cache_integration.is_caching_enabled()
 
     def clear_cache(self) -> None:
         """
@@ -925,9 +978,8 @@ class PySearch:
             >>> engine.clear_cache()
             >>> print("Cache cleared")
         """
-        if self.cache_manager:
-            self.cache_manager.clear()
-            self.logger.info("Search cache cleared")
+        self.cache_integration.clear_caches()
+        self.logger.info("Search cache cleared")
 
     def get_cache_stats(self) -> dict[str, Any]:
         """
@@ -942,11 +994,9 @@ class PySearch:
             ...     print(f"Cache hit rate: {stats['hit_rate']:.2%}")
             ...     print(f"Total entries: {stats['total_entries']}")
         """
-        if self.cache_manager:
-            return self.cache_manager.get_stats()  # type: ignore[no-any-return]
-        return {}
+        return self.cache_integration.get_cache_stats()
 
-    def invalidate_cache_for_file(self, file_path: Path | str) -> int:
+    def invalidate_cache_for_file(self, file_path: Path | str) -> None:
         """
         Invalidate cached results that depend on a specific file.
 
@@ -956,17 +1006,29 @@ class PySearch:
         Args:
             file_path: Path of the file that changed
 
-        Returns:
-            Number of cache entries invalidated
-
         Example:
             >>> # Manually invalidate cache for a changed file
-            >>> count = engine.invalidate_cache_for_file("src/main.py")
-            >>> print(f"Invalidated {count} cached results")
+            >>> engine.invalidate_cache_for_file("src/main.py")
         """
-        if self.cache_manager:
-            return self.cache_manager.invalidate_by_file(str(file_path))  # type: ignore[no-any-return]
-        return 0
+        self.cache_integration.invalidate_file_cache(Path(file_path))
+
+    def set_cache_ttl(self, ttl: float) -> None:
+        """
+        Set cache time-to-live in seconds.
+
+        Args:
+            ttl: Time-to-live in seconds for cache entries
+        """
+        self.cache_integration.set_cache_ttl(ttl)
+
+    def get_cache_hit_rate(self) -> float:
+        """
+        Get cache hit rate as a percentage.
+
+        Returns:
+            Cache hit rate percentage (0.0-100.0)
+        """
+        return self.cache_integration.get_cache_hit_rate()
 
     def _generate_cache_key(self, query: Query) -> str:
         """Generate a cache key for a search query."""
@@ -975,6 +1037,301 @@ class PySearch:
     def _get_file_dependencies(self, result: SearchResult) -> set[str]:
         """Extract file dependencies from search result."""
         return {str(p) for p in self.cache_integration._get_file_dependencies(result)}
+
+    # ── Distributed Indexing ──
+
+    def enable_distributed_indexing(
+        self, num_workers: int | None = None, max_queue_size: int = 10000
+    ) -> bool:
+        """
+        Enable distributed indexing for large codebases.
+
+        Args:
+            num_workers: Number of worker processes (defaults to min(cpu_count, 8))
+            max_queue_size: Maximum work queue size
+
+        Returns:
+            True if distributed indexing was enabled successfully, False otherwise
+
+        Example:
+            >>> engine.enable_distributed_indexing(num_workers=4)
+            >>> import asyncio
+            >>> asyncio.run(engine.distributed_index_codebase(["/path/to/project"]))
+        """
+        result = self.distributed_indexing.enable_distributed_indexing(
+            num_workers=num_workers, max_queue_size=max_queue_size
+        )
+        if result:
+            self.logger.info("Distributed indexing enabled")
+        else:
+            self.logger.error("Failed to enable distributed indexing")
+        return result
+
+    def disable_distributed_indexing(self) -> None:
+        """Disable distributed indexing and stop all workers."""
+        self.distributed_indexing.disable_distributed_indexing()
+        self.logger.info("Distributed indexing disabled")
+
+    def is_distributed_indexing_enabled(self) -> bool:
+        """Check if distributed indexing is enabled."""
+        return self.distributed_indexing.is_distributed_enabled()
+
+    async def distributed_index_codebase(
+        self,
+        directories: list[str],
+        branch: str | None = None,
+        repo_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Index codebase using distributed workers.
+
+        Args:
+            directories: Directories to index
+            branch: Git branch name
+            repo_name: Repository name
+
+        Returns:
+            List of progress update dictionaries
+
+        Example:
+            >>> import asyncio
+            >>> updates = asyncio.run(engine.distributed_index_codebase(["."]))
+            >>> for u in updates:
+            ...     print(f"{u['progress']:.0%} - {u['description']}")
+        """
+        if not self.distributed_indexing.is_distributed_enabled():
+            self.logger.error("Distributed indexing not enabled")
+            return []
+        return await self.distributed_indexing.index_codebase(
+            directories=directories, branch=branch, repo_name=repo_name
+        )
+
+    async def get_distributed_worker_stats(self) -> list[dict[str, Any]]:
+        """
+        Get statistics for all distributed indexing workers.
+
+        Returns:
+            List of worker statistics dictionaries
+        """
+        if not self.distributed_indexing.is_distributed_enabled():
+            return []
+        return await self.distributed_indexing.get_worker_stats()
+
+    async def scale_distributed_workers(self, target_count: int) -> bool:
+        """
+        Dynamically scale the number of distributed indexing workers.
+
+        Args:
+            target_count: Target number of workers
+
+        Returns:
+            True if scaling succeeded, False otherwise
+        """
+        if not self.distributed_indexing.is_distributed_enabled():
+            self.logger.error("Distributed indexing not enabled")
+            return False
+        return await self.distributed_indexing.scale_workers(target_count)
+
+    async def get_distributed_performance_metrics(self) -> dict[str, Any]:
+        """
+        Get comprehensive performance metrics for distributed indexing.
+
+        Returns:
+            Dictionary with worker, queue, and performance metrics
+        """
+        if not self.distributed_indexing.is_distributed_enabled():
+            return {}
+        return await self.distributed_indexing.get_performance_metrics()
+
+    def get_distributed_queue_stats(self) -> dict[str, Any]:
+        """
+        Get work queue statistics (synchronous).
+
+        Returns:
+            Dictionary with queue statistics
+        """
+        if not self.distributed_indexing.is_distributed_enabled():
+            return {}
+        return self.distributed_indexing.get_queue_stats()
+
+    # ── IDE Integration ──
+
+    def enable_ide_integration(self) -> bool:
+        """
+        Enable IDE integration features (jump-to-definition, find-references, etc.).
+
+        Returns:
+            True if IDE integration was enabled successfully, False otherwise
+
+        Example:
+            >>> engine.enable_ide_integration()
+            >>> loc = engine.jump_to_definition("src/main.py", 10, "my_func")
+        """
+        result = self.ide_integration.enable_ide_integration(self)
+        if result:
+            self.logger.info("IDE integration enabled")
+        else:
+            self.logger.error("Failed to enable IDE integration")
+        return result
+
+    def disable_ide_integration(self) -> None:
+        """Disable IDE integration features."""
+        self.ide_integration.disable_ide_integration()
+        self.logger.info("IDE integration disabled")
+
+    def is_ide_enabled(self) -> bool:
+        """Check if IDE integration is enabled."""
+        return self.ide_integration.is_ide_enabled()
+
+    def jump_to_definition(
+        self, file_path: str, line: int, symbol: str
+    ) -> dict[str, Any] | None:
+        """
+        Find the definition of a symbol.
+
+        Args:
+            file_path: File requesting the jump
+            line: Line number where the symbol appears
+            symbol: The identifier to look up
+
+        Returns:
+            Dictionary with definition location, or None if not found
+
+        Example:
+            >>> loc = engine.jump_to_definition("src/main.py", 10, "my_func")
+            >>> if loc:
+            ...     print(f"Definition at {loc['file']}:{loc['line']}")
+        """
+        if not self.ide_integration.is_ide_enabled():
+            self.logger.error("IDE integration not enabled")
+            return None
+        return self.ide_integration.jump_to_definition(file_path, line, symbol)
+
+    def find_references(
+        self,
+        file_path: str,
+        line: int,
+        symbol: str,
+        include_definition: bool = True,
+    ) -> list[dict[str, Any]]:
+        """
+        Find all references to a symbol across the codebase.
+
+        Args:
+            file_path: Originating file
+            line: Originating line
+            symbol: The identifier to search for
+            include_definition: Whether to include the definition itself
+
+        Returns:
+            List of reference location dictionaries
+        """
+        if not self.ide_integration.is_ide_enabled():
+            self.logger.error("IDE integration not enabled")
+            return []
+        return self.ide_integration.find_references(
+            file_path, line, symbol, include_definition
+        )
+
+    def provide_completion(
+        self, file_path: str, line: int, column: int, prefix: str = ""
+    ) -> list[dict[str, Any]]:
+        """
+        Provide auto-completion suggestions for the given cursor position.
+
+        Args:
+            file_path: Current file
+            line: Cursor line
+            column: Cursor column
+            prefix: Partially typed identifier
+
+        Returns:
+            List of completion item dictionaries
+        """
+        if not self.ide_integration.is_ide_enabled():
+            return []
+        return self.ide_integration.provide_completion(file_path, line, column, prefix)
+
+    def provide_hover(
+        self, file_path: str, line: int, column: int, symbol: str
+    ) -> dict[str, Any] | None:
+        """
+        Provide hover information for a symbol.
+
+        Args:
+            file_path: Current file
+            line: Cursor line
+            column: Cursor column
+            symbol: The hovered identifier
+
+        Returns:
+            Dictionary with hover information, or None
+        """
+        if not self.ide_integration.is_ide_enabled():
+            return None
+        return self.ide_integration.provide_hover(file_path, line, column, symbol)
+
+    def get_document_symbols(self, file_path: str) -> list[dict[str, Any]]:
+        """
+        List all symbols (functions, classes, variables) in a file.
+
+        Args:
+            file_path: Path to the file
+
+        Returns:
+            List of document symbol dictionaries
+        """
+        if not self.ide_integration.is_ide_enabled():
+            return []
+        return self.ide_integration.get_document_symbols(file_path)
+
+    def get_workspace_symbols(self, query: str = "") -> list[dict[str, Any]]:
+        """
+        Search for symbols across the entire workspace.
+
+        Args:
+            query: Optional filter string for symbol names
+
+        Returns:
+            List of document symbol dictionaries
+        """
+        if not self.ide_integration.is_ide_enabled():
+            return []
+        return self.ide_integration.get_workspace_symbols(query)
+
+    def get_diagnostics(self, file_path: str) -> list[dict[str, Any]]:
+        """
+        Run lightweight diagnostics on a file.
+
+        Currently checks for TODO/FIXME/HACK markers and self-imports.
+
+        Args:
+            file_path: The file to diagnose
+
+        Returns:
+            List of diagnostic dictionaries
+        """
+        if not self.ide_integration.is_ide_enabled():
+            return []
+        return self.ide_integration.get_diagnostics(file_path)
+
+    def ide_structured_query(self, query: Query) -> dict[str, Any]:
+        """
+        Structured query interface for IDE consumption.
+
+        Returns a JSON-serialisable dict with search results and stats.
+
+        Args:
+            query: A Query object for searching
+
+        Returns:
+            Dictionary with 'items' and 'stats' keys
+        """
+        if not self.ide_integration.is_ide_enabled():
+            return {"items": [], "stats": {}}
+        return self.ide_integration.ide_query(query)
+
+    # ── Multi-Repository Search ──
 
     def enable_multi_repo(self, max_workers: int = 4) -> bool:
         """
@@ -999,19 +1356,12 @@ class PySearch:
             >>> engine.add_repository("project-a", "/path/to/project-a")
             >>> engine.add_repository("project-b", "/path/to/project-b")
         """
-        if self._multi_repo_enabled:
-            self.logger.warning("Multi-repository search already enabled")
-            return True
-
-        try:
-            self.multi_repo_engine = MultiRepoSearchEngine(max_workers=max_workers)
-            self._multi_repo_enabled = True
+        result = self.multi_repo_integration.enable_multi_repo(max_workers=max_workers)
+        if result:
             self.logger.info("Multi-repository search enabled")
-            return True
-
-        except Exception as e:
-            self.logger.error(f"Failed to enable multi-repository search: {e}")
-            return False
+        else:
+            self.logger.error("Failed to enable multi-repository search")
+        return result
 
     def disable_multi_repo(self) -> None:
         """
@@ -1021,11 +1371,7 @@ class PySearch:
             >>> engine.disable_multi_repo()
             >>> print("Multi-repository search disabled")
         """
-        if not self._multi_repo_enabled:
-            return
-
-        self.multi_repo_engine = None
-        self._multi_repo_enabled = False
+        self.multi_repo_integration.disable_multi_repo()
         self.logger.info("Multi-repository search disabled")
 
     def is_multi_repo_enabled(self) -> bool:
@@ -1035,7 +1381,7 @@ class PySearch:
         Returns:
             True if multi-repo is enabled, False otherwise
         """
-        return self._multi_repo_enabled
+        return self.multi_repo_integration.is_multi_repo_enabled()
 
     def add_repository(
         self,
@@ -1073,13 +1419,37 @@ class PySearch:
             ... )
             >>> engine.add_repository("web-app", "/path/to/web-app", config=config)
         """
-        if not self._multi_repo_enabled or not self.multi_repo_engine:
+        if not self.multi_repo_integration.is_multi_repo_enabled():
             self.logger.error("Multi-repository search not enabled")
             return False
 
-        return self.multi_repo_engine.add_repository(  # type: ignore[no-any-return]
-            name=name, path=path, config=config, priority=priority, **metadata
+        return self.multi_repo_integration.add_repository(
+            name=name, path=str(path), config=config, priority=priority, **metadata
         )
+
+    def configure_repository(self, name: str, **config_updates: Any) -> bool:
+        """
+        Update repository configuration in multi-repository search.
+
+        Args:
+            name: Repository name
+            **config_updates: Configuration updates (priority, enabled, etc.)
+
+        Returns:
+            True if configuration was updated, False otherwise
+
+        Example:
+            >>> engine.configure_repository(
+            ...     "web-app",
+            ...     priority="high",
+            ...     enabled=True,
+            ... )
+        """
+        if not self.multi_repo_integration.is_multi_repo_enabled():
+            self.logger.error("Multi-repository search not enabled")
+            return False
+
+        return self.multi_repo_integration.configure_repository(name, **config_updates)
 
     def remove_repository(self, name: str) -> bool:
         """
@@ -1091,10 +1461,7 @@ class PySearch:
         Returns:
             True if repository was removed, False if not found
         """
-        if not self._multi_repo_enabled or not self.multi_repo_engine:
-            return False
-
-        return self.multi_repo_engine.remove_repository(name)  # type: ignore[no-any-return]
+        return self.multi_repo_integration.remove_repository(name)
 
     def list_repositories(self) -> list[str]:
         """
@@ -1103,10 +1470,7 @@ class PySearch:
         Returns:
             List of repository names, empty if multi-repo not enabled
         """
-        if not self._multi_repo_enabled or not self.multi_repo_engine:
-            return []
-
-        return self.multi_repo_engine.list_repositories()  # type: ignore[no-any-return]
+        return self.multi_repo_integration.list_repositories()
 
     def get_repository_info(self, name: str) -> RepositoryInfo | None:
         """
@@ -1118,10 +1482,13 @@ class PySearch:
         Returns:
             RepositoryInfo if found, None otherwise
         """
-        if not self._multi_repo_enabled or not self.multi_repo_engine:
+        if not self.multi_repo_integration.is_multi_repo_enabled():
             return None
 
-        return self.multi_repo_engine.get_repository_info(name)  # type: ignore[no-any-return]
+        engine = self.multi_repo_integration.multi_repo_engine
+        if engine:
+            return engine.get_repository_info(name)  # type: ignore[no-any-return]
+        return None
 
     def search_all_repositories(
         self,
@@ -1164,11 +1531,15 @@ class PySearch:
             ...     max_results=500
             ... )
         """
-        if not self._multi_repo_enabled or not self.multi_repo_engine:
+        if not self.multi_repo_integration.is_multi_repo_enabled():
             self.logger.error("Multi-repository search not enabled")
             return None
 
-        return self.multi_repo_engine.search_all(  # type: ignore[no-any-return]
+        engine = self.multi_repo_integration.multi_repo_engine
+        if not engine:
+            return None
+
+        return engine.search_all(  # type: ignore[no-any-return]
             pattern=pattern,
             use_regex=use_regex,
             use_ast=use_ast,
@@ -1209,17 +1580,10 @@ class PySearch:
             ...     query=query
             ... )
         """
-        if not self._multi_repo_enabled or not self.multi_repo_engine:
-            self.logger.error("Multi-repository search not enabled")
-            return None
-
-        return self.multi_repo_engine.search_repositories(  # type: ignore[no-any-return]
-            repositories=repositories,
-            query=query,
-            max_results=max_results,
-            aggregate_results=aggregate_results,
-            timeout=timeout,
+        result = self.multi_repo_integration.search_repositories(
+            query=query, repositories=repositories
         )
+        return result
 
     def get_multi_repo_health(self) -> dict[str, Any]:
         """
@@ -1228,10 +1592,7 @@ class PySearch:
         Returns:
             Dictionary with health information, empty if not enabled
         """
-        if not self._multi_repo_enabled or not self.multi_repo_engine:
-            return {}
-
-        return self.multi_repo_engine.get_health_status()  # type: ignore[no-any-return]
+        return self.multi_repo_integration.get_repository_health()
 
     def get_multi_repo_stats(self) -> dict[str, Any]:
         """
@@ -1240,10 +1601,16 @@ class PySearch:
         Returns:
             Dictionary with search statistics, empty if not enabled
         """
-        if not self._multi_repo_enabled or not self.multi_repo_engine:
-            return {}
+        return self.multi_repo_integration.get_repository_stats()
 
-        return self.multi_repo_engine.get_search_statistics()  # type: ignore[no-any-return]
+    def sync_repositories(self) -> dict[str, bool]:
+        """
+        Synchronize all repositories (refresh status and health).
+
+        Returns:
+            Dictionary mapping repository names to sync success status
+        """
+        return self.multi_repo_integration.sync_repositories()
 
     # New advanced search methods
     def fuzzy_search(
@@ -1349,6 +1716,129 @@ class PySearch:
             ),
         )
 
+    def word_level_fuzzy_search(
+        self,
+        pattern: str,
+        max_distance: int = 2,
+        min_similarity: float = 0.6,
+        algorithms: list[str] | None = None,
+        max_results: int = 1000,
+        **kwargs: Any,
+    ) -> SearchResult:
+        """
+        Word-level fuzzy search using actual similarity algorithms.
+
+        Unlike regex-based fuzzy search, this method compares individual words
+        in file content against the pattern using real edit-distance and
+        similarity algorithms, returning matches with precise similarity scores.
+
+        Args:
+            pattern: Word or short phrase to search for
+            max_distance: Maximum edit distance for distance-based algorithms
+            min_similarity: Minimum similarity score (0.0 to 1.0)
+            algorithms: List of algorithm names to use (default: all)
+            max_results: Maximum number of results to return
+            **kwargs: Additional search parameters
+        """
+        from ..search.fuzzy import FuzzyAlgorithm, FuzzyMatch, fuzzy_search_advanced
+
+        # Parse algorithms
+        fuzzy_algos: list[FuzzyAlgorithm] | None = None
+        if algorithms:
+            fuzzy_algos = []
+            for algo_name in algorithms:
+                try:
+                    fuzzy_algos.append(FuzzyAlgorithm(algo_name.lower()))
+                except ValueError:
+                    continue
+
+        t0 = time.perf_counter()
+
+        # Ensure index is up-to-date
+        if self.file_watching.is_auto_watch_enabled():
+            self.indexer.load()
+        else:
+            try:
+                self.indexer.scan()
+            except Exception as e:
+                self.error_collector.add_error(e)
+
+        paths = list(self.indexer.iter_all_paths())
+        all_items: list[SearchItem] = []
+        seen_keys: set[tuple[str, int]] = set()
+        files_matched_set: set[Path] = set()
+
+        for path in paths:
+            text = self._get_cached_file_content(path)
+            if text is None:
+                continue
+
+            matches: list[FuzzyMatch] = fuzzy_search_advanced(
+                text=text,
+                pattern=pattern,
+                algorithms=fuzzy_algos,
+                max_distance=max_distance,
+                min_similarity=min_similarity,
+                combine_results=True,
+            )
+
+            if not matches:
+                continue
+
+            files_matched_set.add(path)
+            lines = text.splitlines()
+
+            for match in matches:
+                # Find line number for this match
+                line_num = text[:match.start].count("\n") + 1
+                key = (str(path), line_num)
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+
+                # Build context window
+                from ..utils.helpers import extract_context, split_lines_keepends
+
+                ctx_lines = split_lines_keepends(text)
+                ctx_s, ctx_e, slice_lines = extract_context(
+                    ctx_lines, line_num, line_num,
+                    window=kwargs.get("context", self.cfg.context),
+                )
+
+                # Calculate column within line
+                line_start_offset = sum(len(l) for l in lines[:line_num - 1]) + (line_num - 1)
+                col_start = match.start - line_start_offset
+                col_end = match.end - line_start_offset
+
+                item = SearchItem(
+                    file=path,
+                    start_line=ctx_s,
+                    end_line=ctx_e,
+                    lines=slice_lines,
+                    match_spans=[(line_num - ctx_s, (max(0, col_start), max(0, col_end)))],
+                )
+                all_items.append(item)
+
+            if len(all_items) >= max_results:
+                break
+
+        # Sort and deduplicate
+        all_items = sort_items(all_items, self.cfg, pattern)
+        all_items = deduplicate_overlapping_results(all_items)
+        all_items = all_items[:max_results]
+
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        return SearchResult(
+            items=all_items,
+            stats=SearchStats(
+                files_scanned=len(paths),
+                files_matched=len(files_matched_set),
+                items=len(all_items),
+                elapsed_ms=elapsed_ms,
+                indexed_files=self.indexer.count_indexed(),
+            ),
+        )
+
     def phonetic_search(
         self, pattern: str, algorithm: str = "soundex", **kwargs: Any
     ) -> SearchResult:
@@ -1372,6 +1862,70 @@ class PySearch:
         # Distance 0 for phonetic
         fuzzy_regex = fuzzy_pattern(pattern, 0, fuzzy_algo)
         return self.search(fuzzy_regex, regex=True, **kwargs)
+
+    def suggest_corrections(
+        self,
+        word: str,
+        max_suggestions: int = 5,
+        algorithm: str = "damerau_levenshtein",
+    ) -> list[tuple[str, float]]:
+        """
+        Suggest spelling corrections for a word based on identifiers found in the codebase.
+
+        Scans all indexed files, extracts unique identifiers, and returns the
+        most similar ones to the given word using the specified fuzzy algorithm.
+
+        Args:
+            word: Word to find corrections for
+            max_suggestions: Maximum number of suggestions to return
+            algorithm: Fuzzy algorithm to use for similarity calculation
+
+        Returns:
+            List of (suggestion, similarity_score) tuples sorted by similarity
+
+        Example:
+            >>> suggestions = engine.suggest_corrections("conection")
+            >>> for suggestion, score in suggestions:
+            ...     print(f"  {suggestion} (similarity: {score:.2f})")
+        """
+        from ..search.fuzzy import FuzzyAlgorithm, suggest_corrections as _suggest
+
+        # Parse algorithm
+        try:
+            fuzzy_algo = FuzzyAlgorithm(algorithm.lower())
+        except ValueError:
+            fuzzy_algo = FuzzyAlgorithm.DAMERAU_LEVENSHTEIN
+
+        # Build dictionary from codebase identifiers
+        import re as _re
+
+        identifier_set: set[str] = set()
+
+        # Ensure index is up-to-date
+        if self.file_watching.is_auto_watch_enabled():
+            self.indexer.load()
+        else:
+            try:
+                self.indexer.scan()
+            except Exception as e:
+                self.error_collector.add_error(e)
+
+        paths = list(self.indexer.iter_all_paths())
+        for path in paths[:500]:  # Limit to avoid excessive processing
+            text = self._get_cached_file_content(path)
+            if text is None:
+                continue
+            # Extract identifiers (words with at least 3 chars)
+            identifiers = _re.findall(r"\b[a-zA-Z_][a-zA-Z0-9_]{2,}\b", text)
+            identifier_set.update(identifiers)
+
+        dictionary = list(identifier_set)
+        return _suggest(
+            word=word,
+            dictionary=dictionary,
+            max_suggestions=max_suggestions,
+            algorithm=fuzzy_algo,
+        )
 
     def semantic_search(self, concept: str, **kwargs: Any) -> SearchResult:
         """Semantic search based on code concepts."""
@@ -1604,6 +2158,63 @@ class PySearch:
 
         return result
 
+    def check_boolean_match(self, query_str: str, file_path: Path | str) -> bool:
+        """
+        Check if a file matches a boolean query expression.
+
+        This provides a quick boolean check without returning detailed match
+        locations — useful for filtering files or pre-screening content.
+
+        Args:
+            query_str: Boolean query string (e.g., "(async AND handler) NOT test")
+            file_path: Path to the file to check
+
+        Returns:
+            True if the file content matches the boolean expression
+
+        Example:
+            >>> if engine.check_boolean_match("(database AND connection) NOT test", "db.py"):
+            ...     print("File matches!")
+        """
+        from ..search.boolean import evaluate_boolean_query, parse_boolean_query
+
+        path = Path(file_path)
+        content = self._get_cached_file_content(path)
+        if content is None:
+            return False
+
+        try:
+            boolean_query = parse_boolean_query(query_str)
+            return evaluate_boolean_query(boolean_query, content)
+        except Exception as e:
+            self.logger.warning(f"Boolean query error: {e}")
+            return False
+
+    def get_results_grouped_by_file(
+        self, result: SearchResult
+    ) -> dict[Path, list[SearchItem]]:
+        """
+        Group search results by file for organized output.
+
+        Each file's results are sorted by line number, making it easy to
+        process results on a per-file basis.
+
+        Args:
+            result: Search result to group
+
+        Returns:
+            Dictionary mapping file paths to their sorted search items
+
+        Example:
+            >>> result = engine.search("def ")
+            >>> grouped = engine.get_results_grouped_by_file(result)
+            >>> for file_path, items in grouped.items():
+            ...     print(f"{file_path}: {len(items)} matches")
+        """
+        from ..search.scorer import group_results_by_file
+
+        return group_results_by_file(result.items)
+
     def get_result_clusters(
         self, result: SearchResult, similarity_threshold: float = 0.8
     ) -> list[list[SearchItem]]:
@@ -1696,3 +2307,431 @@ class PySearch:
     def cleanup_old_cache_entries(self, days_old: int = 30) -> int:
         """Clean up old cache entries."""
         return self.indexer.cleanup_old_entries(days_old)
+
+    # ── Dependency integration: expose all manager methods ──
+
+    def detect_circular_dependencies(self, graph: Any | None = None) -> list[list[str]]:
+        """
+        Detect circular dependencies in the codebase.
+
+        Args:
+            graph: Dependency graph to analyze (if None, analyzes current project)
+
+        Returns:
+            List of circular dependency chains
+        """
+        return self.dependency_integration.detect_circular_dependencies(graph)
+
+    def get_module_coupling_metrics(self, graph: Any | None = None) -> dict[str, Any]:
+        """
+        Calculate module coupling metrics (afferent/efferent coupling, instability).
+
+        Args:
+            graph: Dependency graph to analyze (if None, analyzes current project)
+
+        Returns:
+            Dictionary with coupling metrics for each module
+        """
+        return self.dependency_integration.get_module_coupling_metrics(graph)
+
+    def find_dead_code(self, graph: Any | None = None) -> list[str]:
+        """
+        Identify potentially dead code (unused modules).
+
+        Args:
+            graph: Dependency graph to analyze (if None, analyzes current project)
+
+        Returns:
+            List of module names that appear to be unused
+        """
+        return self.dependency_integration.find_dead_code(graph)
+
+    def export_dependency_graph(self, graph: Any, format: str = "dot") -> str:
+        """
+        Export dependency graph in specified format.
+
+        Args:
+            graph: Dependency graph to export
+            format: Export format ("dot", "json", "csv")
+
+        Returns:
+            String representation of the graph in specified format
+        """
+        return self.dependency_integration.export_dependency_graph(graph, format)
+
+    # ── File watching: expose all manager methods ──
+
+    def pause_watching(self) -> None:
+        """Temporarily pause all file watchers."""
+        self.file_watching.pause_watching()
+
+    def resume_watching(self) -> None:
+        """Resume all paused file watchers."""
+        self.file_watching.resume_watching()
+
+    def get_watcher_status(self, name: str) -> dict[str, Any]:
+        """
+        Get status information for a specific watcher.
+
+        Args:
+            name: Name of the watcher
+
+        Returns:
+            Dictionary with watcher status information
+        """
+        return self.file_watching.get_watcher_status(name)
+
+    def set_watch_filters(
+        self, include_patterns: list[str] | None = None, exclude_patterns: list[str] | None = None
+    ) -> None:
+        """
+        Set file patterns to include or exclude from watching.
+
+        Args:
+            include_patterns: Patterns for files to include in watching
+            exclude_patterns: Patterns for files to exclude from watching
+        """
+        self.file_watching.set_watch_filters(include_patterns, exclude_patterns)
+
+    def force_rescan(self) -> bool:
+        """
+        Force a rescan of all watched directories.
+
+        Returns:
+            True if rescan was successful, False otherwise
+        """
+        return self.file_watching.force_rescan()
+
+    def get_watch_performance_metrics(self) -> dict[str, Any]:
+        """
+        Get performance metrics for file watching operations.
+
+        Returns:
+            Dictionary with performance metrics
+        """
+        return self.file_watching.get_watch_performance_metrics()
+
+    # ── GraphRAG integration: expose all manager methods ──
+
+    def is_graphrag_initialized(self) -> bool:
+        """Check if GraphRAG is initialized."""
+        return self.graphrag_integration.is_initialized()
+
+    def is_graphrag_enabled(self) -> bool:
+        """Check if GraphRAG is enabled."""
+        return self.graphrag_integration.is_enabled()
+
+    def get_graph_stats(self) -> dict[str, Any]:
+        """Get knowledge graph statistics."""
+        return self.graphrag_integration.get_graph_stats()
+
+    def get_vector_store_stats(self) -> dict[str, Any]:
+        """Get vector store statistics."""
+        return self.graphrag_integration.get_vector_store_stats()
+
+    async def add_graph_entities(self, entities: list[Any]) -> bool:
+        """Add entities to the knowledge graph."""
+        return await self.graphrag_integration.add_entities(entities)
+
+    async def add_graph_relationships(self, relationships: list[Any]) -> bool:
+        """Add relationships to the knowledge graph."""
+        return await self.graphrag_integration.add_relationships(relationships)
+
+    async def find_similar_entities(self, entity_id: str, limit: int = 10) -> list[Any]:
+        """Find entities similar to the given entity."""
+        return await self.graphrag_integration.find_similar_entities(entity_id, limit)
+
+    async def get_entity_context(self, entity_id: str, max_hops: int = 2) -> dict[str, Any]:
+        """Get contextual information for an entity."""
+        return await self.graphrag_integration.get_entity_context(entity_id, max_hops)
+
+    async def update_graph_entity(self, entity_id: str, updates: dict[str, Any]) -> bool:
+        """Update an entity in the knowledge graph."""
+        return await self.graphrag_integration.update_entity(entity_id, updates)
+
+    async def delete_graph_entity(self, entity_id: str) -> bool:
+        """Delete an entity from the knowledge graph."""
+        return await self.graphrag_integration.delete_entity(entity_id)
+
+    async def export_knowledge_graph(self, format: str = "json") -> str:
+        """Export the knowledge graph in specified format."""
+        return await self.graphrag_integration.export_graph(format)
+
+    async def import_knowledge_graph(self, data: str, format: str = "json") -> bool:
+        """Import a knowledge graph from data."""
+        return await self.graphrag_integration.import_graph(data, format)
+
+    # ── Indexing integration: expose all manager methods ──
+
+    def is_metadata_index_initialized(self) -> bool:
+        """Check if metadata indexing is initialized."""
+        return self.indexing_integration.is_initialized()
+
+    def is_metadata_index_enabled(self) -> bool:
+        """Check if metadata indexing is enabled."""
+        return self.indexing_integration.is_enabled()
+
+    def get_metadata_index_stats(self) -> dict[str, Any]:
+        """Get metadata index statistics."""
+        return self.indexing_integration.get_index_stats()
+
+    async def update_metadata_index(self, file_paths: list[str]) -> bool:
+        """Update the metadata index for specific files."""
+        return await self.indexing_integration.update_index(file_paths)
+
+    async def remove_from_metadata_index(self, file_paths: list[str]) -> bool:
+        """Remove files from the metadata index."""
+        return await self.indexing_integration.remove_from_index(file_paths)
+
+    async def optimize_metadata_index(self) -> bool:
+        """Optimize the metadata index for better performance."""
+        return await self.indexing_integration.optimize_index()
+
+    async def clear_metadata_index(self) -> bool:
+        """Clear the entire metadata index."""
+        return await self.indexing_integration.clear_index()
+
+    def get_metadata_index_size(self) -> dict[str, Any]:
+        """Get information about index size and storage."""
+        return self.indexing_integration.get_index_size()
+
+    async def backup_metadata_index(self, backup_path: str) -> bool:
+        """Create a backup of the metadata index."""
+        return await self.indexing_integration.backup_index(backup_path)
+
+    async def restore_metadata_index(self, backup_path: str) -> bool:
+        """Restore the metadata index from a backup."""
+        return await self.indexing_integration.restore_index(backup_path)
+
+    def get_metadata_index_health(self) -> dict[str, Any]:
+        """Get health status of the metadata index."""
+        return self.indexing_integration.get_index_health()
+
+    # ── Parallel processing: expose utility methods ──
+
+    def get_optimal_worker_count(self, file_count: int, query: Query) -> int:
+        """Calculate optimal worker count based on workload characteristics."""
+        return self.parallel_processing.get_optimal_worker_count(file_count, query)
+
+    def should_use_process_pool(self, file_count: int, query: Query) -> bool:
+        """Determine if process pool should be used over thread pool."""
+        return self.parallel_processing.should_use_process_pool(file_count, query)
+
+    def estimate_search_time(self, file_count: int, query: Query) -> float:
+        """
+        Estimate search time based on file count and query complexity.
+
+        Args:
+            file_count: Number of files to search
+            query: Search query
+
+        Returns:
+            Estimated search time in milliseconds
+        """
+        return self.parallel_processing.estimate_search_time(file_count, query)
+
+    # ── History: expose bookmark search/stats, session analytics, performance insights ──
+
+    def search_bookmarks(self, pattern: str) -> list[tuple[str, SearchHistoryEntry]]:
+        """
+        Search bookmarks by name or query pattern.
+
+        Args:
+            pattern: Pattern to search for in bookmark names and query patterns
+
+        Returns:
+            List of (name, entry) tuples matching the pattern
+        """
+        self.history._ensure_managers_loaded()
+        if self.history._bookmark_manager:
+            return self.history._bookmark_manager.search_bookmarks(pattern)
+        return []
+
+    def get_bookmark_stats(self) -> dict[str, Any]:
+        """
+        Get bookmark statistics.
+
+        Returns:
+            Dictionary with total bookmarks, total folders, and bookmarks in folders
+        """
+        self.history._ensure_managers_loaded()
+        if self.history._bookmark_manager:
+            return self.history._bookmark_manager.get_bookmark_stats()
+        return {}
+
+    def get_session_analytics(self, days: int = 30) -> dict[str, Any]:
+        """
+        Get session-based analytics.
+
+        Args:
+            days: Number of days to include in analytics
+
+        Returns:
+            Dictionary with session analytics data
+        """
+        self.history._ensure_managers_loaded()
+        if self.history._session_manager:
+            return self.history._session_manager.get_session_analytics(days)
+        return {}
+
+    def get_session_by_id(self, session_id: str) -> Any:
+        """
+        Get a specific session by ID.
+
+        Args:
+            session_id: Session identifier
+
+        Returns:
+            SearchSession if found, None otherwise
+        """
+        self.history._ensure_managers_loaded()
+        if self.history._session_manager:
+            return self.history._session_manager.get_session_by_id(session_id)
+        return None
+
+    def cleanup_old_sessions(self, days: int = 90) -> int:
+        """
+        Remove sessions older than specified days.
+
+        Args:
+            days: Number of days to keep sessions for
+
+        Returns:
+            Number of sessions removed
+        """
+        self.history._ensure_managers_loaded()
+        if self.history._session_manager:
+            return self.history._session_manager.cleanup_old_sessions(days)
+        return 0
+
+    def get_performance_insights(self) -> dict[str, Any]:
+        """
+        Get performance insights and recommendations based on search history.
+
+        Returns:
+            Dictionary with insights, recommendations, and metrics
+        """
+        self.history._ensure_managers_loaded()
+        if self.history._analytics_manager:
+            return self.history._analytics_manager.get_performance_insights(
+                list(self.history._history)
+            )
+        return {}
+
+    def get_usage_patterns(self) -> dict[str, Any]:
+        """
+        Analyze usage patterns and trends from search history.
+
+        Returns:
+            Dictionary with temporal patterns, search patterns, and productivity metrics
+        """
+        self.history._ensure_managers_loaded()
+        if self.history._analytics_manager:
+            return self.history._analytics_manager.get_usage_patterns(
+                list(self.history._history)
+            )
+        return {}
+
+    # ── Multi-Provider Vector Management ──
+
+    async def create_multi_provider_vector_manager(
+        self,
+        providers: list[str] | None = None,
+    ) -> MultiProviderVectorManager:
+        """
+        Create a multi-provider vector manager for redundancy and performance.
+
+        This allows indexing and searching across multiple vector databases
+        simultaneously (e.g., LanceDB + Qdrant) for fault tolerance and
+        optimized retrieval.
+
+        Args:
+            providers: List of provider types to initialize.
+                Supported: "lancedb", "qdrant", "chroma".
+                Defaults to ["lancedb"] if not specified.
+
+        Returns:
+            Configured MultiProviderVectorManager instance.
+
+        Example:
+            >>> manager = await engine.create_multi_provider_vector_manager(
+            ...     providers=["lancedb", "qdrant"]
+            ... )
+        """
+        embedding_config = EmbeddingConfig(
+            provider=self.cfg.embedding_provider,
+            model_name=self.cfg.embedding_model,
+            batch_size=self.cfg.embedding_batch_size,
+            api_key=self.cfg.embedding_api_key,
+        )
+
+        cache_dir = self.cfg.resolve_cache_dir() / "multi_vectors"
+        manager = MultiProviderVectorManager(cache_dir, embedding_config)
+
+        providers = providers or ["lancedb"]
+        for provider_type in providers:
+            await manager.add_provider(provider_type, provider_type)
+
+        self.logger.info(f"Multi-provider vector manager created with providers: {providers}")
+        return manager
+
+    # ── GraphRAG Extended Methods ──
+
+    async def reset_knowledge_graph(self) -> bool:
+        """
+        Reset the knowledge graph and delete all associated vector data.
+
+        This completely clears the knowledge graph, removes cached graph files,
+        and deletes the vector collection in Qdrant.
+
+        Returns:
+            True if reset was successful, False otherwise.
+
+        Example:
+            >>> success = await engine.reset_knowledge_graph()
+            >>> if success:
+            ...     print("Knowledge graph reset - ready for rebuild")
+        """
+        return await self.graphrag_integration.reset_graph()
+
+    async def batch_find_similar_entities(
+        self, entity_ids: list[str], limit: int = 10
+    ) -> dict[str, list[Any]]:
+        """
+        Find similar entities for multiple entities using batch vector search.
+
+        Uses Qdrant's batch_search API for efficient multi-query similarity
+        search, significantly faster than sequential find_similar_entities calls.
+
+        Args:
+            entity_ids: List of entity IDs to find similar entities for.
+            limit: Maximum number of similar entities per query.
+
+        Returns:
+            Dict mapping entity_id to list of similar entities.
+
+        Example:
+            >>> results = await engine.batch_find_similar_entities(
+            ...     ["entity_1", "entity_2", "entity_3"], limit=5
+            ... )
+            >>> for eid, similar in results.items():
+            ...     print(f"{eid}: {len(similar)} similar entities")
+        """
+        return await self.graphrag_integration.batch_find_similar(entity_ids, limit)
+
+    async def get_graphrag_stats_async(self) -> dict[str, Any]:
+        """
+        Get comprehensive GraphRAG statistics including vector store details.
+
+        Returns async stats with vector collection listing and collection info
+        from the Qdrant vector store.
+
+        Returns:
+            Dictionary with graph stats, vector collections, and collection info.
+
+        Example:
+            >>> stats = await engine.get_graphrag_stats_async()
+            >>> print(f"Entities: {stats.get('total_entities', 0)}")
+            >>> print(f"Collections: {stats.get('vector_collections', [])}")
+        """
+        return await self.graphrag_integration.get_graph_stats_async()

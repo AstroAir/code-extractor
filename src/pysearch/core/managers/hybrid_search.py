@@ -121,6 +121,11 @@ class HybridSearchManager:
             if sample_docs and self.semantic_engine:
                 self.semantic_engine.fit_corpus(sample_docs)
 
+        # Expand query with semantically related terms
+        expanded_terms = []
+        if self.semantic_engine:
+            expanded_terms = self.semantic_engine.expand_query_semantically(query)
+
         # Perform semantic search on all files
         all_semantic_matches = []
         files_processed = 0
@@ -146,13 +151,31 @@ class HybridSearchManager:
                     ):
                         continue
 
-                # Perform semantic search on this file
+                # Perform semantic search on this file using original query
                 if self.semantic_engine:
                     semantic_matches = self.semantic_engine.search_semantic(
                         query=query, content=content, file_path=path, threshold=threshold
                     )
+                    all_semantic_matches.extend(semantic_matches)
 
-                all_semantic_matches.extend(semantic_matches)
+                    # Also search with expanded terms for better recall
+                    seen_lines: set[tuple[str, int]] = {
+                        (str(m.item.file), m.item.start_line) for m in semantic_matches
+                    }
+                    for term in expanded_terms:
+                        if term == query:
+                            continue
+                        try:
+                            extra_matches = self.semantic_engine.search_semantic(
+                                query=term, content=content, file_path=path, threshold=threshold
+                            )
+                            for m in extra_matches:
+                                key = (str(m.item.file), m.item.start_line)
+                                if key not in seen_lines:
+                                    seen_lines.add(key)
+                                    all_semantic_matches.append(m)
+                        except Exception:
+                            continue
                 files_processed += 1
 
             except Exception as e:

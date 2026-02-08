@@ -19,6 +19,7 @@ from ...analysis.content_addressing import (
     PathAndCacheKey,  # noqa: F401
     RefreshIndexResults,
 )
+from ...storage.qdrant_client import cosine_similarity
 from ...storage.vector_db import EmbeddingConfig, VectorIndexManager
 from ...utils.logging_config import get_logger
 from ...utils.helpers import read_text_safely
@@ -92,6 +93,10 @@ class VectorIndex(CodebaseIndex):
         )
         completed_operations = 0
 
+        # Separate compute items into new files vs updated files
+        # Updated files use update_chunks for efficient re-indexing
+        existing_collection = await self.vector_manager.vector_db.collection_exists(collection_name)
+
         for item in results.compute:
             yield IndexingProgressUpdate(
                 progress=completed_operations / max(total_operations, 1),
@@ -107,8 +112,13 @@ class VectorIndex(CodebaseIndex):
                 chunks = await self.chunking_engine.chunk_file(item.path, content)
 
                 if chunks:
-                    # Index chunks in vector database
-                    await self.vector_manager.index_chunks(chunks, collection_name)
+                    if existing_collection:
+                        # Use update_chunks for existing collections (delete old + insert new)
+                        await self.vector_manager.update_chunks(chunks, collection_name)
+                    else:
+                        # Index chunks in vector database for new collections
+                        await self.vector_manager.index_chunks(chunks, collection_name)
+                        existing_collection = True
 
                 mark_complete([item], "compute")
                 completed_operations += 1
@@ -178,6 +188,19 @@ class VectorIndex(CodebaseIndex):
             except Exception as e:
                 logger.error(f"Error deleting vectors for {item.path}: {e}")
                 completed_operations += 1
+
+        # Cleanup orphaned vectors after all operations are complete
+        if results.delete:
+            try:
+                valid_paths = {item.path for item in results.compute}
+                valid_paths.update(item.path for item in results.add_tag)
+                removed = await self.vector_manager.cleanup_orphaned_vectors(
+                    collection_name, valid_file_paths=valid_paths or None
+                )
+                if removed > 0:
+                    logger.info(f"Cleaned up {removed} orphaned vectors")
+            except Exception as e:
+                logger.error(f"Error cleaning up orphaned vectors: {e}")
 
         yield IndexingProgressUpdate(
             progress=1.0, description="Vector indexing complete", status="done"
@@ -334,7 +357,15 @@ class VectorIndex(CodebaseIndex):
             "complexity_score": 0.1,
             "exact_match": 0.3,
             "entity_name_match": 0.2,
+            "cross_similarity": 0.15,
         }
+
+        # Pre-compute query embedding for cross-similarity scoring
+        query_vector: list[float] | None = None
+        try:
+            query_vector = await self.vector_manager.embedding_provider.embed_query(query)
+        except Exception:
+            pass
 
         # Calculate enhanced scores
         for result in results:
@@ -359,9 +390,104 @@ class VectorIndex(CodebaseIndex):
             if entity_name and query.lower() in entity_name.lower():
                 enhanced_score += boost_factors.get("entity_name_match", 0.0)
 
+            # Cross-similarity boost using cosine_similarity from storage
+            # This uses the numpy-optimized implementation when available
+            if query_vector and result.get("_embedding"):
+                try:
+                    cross_sim = cosine_similarity(query_vector, result["_embedding"])
+                    enhanced_score += cross_sim * boost_factors.get("cross_similarity", 0.0)
+                except (ValueError, TypeError):
+                    pass
+
             result["enhanced_score"] = enhanced_score
 
         # Sort by enhanced score
         results.sort(key=lambda x: x.get("enhanced_score", 0.0), reverse=True)
 
         return results
+
+    async def batch_retrieve(
+        self,
+        queries: list[str],
+        tag: IndexTag,
+        limit: int = 10,
+        **kwargs: Any,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Batch retrieve semantically similar chunks for multiple queries.
+
+        Uses VectorIndexManager.batch_search for efficient multi-query retrieval.
+
+        Args:
+            queries: List of search queries.
+            tag: Index tag for the collection.
+            limit: Maximum results per query.
+
+        Returns:
+            Dict mapping each query to its result list.
+        """
+        collection_name = self.vector_manager.get_collection_name(tag)
+
+        # Build filters from kwargs
+        filters = {}
+        if "language" in kwargs:
+            filters["language"] = kwargs["language"]
+        if "file_path" in kwargs:
+            filters["file_path"] = kwargs["file_path"]
+
+        similarity_threshold = kwargs.get("similarity_threshold", 0.0)
+
+        try:
+            batch_results = await self.vector_manager.batch_search(
+                queries=queries,
+                collection_name=collection_name,
+                limit=limit,
+                filters=filters,
+                similarity_threshold=similarity_threshold,
+            )
+
+            results_map: dict[str, list[dict[str, Any]]] = {}
+            for query_text, search_results in zip(queries, batch_results, strict=False):
+                formatted = []
+                for result in search_results:
+                    formatted.append(
+                        {
+                            "chunk_id": result.chunk_id,
+                            "content": result.content,
+                            "file_path": result.file_path,
+                            "start_line": result.start_line,
+                            "end_line": result.end_line,
+                            "similarity_score": result.similarity_score,
+                            "language": result.metadata.get("language"),
+                            "chunk_type": result.metadata.get("chunk_type"),
+                            "entity_name": result.metadata.get("entity_name"),
+                        }
+                    )
+                results_map[query_text] = formatted
+
+            return results_map
+
+        except Exception as e:
+            logger.error(f"Error in batch retrieval: {e}")
+            return {q: [] for q in queries}
+
+    async def cleanup_index(self, tag: IndexTag, valid_file_paths: set[str] | None = None) -> int:
+        """Clean up orphaned vectors from the index.
+
+        Args:
+            tag: Index tag for the collection.
+            valid_file_paths: Set of currently valid file paths.
+
+        Returns:
+            Number of orphaned vectors removed.
+        """
+        collection_name = self.vector_manager.get_collection_name(tag)
+        try:
+            removed = await self.vector_manager.cleanup_orphaned_vectors(
+                collection_name, valid_file_paths
+            )
+            if removed > 0:
+                logger.info(f"Cleaned up {removed} orphaned vectors from {collection_name}")
+            return removed
+        except Exception as e:
+            logger.error(f"Error cleaning up index: {e}")
+            return 0

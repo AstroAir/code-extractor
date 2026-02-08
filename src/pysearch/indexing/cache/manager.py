@@ -199,10 +199,16 @@ class CacheManager:
             True if deleted successfully, False otherwise
         """
         try:
+            # Get entry size before deleting for accurate size tracking
+            entry = self.backend.get(key)
+            entry_size = entry.size_bytes if entry else 0
+
             success = self.backend.delete(key)
             if success:
                 self.dependencies.remove_dependencies(key)
                 self.statistics.update_entry_count(self.backend.size())
+                if entry_size > 0:
+                    self.statistics.subtract_size(entry_size)
             return success
 
         except Exception as e:
@@ -311,7 +317,22 @@ class CacheManager:
         """
         self.statistics.update_entry_count(self.backend.size())
 
-        additional_stats = {"file_dependencies": self.dependencies.get_dependency_count()}
+        # Recalculate total size from backend entries
+        total_size = 0
+        for k in self.backend.keys():
+            entry = self.backend.get(k)
+            if entry:
+                total_size += entry.size_bytes
+        self.statistics.update_size(total_size)
+
+        # Clean up orphaned dependency entries
+        self.dependencies.cleanup_empty_dependencies()
+
+        additional_stats = {
+            "file_dependencies": self.dependencies.get_dependency_count(),
+            "tracked_files": len(self.dependencies.get_files_with_dependencies()),
+            "performance_summary": self.statistics.get_performance_summary(),
+        }
 
         return self.statistics.get_stats_dict(additional_stats)
 
@@ -323,6 +344,14 @@ class CacheManager:
         except Exception:
             # Fallback estimation
             return len(str(value)) * 2  # Rough estimate
+
+    def set_default_ttl(self, ttl: float) -> None:
+        """Update the default time-to-live for new cache entries.
+
+        Args:
+            ttl: New default TTL in seconds.
+        """
+        self.default_ttl = ttl
 
     def shutdown(self) -> None:
         """Shutdown the cache manager and cleanup resources."""

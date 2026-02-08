@@ -352,6 +352,16 @@ class IndexSearchEngine:
         deduplicated_results = self._deduplicate_results(all_results)
         ranked_results = self._rank_results(deduplicated_results, query)
 
+        # Apply vector re-ranking for semantic boost if vector index is available
+        try:
+            vector_index = self.orchestrator.indexing_engine.coordinator.get_index(
+                "enhanced_vectors"
+            )
+            if vector_index and hasattr(vector_index, "rerank_results"):
+                ranked_results = await vector_index.rerank_results(ranked_results, query)
+        except Exception as e:
+            logger.debug(f"Vector re-ranking skipped: {e}")
+
         # Limit results
         limited_results = ranked_results[:limit]
 
@@ -485,6 +495,214 @@ class IndexSearchEngine:
         stats["health"] = health_status
 
         return stats
+
+    async def search_entities(
+        self,
+        query: str,
+        entity_types: list[str] | None = None,
+        languages: list[str] | None = None,
+        min_quality: float = 0.0,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Search for code entities (functions, classes, etc.) with advanced filtering.
+
+        Args:
+            query: Search query
+            entity_types: Filter by entity types
+            languages: Filter by programming languages
+            min_quality: Minimum quality score
+            limit: Maximum number of results
+
+        Returns:
+            List of matching entity dictionaries
+        """
+        await self.initialize()
+
+        if not self.orchestrator.indexing_engine:
+            return []
+
+        tag = IndexTag(
+            directory=str(Path(self.config.paths[0]).resolve()),
+            branch="main",
+            artifact_id="enhanced_code_snippets",
+        )
+
+        snippets_index = self.orchestrator.indexing_engine.coordinator.get_index(
+            "enhanced_code_snippets"
+        )
+        if snippets_index and hasattr(snippets_index, "search_entities"):
+            return await snippets_index.search_entities(
+                query, tag, entity_types=entity_types, languages=languages,
+                min_quality=min_quality, limit=limit,
+            )
+        return []
+
+    async def get_entities_by_file(self, file_path: str) -> list[dict[str, Any]]:
+        """Get all code entities for a specific file.
+
+        Args:
+            file_path: Path to the source file
+
+        Returns:
+            List of entity dictionaries
+        """
+        await self.initialize()
+
+        if not self.orchestrator.indexing_engine:
+            return []
+
+        tag = IndexTag(
+            directory=str(Path(self.config.paths[0]).resolve()),
+            branch="main",
+            artifact_id="enhanced_code_snippets",
+        )
+
+        snippets_index = self.orchestrator.indexing_engine.coordinator.get_index(
+            "enhanced_code_snippets"
+        )
+        if snippets_index and hasattr(snippets_index, "get_entities_by_file"):
+            return await snippets_index.get_entities_by_file(file_path, tag)
+        return []
+
+    async def get_entity_by_id(self, entity_id: int) -> dict[str, Any] | None:
+        """Get a specific code entity by its database ID.
+
+        Args:
+            entity_id: Entity database ID
+
+        Returns:
+            Entity dictionary or None
+        """
+        await self.initialize()
+
+        if not self.orchestrator.indexing_engine:
+            return None
+
+        snippets_index = self.orchestrator.indexing_engine.coordinator.get_index(
+            "enhanced_code_snippets"
+        )
+        if snippets_index and hasattr(snippets_index, "get_entity_by_id"):
+            return await snippets_index.get_entity_by_id(entity_id)
+        return None
+
+    async def get_chunks_by_file(self, file_path: str) -> list[dict[str, Any]]:
+        """Get all code chunks for a specific file.
+
+        Args:
+            file_path: Path to the source file
+
+        Returns:
+            List of chunk dictionaries
+        """
+        await self.initialize()
+
+        if not self.orchestrator.indexing_engine:
+            return []
+
+        tag = IndexTag(
+            directory=str(Path(self.config.paths[0]).resolve()),
+            branch="main",
+            artifact_id="enhanced_chunks",
+        )
+
+        chunk_index = self.orchestrator.indexing_engine.coordinator.get_index(
+            "enhanced_chunks"
+        )
+        if chunk_index and hasattr(chunk_index, "get_chunks_by_file"):
+            return await chunk_index.get_chunks_by_file(file_path, tag)
+        return []
+
+    async def search_in_file(
+        self,
+        file_path: str,
+        query: str,
+        context_lines: int = 3,
+    ) -> list[dict[str, Any]]:
+        """Search for a query within a specific indexed file with context.
+
+        Args:
+            file_path: Path to the file to search in
+            query: Search query
+            context_lines: Number of context lines around matches
+
+        Returns:
+            List of match dictionaries with line info and context
+        """
+        await self.initialize()
+
+        if not self.orchestrator.indexing_engine:
+            return []
+
+        tag = IndexTag(
+            directory=str(Path(self.config.paths[0]).resolve()),
+            branch="main",
+            artifact_id="enhanced_full_text",
+        )
+
+        fulltext_index = self.orchestrator.indexing_engine.coordinator.get_index(
+            "enhanced_full_text"
+        )
+        if fulltext_index and hasattr(fulltext_index, "search_in_file"):
+            return await fulltext_index.search_in_file(file_path, query, tag, context_lines)
+        return []
+
+    async def get_similar_chunks(
+        self,
+        chunk_content: str,
+        limit: int = 10,
+        exclude_chunk_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Find code chunks semantically similar to the given content.
+
+        Args:
+            chunk_content: Content to find similar chunks for
+            limit: Maximum number of results
+            exclude_chunk_id: Optional chunk ID to exclude from results
+
+        Returns:
+            List of similar chunk dictionaries
+        """
+        await self.initialize()
+
+        if not self.orchestrator.indexing_engine:
+            return []
+
+        tag = IndexTag(
+            directory=str(Path(self.config.paths[0]).resolve()),
+            branch="main",
+            artifact_id="enhanced_vectors",
+        )
+
+        vector_index = self.orchestrator.indexing_engine.coordinator.get_index(
+            "enhanced_vectors"
+        )
+        if vector_index and hasattr(vector_index, "get_similar_chunks"):
+            return await vector_index.get_similar_chunks(
+                chunk_content, tag, limit, exclude_chunk_id
+            )
+        return []
+
+    async def optimize_indexes(self) -> None:
+        """Optimize all indexes for better performance."""
+        await self.initialize()
+
+        if not self.orchestrator.indexing_engine:
+            return
+
+        tag = IndexTag(
+            directory=str(Path(self.config.paths[0]).resolve()),
+            branch="main",
+            artifact_id="*",
+        )
+
+        # Optimize vector index
+        vector_index = self.orchestrator.indexing_engine.coordinator.get_index(
+            "enhanced_vectors"
+        )
+        if vector_index and hasattr(vector_index, "optimize_index"):
+            await vector_index.optimize_index(tag)
+
+        logger.info("All indexes optimized")
 
     async def cleanup(self) -> None:
         """Cleanup resources."""

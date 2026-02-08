@@ -283,10 +283,12 @@ def create_file_metadata(path: Path, content: str | None = None) -> FileMetadata
         # Detect language
         language = detect_language(path, content)
 
-        # Count lines if content is available
+        # Count lines and compute content hash if content is available
         line_count = None
+        content_hash = None
         if content is not None:
             line_count = content.count("\n") + 1 if content else 0
+            content_hash = sha1_bytes(content.encode("utf-8"))
 
         return FileMetadata(
             path=path,
@@ -296,6 +298,7 @@ def create_file_metadata(path: Path, content: str | None = None) -> FileMetadata
             line_count=line_count,
             created_date=st.st_ctime,
             modified_date=st.st_mtime,
+            content_hash=content_hash,
         )
     except Exception:
         return None

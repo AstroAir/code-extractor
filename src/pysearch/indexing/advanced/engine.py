@@ -35,9 +35,14 @@ from typing import Any
 
 from ...analysis.content_addressing import IndexingProgressUpdate, IndexTag
 from ...core.config import SearchConfig
-from ...utils.error_handling import ErrorCollector
+from ...utils.error_handling import (
+    EnhancedErrorHandler,
+    ErrorCollector,
+    ErrorSeverity,
+)
 from ...utils.logging_config import get_logger
 from ...utils.helpers import file_meta, iter_files, read_text_safely
+from ...utils.performance_monitoring import MetricsCollector, PerformanceProfiler
 from .coordinator import IndexCoordinator
 
 logger = get_logger()
@@ -58,6 +63,13 @@ class IndexingEngine:
         self.error_collector = ErrorCollector()
         self._paused = False
         self._cancel_event = asyncio.Event()
+
+        # Advanced error handling with recovery strategies
+        self.enhanced_error_handler = EnhancedErrorHandler(config)
+
+        # Performance profiling for indexing operations
+        self._metrics_collector = MetricsCollector()
+        self._profiler = PerformanceProfiler(self._metrics_collector)
 
     async def initialize(self) -> None:
         """Initialize the indexing engine and load default indexes."""
@@ -155,80 +167,97 @@ class IndexingEngine:
                 progress=0.0, description=f"Starting indexing for {directory}", status="loading"
             )
 
-            # Discover files
-            yield IndexingProgressUpdate(
-                progress=0.1, description=f"Discovering files in {directory}", status="indexing"
-            )
+            # Profile the entire indexing operation for this directory
+            async with self._profiler.profile_operation(
+                f"refresh_index_{directory}",
+                metadata={"directory": directory, "branch": branch},
+            ) as profile_id:
+                # Discover files
+                yield IndexingProgressUpdate(
+                    progress=0.1, description=f"Discovering files in {directory}", status="indexing"
+                )
 
-            current_files = {}
-            file_count = 0
+                current_files = {}
+                file_count = 0
 
-            for file_path in iter_files(
-                roots=[directory],
-                include=self.config.get_include_patterns(),
-                exclude=self.config.get_exclude_patterns(),
-                follow_symlinks=self.config.follow_symlinks,
-                prune_excluded_dirs=self.config.dir_prune_exclude,
-                language_filter=self.config.languages,
-            ):
-                try:
-                    meta = file_meta(file_path)
-                    if meta and meta.size <= self.config.file_size_limit:
-                        current_files[str(file_path)] = {
-                            "size": meta.size,
-                            "mtime": meta.mtime,
-                        }
-                        file_count += 1
-                except Exception as e:
-                    self.error_collector.add_error(e, file_path=file_path)
-
-            yield IndexingProgressUpdate(
-                progress=0.2, description=f"Found {file_count} files to process", status="indexing"
-            )
-
-            # Create tag for this indexing operation
-            tag = IndexTag(
-                directory=directory, branch=branch, artifact_id="*"
-            )  # Will be replaced per index
-
-            # Read file function
-            def read_file(path: str) -> str:
-                result = read_text_safely(Path(path))
-                return result if result is not None else ""
-
-            # Refresh all indexes
-            progress_offset = 0.2
-            progress_scale = 0.8
-
-            async for update in self.coordinator.refresh_all_indexes(
-                tag, current_files, read_file, repo_name
-            ):
-                if self._paused:
-                    yield IndexingProgressUpdate(
-                        progress=update.progress, description="Indexing paused", status="paused"
-                    )
-
-                    while self._paused and not self._cancel_event.is_set():
-                        await asyncio.sleep(0.1)
-
-                    if self._cancel_event.is_set():
-                        yield IndexingProgressUpdate(
-                            progress=update.progress,
-                            description="Indexing cancelled",
-                            status="cancelled",
+                for file_path in iter_files(
+                    roots=[directory],
+                    include=self.config.get_include_patterns(),
+                    exclude=self.config.get_exclude_patterns(),
+                    follow_symlinks=self.config.follow_symlinks,
+                    prune_excluded_dirs=self.config.dir_prune_exclude,
+                    language_filter=self.config.languages,
+                ):
+                    try:
+                        meta = file_meta(file_path)
+                        if meta and meta.size <= self.config.file_size_limit:
+                            current_files[str(file_path)] = {
+                                "size": meta.size,
+                                "mtime": meta.mtime,
+                            }
+                            file_count += 1
+                    except Exception as e:
+                        self.error_collector.add_error(e, file_path=file_path)
+                        # Use enhanced error handler for recovery attempts
+                        await self.enhanced_error_handler.handle_error(
+                            context=str(file_path),
+                            exception=e,
+                            severity=ErrorSeverity.WARNING,
+                            metadata={"operation": "file_discovery"},
                         )
-                        return
-
-                # Scale progress to account for file discovery
-                scaled_progress = progress_offset + (update.progress * progress_scale)
 
                 yield IndexingProgressUpdate(
-                    progress=scaled_progress,
-                    description=update.description,
-                    status=update.status,
-                    warnings=update.warnings,
-                    debug_info=update.debug_info,
+                    progress=0.2, description=f"Found {file_count} files to process", status="indexing"
                 )
+
+                # Update profiler with file count
+                await self._profiler.update_profile_stats(
+                    profile_id, files_processed=file_count
+                )
+
+                # Create tag for this indexing operation
+                tag = IndexTag(
+                    directory=directory, branch=branch, artifact_id="*"
+                )  # Will be replaced per index
+
+                # Read file function
+                def read_file(path: str) -> str:
+                    result = read_text_safely(Path(path))
+                    return result if result is not None else ""
+
+                # Refresh all indexes
+                progress_offset = 0.2
+                progress_scale = 0.8
+
+                async for update in self.coordinator.refresh_all_indexes(
+                    tag, current_files, read_file, repo_name
+                ):
+                    if self._paused:
+                        yield IndexingProgressUpdate(
+                            progress=update.progress, description="Indexing paused", status="paused"
+                        )
+
+                        while self._paused and not self._cancel_event.is_set():
+                            await asyncio.sleep(0.1)
+
+                        if self._cancel_event.is_set():
+                            yield IndexingProgressUpdate(
+                                progress=update.progress,
+                                description="Indexing cancelled",
+                                status="cancelled",
+                            )
+                            return
+
+                    # Scale progress to account for file discovery
+                    scaled_progress = progress_offset + (update.progress * progress_scale)
+
+                    yield IndexingProgressUpdate(
+                        progress=scaled_progress,
+                        description=update.description,
+                        status=update.status,
+                        warnings=update.warnings,
+                        debug_info=update.debug_info,
+                    )
 
     async def refresh_file(
         self,
@@ -250,36 +279,49 @@ class IndexingEngine:
             branch = "main"  # Default branch
 
         try:
-            # Create file stats
-            meta = file_meta(Path(file_path))
-            if meta is None or meta.size > self.config.file_size_limit:
-                return
+            async with self._profiler.profile_operation(
+                f"refresh_file_{Path(file_path).name}",
+                metadata={"file_path": file_path, "directory": directory},
+            ) as profile_id:
+                # Create file stats
+                meta = file_meta(Path(file_path))
+                if meta is None or meta.size > self.config.file_size_limit:
+                    return
 
-            current_files = {
-                file_path: {
-                    "size": meta.size,
-                    "mtime": meta.mtime,
+                current_files = {
+                    file_path: {
+                        "size": meta.size,
+                        "mtime": meta.mtime,
+                    }
                 }
-            }
 
-            # Create tag
-            tag = IndexTag(directory=directory, branch=branch, artifact_id="*")
+                # Create tag
+                tag = IndexTag(directory=directory, branch=branch, artifact_id="*")
 
-            # Read file function
-            def read_file(path: str) -> str:
-                result = read_text_safely(Path(path))
-                return result if result is not None else ""
+                # Read file function
+                def read_file(path: str) -> str:
+                    result = read_text_safely(Path(path))
+                    return result if result is not None else ""
 
-            # Refresh all indexes for this file
-            async for update in self.coordinator.refresh_all_indexes(
-                tag, current_files, read_file, repo_name
-            ):
-                # Log progress for single file updates
-                logger.debug(f"File refresh progress: {update.description}")
+                # Refresh all indexes for this file
+                async for update in self.coordinator.refresh_all_indexes(
+                    tag, current_files, read_file, repo_name
+                ):
+                    # Log progress for single file updates
+                    logger.debug(f"File refresh progress: {update.description}")
+
+                await self._profiler.update_profile_stats(profile_id, files_processed=1)
 
         except Exception as e:
             logger.error(f"Error refreshing file {file_path}: {e}")
             self.error_collector.add_error(e, file_path=Path(file_path))
+            # Attempt recovery via enhanced error handler
+            await self.enhanced_error_handler.handle_error(
+                context=file_path,
+                exception=e,
+                severity=ErrorSeverity.ERROR,
+                metadata={"operation": "refresh_file", "directory": directory},
+            )
 
     def pause(self) -> None:
         """Pause indexing operations."""
@@ -322,14 +364,23 @@ class IndexingEngine:
         except Exception as e:
             logger.error(f"Error getting cache stats: {e}")
 
+        # Add enhanced error and recovery report
+        stats["enhanced_error_report"] = self.enhanced_error_handler.get_comprehensive_report()
+
+        # Add profiling metrics
+        stats["profiling_metrics"] = self._metrics_collector.get_all_aggregates()
+
         return stats
 
     async def _get_cache_stats(self) -> dict[str, Any]:
         """Get global cache statistics."""
-        # This would query the global cache database for statistics
-        # Implementation depends on GlobalCacheManager
-        return {
-            "total_entries": 0,
-            "total_size_bytes": 0,
-            "hit_rate": 0.0,
-        }
+        try:
+            stats = await self.coordinator.global_cache.get_stats()
+            return stats
+        except Exception:
+            # Fallback if global cache doesn't support stats yet
+            return {
+                "total_entries": 0,
+                "total_size_bytes": 0,
+                "hit_rate": 0.0,
+            }

@@ -35,6 +35,12 @@ from .language_detection import (
     get_supported_languages,
     is_text_file,
 )
+from .graphrag import (
+    EntityExtractor,
+    GraphRAGEngine,
+    KnowledgeGraphBuilder,
+    RelationshipMapper,
+)
 from .language_support import (
     CodeChunk,
     LanguageConfig,
@@ -72,4 +78,9 @@ __all__ = [
     "LanguageConfig",
     "CodeChunk",
     "language_registry",
+    # GraphRAG
+    "EntityExtractor",
+    "RelationshipMapper",
+    "KnowledgeGraphBuilder",
+    "GraphRAGEngine",
 ]

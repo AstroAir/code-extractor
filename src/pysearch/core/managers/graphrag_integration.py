@@ -255,3 +255,54 @@ class GraphRAGIntegrationManager:
             if self._logger:
                 self._logger.error(f"Failed to import graph: {e}")
             return False
+
+    async def reset_graph(self) -> bool:
+        """Reset the knowledge graph and delete all associated vector data."""
+        if not self._graphrag_engine:
+            return False
+
+        try:
+            await self._graphrag_engine.reset_graph()
+            if self._logger:
+                self._logger.info("Knowledge graph reset successfully")
+            return True
+        except Exception as e:
+            if self._logger:
+                self._logger.error(f"Failed to reset graph: {e}")
+            if self._error_collector:
+                self._error_collector.add_error(e)
+            return False
+
+    async def batch_find_similar(
+        self, entity_ids: list[str], limit: int = 10
+    ) -> dict[str, list[Any]]:
+        """Find similar entities for multiple entities using batch vector search.
+
+        Uses Qdrant's batch_search API for efficient multi-query similarity search.
+
+        Args:
+            entity_ids: List of entity IDs to find similar entities for.
+            limit: Maximum number of similar entities per query.
+
+        Returns:
+            Dict mapping entity_id to list of similar entities.
+        """
+        if not self._graphrag_engine:
+            return {eid: [] for eid in entity_ids}
+
+        try:
+            return await self._graphrag_engine.batch_find_similar(entity_ids, limit)  # type: ignore[no-any-return]
+        except Exception as e:
+            if self._logger:
+                self._logger.error(f"Failed to batch find similar entities: {e}")
+            return {eid: [] for eid in entity_ids}
+
+    async def get_graph_stats_async(self) -> dict[str, Any]:
+        """Get knowledge graph statistics including vector store details (async)."""
+        if not self._graphrag_engine:
+            return {}
+
+        try:
+            return await self._graphrag_engine.get_stats_async()  # type: ignore[no-any-return]
+        except Exception:
+            return {}

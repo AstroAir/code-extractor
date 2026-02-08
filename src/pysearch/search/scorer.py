@@ -37,6 +37,10 @@ class ScoringWeights:
     case_match_bonus: float = 0.2
 
 
+# Module-level singleton to avoid per-item instantiation overhead
+_DEFAULT_WEIGHTS = ScoringWeights()
+
+
 def score_item(
     item: SearchItem, cfg: SearchConfig, query_text: str = "", all_files: set[Path] | None = None
 ) -> float:
@@ -53,7 +57,7 @@ def score_item(
     if all_files is None:
         all_files = set()
 
-    weights = ScoringWeights()  # Use default weights, could be configurable
+    weights = _DEFAULT_WEIGHTS
 
     # Enhanced text matching score
     # Base score is proportional to the number of pattern matches found
@@ -97,7 +101,7 @@ def score_item(
             span_range = max(span_positions) - min(span_positions)
             if span_range > 0:
                 # Normalize by line length to get distribution ratio
-                line_length = len(item.lines[0]) if item.lines else 100
+                line_length = max(1, len(item.lines[0])) if item.lines else 100
                 distribution_bonus = min(0.5, span_range / line_length)
                 density_score += distribution_bonus
 
@@ -389,13 +393,16 @@ def _sort_by_recency(
     """Sort by file modification time (most recent first)."""
     scored_items = []
 
-    # Collect all mtimes first to normalize properly
+    # Cache stat() per unique file to avoid redundant filesystem I/O
+    mtime_cache: dict[Path, float] = {}
     mtimes: list[float] = []
     for item in items:
-        try:
-            mtimes.append(item.file.stat().st_mtime)
-        except (OSError, AttributeError):
-            mtimes.append(0.0)
+        if item.file not in mtime_cache:
+            try:
+                mtime_cache[item.file] = item.file.stat().st_mtime
+            except (OSError, AttributeError):
+                mtime_cache[item.file] = 0.0
+        mtimes.append(mtime_cache[item.file])
 
     # Normalize timestamps to 0.0-1.0 range for fair combination with relevance
     min_mtime = min(mtimes) if mtimes else 0.0
@@ -435,19 +442,29 @@ def _sort_hybrid(
     items: list[SearchItem], cfg: SearchConfig, query_text: str, all_files: set[Path]
 ) -> list[SearchItem]:
     """Hybrid sorting that combines multiple factors intelligently."""
-    scored_items = []
+    scored_items: list[tuple[float, float, SearchItem]] = []
 
-    # Collect all mtimes first to normalize properly
-    raw_mtimes: list[float] = []
+    # Cache stat().st_mtime per unique file to avoid redundant filesystem I/O
+    mtime_cache: dict[Path, float] = {}
     for item in items:
-        try:
-            raw_mtimes.append(item.file.stat().st_mtime)
-        except (OSError, AttributeError):
-            raw_mtimes.append(0.0)
+        if item.file not in mtime_cache:
+            try:
+                mtime_cache[item.file] = item.file.stat().st_mtime
+            except (OSError, AttributeError):
+                mtime_cache[item.file] = 0.0
 
+    raw_mtimes = [mtime_cache[item.file] for item in items]
     min_mtime = min(raw_mtimes) if raw_mtimes else 0.0
     max_mtime = max(raw_mtimes) if raw_mtimes else 0.0
     mtime_range = max_mtime - min_mtime if max_mtime > min_mtime else 1.0
+
+    # Cache popularity per unique file to avoid redundant recalculation
+    popularity_cache: dict[Path, float] = {}
+
+    # Pre-compute query complexity category once
+    query_words = len(query_text.split())
+    is_complex = query_words > 3
+    is_simple = query_text.isupper() or query_text.islower()
 
     # Calculate various scores for each item
     for i, item in enumerate(items):
@@ -456,10 +473,12 @@ def _sort_hybrid(
 
         recency_score = (raw_mtimes[i] - min_mtime) / mtime_range
 
-        popularity_score = _calculate_popularity_score(item.file, all_files)
+        if item.file not in popularity_cache:
+            popularity_cache[item.file] = _calculate_popularity_score(item.file, all_files)
+        popularity_score = popularity_cache[item.file]
 
         # Adaptive weighting based on query characteristics
-        if len(query_text.split()) > 3:
+        if is_complex:
             # Complex queries: prioritize relevance and semantic matching
             combined_score = (
                 relevance_score * 0.6
@@ -467,7 +486,7 @@ def _sort_hybrid(
                 + popularity_score * 0.15
                 + recency_score * 0.05
             )
-        elif query_text.isupper() or query_text.islower():
+        elif is_simple:
             # Simple queries: balance frequency and popularity
             combined_score = (
                 relevance_score * 0.4
@@ -484,20 +503,20 @@ def _sort_hybrid(
                 + recency_score * 0.05
             )
 
-        scored_items.append((combined_score, item))
+        scored_items.append((combined_score, popularity_score, item))
 
     # Multi-level sorting: score, file importance, line number
+    # popularity_score is already cached in the tuple, no recalculation needed
     scored_items.sort(
         key=lambda x: (
             -x[0],  # Score (descending)
-            # File importance (descending)
-            -_calculate_popularity_score(x[1].file, all_files),
-            x[1].file.as_posix(),  # File path (ascending)
-            x[1].start_line,  # Line number (ascending)
+            -x[1],  # Popularity (descending, from cached value)
+            x[2].file.as_posix(),  # File path (ascending)
+            x[2].start_line,  # Line number (ascending)
         )
     )
 
-    return [item for _, item in scored_items]
+    return [item for _, _, item in scored_items]
 
 
 def cluster_results_by_similarity(

@@ -118,14 +118,14 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-org/pysearch"
+Homepage = "https://github.com/AstroAir/pysearch"
 Documentation = "https://pysearch.readthedocs.io/"
-Repository = "https://github.com/your-org/pysearch.git"
-Changelog = "https://github.com/your-org/pysearch/blob/main/CHANGELOG.md"
-Issues = "https://github.com/your-org/pysearch/issues"
-"Bug Reports" = "https://github.com/your-org/pysearch/issues"
-"Feature Requests" = "https://github.com/your-org/pysearch/issues/new?template=feature_request.md"
-"Source Code" = "https://github.com/your-org/pysearch"
+Repository = "https://github.com/AstroAir/pysearch.git"
+Changelog = "https://github.com/AstroAir/pysearch/blob/main/CHANGELOG.md"
+Issues = "https://github.com/AstroAir/pysearch/issues"
+"Bug Reports" = "https://github.com/AstroAir/pysearch/issues"
+"Feature Requests" = "https://github.com/AstroAir/pysearch/issues/new?template=feature_request.md"
+"Source Code" = "https://github.com/AstroAir/pysearch"
 "Download" = "https://pypi.org/project/pysearch/"
 
 [project.scripts]
@@ -135,9 +135,13 @@ pysearch = "pysearch.cli:main"
 # Future plugin system entry points can be defined here
 
 [tool.setuptools]
-package-dir = {"" = "src"}
 packages = ["pysearch"]
-package-data = { pysearch = ["py.typed"] }
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.package-data]
+pysearch = ["py.typed"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"

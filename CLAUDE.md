@@ -6,6 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Change Log (Changelog)
 
+### 2026-02-08 - AI Context Documentation System Update
+- Enhanced module structure documentation with current project state
+- Updated Mermaid diagrams with complete module hierarchy
+- Added comprehensive file counts and coverage statistics
+- Synchronized with latest refactored project structure
+- Updated MCP module documentation with FastMCP integration details
+
 ### 2026-01-19 - AI Context Documentation System Initial Version
 - Generated comprehensive AI context documentation system
 - Created module-level CLAUDE.md files for all major components
@@ -16,13 +23,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Vision
 
-**PySearch** is a high-performance, context-aware search engine for Python codebases that provides engineering-grade retrieval capabilities through multiple search modes (text/regex/AST/semantic), intelligent caching, and extensible architecture.
+**PySearch** is a high-performance, context-aware search engine for Python codebases that provides engineering-grade retrieval capabilities through multiple search modes (text/regex/AST/semantic/fuzzy/boolean/GraphRAG), intelligent caching, and extensible architecture.
 
 ### Core Goals
-- **Performance**: Optimized for large multi-module projects with parallel processing
-- **Flexibility**: Multiple search strategies from simple text to advanced semantic analysis
-- **Developer Experience**: Both CLI and Python API interfaces
-- **Extensibility**: Plugin-ready architecture for custom matchers and integrations
+- **Performance**: Optimized for large multi-module projects with parallel processing and distributed indexing
+- **Flexibility**: Multiple search strategies from simple text to advanced semantic analysis with transformer models
+- **Developer Experience**: Both CLI and Python API interfaces with MCP (Model Context Protocol) server support
+- **Extensibility**: Plugin-ready architecture with integration managers for advanced features
 
 ---
 
@@ -49,7 +56,7 @@ graph TD
 
     Core --> Types["core/types"];
     Core --> History["core/history"];
-    Core --> CoreIntegrations["core/integrations"];
+    Core --> Managers["core/managers"];
 
     Analysis --> GraphRAG["analysis/graphrag"];
 
@@ -68,22 +75,22 @@ graph TD
 
 | Module | Path | Responsibility | Key Classes |
 |--------|------|----------------|-------------|
-| **Core** | `src/pysearch/core/` | Main API, configuration, types | `PySearch`, `SearchConfig`, `Query` |
-| **Indexing** | `src/pysearch/indexing/` | File scanning, caching, metadata | `Indexer`, `CacheManager`, `MetadataIndexer` |
-| **Search** | `src/pysearch/search/` | Pattern matching algorithms | `TextMatcher`, `ASTMatcher`, `SemanticMatcher` |
-| **Analysis** | `src/pysearch/analysis/` | Code analysis, language detection | `DependencyAnalyzer`, `LanguageDetector` |
-| **CLI** | `src/pysearch/cli/` | Command-line interface | `main()` entry point |
-| **Utils** | `src/pysearch/utils/` | Utilities, error handling, logging | `ErrorCollector`, `Formatter`, `FileWatcher` |
+| **Core** | `src/pysearch/core/` | Main API, configuration, types, history | `PySearch`, `SearchConfig`, `Query`, `SearchResult` |
+| **Indexing** | `src/pysearch/indexing/` | File scanning, caching, metadata, advanced indexing | `Indexer`, `CacheManager`, `MetadataIndexer`, `EnhancedIndexingEngine` |
+| **Search** | `src/pysearch/search/` | Pattern matching algorithms | `TextMatcher`, `ASTMatcher`, `SemanticMatcher`, `FuzzyMatcher`, `BooleanEvaluator` |
+| **Analysis** | `src/pysearch/analysis/` | Code analysis, language detection, GraphRAG | `DependencyAnalyzer`, `LanguageDetector`, `GraphRAGEngine` |
+| **CLI** | `src/pysearch/cli/` | Command-line interface | `main()` entry point with Click commands |
+| **Utils** | `src/pysearch/utils/` | Utilities, error handling, logging | `ErrorCollector`, `Formatter`, `FileWatcher`, `PerformanceMonitor` |
 | **Storage** | `src/pysearch/storage/` | Vector database integration | `QdrantClient`, `VectorStore` |
-| **Integrations** | `src/pysearch/integrations/` | External system integrations | `MultiRepoEngine`, `DistributedIndexing` |
-| **MCP** | `mcp/` | Model Context Protocol servers | `BasicMCPServer`, `FastMCPServer` |
+| **Integrations** | `src/pysearch/integrations/` | External system integrations | `MultiRepoEngine`, `DistributedIndexing`, `IDEHooks` |
+| **MCP** | `mcp/` | Model Context Protocol servers | `FastMCPServer` with 19 tools and 5 resources |
 
 ### Data Flow
 
 ```mermaid
 sequenceDiagram
-    participant U as User (CLI/API)
-    participant C as Configuration
+    participant U as User (CLI/API/MCP)
+    participant C as SearchConfig
     participant P as PySearch Engine
     participant I as Indexer
     participant M as Matchers
@@ -102,7 +109,9 @@ sequenceDiagram
     par Parallel Matching
         M->>M: Text/Regex
         M->>M: AST-based
+        M->>M: Fuzzy
         M->>M: Semantic
+        M->>M: Boolean
     end
 
     M->>S: Return matches
@@ -153,18 +162,23 @@ make docs-serve    # Serve documentation locally
 - **Target coverage**: >85% (configured in pyproject.toml)
 - **Test structure**: `tests/` directory with comprehensive test suite
 - **Test markers**: `unit`, `integration`, `e2e`, `benchmark`, `slow`, `fast`
-- **Benchmarks**: `tests/benchmarks/` for performance testing
+- **Benchmarks**: `tests/performance/` for performance testing
 - **Run single test**: `pytest tests/test_specific.py::test_function`
 
 ### Test Organization
 ```
 tests/
 ├── unit/          # Fast, isolated component tests
-│   ├── api/       # API-related tests
+│   ├── analysis/  # Analysis module tests
 │   ├── cli/       # CLI-related tests
 │   ├── core/      # Core component tests
-│   └── search/    # Search algorithm tests
+│   ├── indexing/  # Indexing module tests
+│   ├── integrations/ # Integration module tests
+│   ├── search/    # Search algorithm tests
+│   ├── storage/   # Storage tests
+│   └── utils/     # Utility tests
 ├── integration/   # Component interaction tests
+│   └── end_to_end/ # Full system tests
 ├── performance/   # Performance benchmarks
 └── conftest.py    # Shared test fixtures
 ```
@@ -185,15 +199,15 @@ tests/
 
 | Module | Documentation | Description |
 |--------|--------------|-------------|
-| [Core](./src/pysearch/core/CLAUDE.md) | `src/pysearch/core/CLAUDE.md` | Main API, configuration, and type system |
-| [Indexing](./src/pysearch/indexing/CLAUDE.md) | `src/pysearch/indexing/CLAUDE.md` | File scanning, caching, and metadata management |
-| [Search](./src/pysearch/search/CLAUDE.md) | `src/pysearch/search/CLAUDE.md` | Pattern matching and search algorithms |
-| [Analysis](./src/pysearch/analysis/CLAUDE.md) | `src/pysearch/analysis/CLAUDE.md` | Code analysis, language detection, GraphRAG |
-| [CLI](./src/pysearch/cli/CLAUDE.md) | `src/pysearch/cli/CLAUDE.md` | Command-line interface |
-| [Utils](./src/pysearch/utils/CLAUDE.md) | `src/pysearch/utils/CLAUDE.md` | Utilities, error handling, file watching |
+| [Core](./src/pysearch/core/CLAUDE.md) | `src/pysearch/core/CLAUDE.md` | Main API, configuration, type system, history, and integration managers |
+| [Indexing](./src/pysearch/indexing/CLAUDE.md) | `src/pysearch/indexing/CLAUDE.md` | File scanning, caching, metadata management, and advanced indexing |
+| [Search](./src/pysearch/search/CLAUDE.md) | `src/pysearch/search/CLAUDE.md` | Pattern matching, fuzzy search, semantic search, and scoring |
+| [Analysis](./src/pysearch/analysis/CLAUDE.md) | `src/pysearch/analysis/CLAUDE.md` | Code analysis, language detection, and GraphRAG |
+| [CLI](./src/pysearch/cli/CLAUDE.md) | `src/pysearch/cli/CLAUDE.md` | Command-line interface with comprehensive commands |
+| [Utils](./src/pysearch/utils/CLAUDE.md) | `src/pysearch/utils/CLAUDE.md` | Utilities, error handling, file watching, and performance monitoring |
 | [Storage](./src/pysearch/storage/CLAUDE.md) | `src/pysearch/storage/CLAUDE.md` | Vector database and storage backends |
 | [Integrations](./src/pysearch/integrations/CLAUDE.md) | `src/pysearch/integrations/CLAUDE.md` | Multi-repo, distributed, IDE integrations |
-| [MCP](./mcp/CLAUDE.md) | `mcp/CLAUDE.md` | Model Context Protocol servers |
+| [MCP](./mcp/CLAUDE.md) | `mcp/CLAUDE.md` | Model Context Protocol servers for LLM integration |
 
 ---
 
@@ -314,11 +328,13 @@ make release       # Build package (requires TWINE_* env vars for upload)
 - `orjson`: Fast JSON serialization
 - `click`: CLI framework
 - `pydantic`: Config validation
+- `fastmcp`: MCP server framework
 
 ### Optional Dependencies
 - `[semantic]`: Advanced semantic search with transformers
 - `[graphrag]`: Knowledge graph capabilities (requires Qdrant)
 - `[vector]`: Vector database support (Qdrant, FAISS)
+- `[watch]`: File watching support (watchdog, psutil)
 
 ---
 
@@ -339,9 +355,14 @@ make release       # Build package (requires TWINE_* env vars for upload)
 
 ## Additional Resources
 
-- **Architecture Details**: `docs/architecture.md`
-- **API Reference**: `docs/api-reference.md`
-- **CLI Guide**: `docs/cli-reference.md`
-- **Configuration**: `docs/configuration.md`
-- **GraphRAG**: `docs/graphrag_guide.md`
-- **MCP Integration**: `docs/mcp-overview.md`
+- **Architecture Details**: `docs/advanced/architecture.md`
+- **API Reference**: `docs/api/index.md`
+- **CLI Guide**: `docs/guide/cli-reference.md`
+- **Configuration**: `docs/guide/configuration.md`
+- **GraphRAG**: `docs/advanced/graphrag.md`
+- **MCP Integration**: `docs/mcp/index.md`
+- **Installation**: `docs/getting-started/installation.md`
+- **Usage**: `docs/guide/usage.md`
+- **Advanced Features**: `docs/advanced/features.md`
+- **Troubleshooting**: `docs/help/troubleshooting.md`
+- **FAQ**: `docs/help/faq.md`

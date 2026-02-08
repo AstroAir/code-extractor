@@ -206,6 +206,14 @@ class IDEHooks:
         """Register a diagnostics handler. Returns the hook ID."""
         return self._register(HookType.DIAGNOSTICS, handler)
 
+    def register_document_symbols_handler(self, handler: Callable[..., Any]) -> str:
+        """Register a document symbols handler. Returns the hook ID."""
+        return self._register(HookType.DOCUMENT_SYMBOLS, handler)
+
+    def register_workspace_symbols_handler(self, handler: Callable[..., Any]) -> str:
+        """Register a workspace symbols handler. Returns the hook ID."""
+        return self._register(HookType.WORKSPACE_SYMBOLS, handler)
+
     # -- core methods ------------------------------------------------------
 
     def _register(self, hook_type: HookType, handler: Callable[..., Any]) -> str:
@@ -500,6 +508,31 @@ class IDEIntegration:
 
         return None
 
+    # -- cache helpers -----------------------------------------------------
+
+    def _get_cached(self, cache_key: str) -> list[dict[str, Any]] | None:
+        """Return cached value if still within TTL, else None."""
+        ts = self._cache_timestamps.get(cache_key)
+        if ts is not None and (time.time() - ts) < self._cache_ttl:
+            return self._symbol_cache.get(cache_key)
+        return None
+
+    def _set_cached(self, cache_key: str, value: list[dict[str, Any]]) -> None:
+        """Store value in cache with current timestamp."""
+        self._symbol_cache[cache_key] = value
+        self._cache_timestamps[cache_key] = time.time()
+
+    def invalidate_cache(self, file_path: str | None = None) -> None:
+        """Invalidate cached symbols for a file, or all caches if *file_path* is None."""
+        if file_path is None:
+            self._symbol_cache.clear()
+            self._cache_timestamps.clear()
+        else:
+            for key in list(self._symbol_cache):
+                if key.startswith(f"doc:{file_path}") or key.startswith(f"ws:"):
+                    self._symbol_cache.pop(key, None)
+                    self._cache_timestamps.pop(key, None)
+
     # -- document symbols --------------------------------------------------
 
     def get_document_symbols(self, file_path: str) -> list[DocumentSymbol]:
@@ -512,6 +545,12 @@ class IDEIntegration:
         Returns:
             List of DocumentSymbol objects.
         """
+        # Check cache
+        cache_key = f"doc:{file_path}"
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            return [DocumentSymbol(**item) for item in cached]
+
         symbols: list[DocumentSymbol] = []
 
         try:
@@ -544,6 +583,9 @@ class IDEIntegration:
         except Exception as exc:
             logger.error(f"Error listing symbols for {file_path}: {exc}")
 
+        # Store in cache
+        self._set_cached(cache_key, [s.to_dict() for s in symbols])
+
         return symbols
 
     # -- workspace symbols -------------------------------------------------
@@ -560,6 +602,12 @@ class IDEIntegration:
         """
         if not query or len(query) < 2:
             return []
+
+        # Check cache
+        cache_key = f"ws:{query}"
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            return [DocumentSymbol(**item) for item in cached]
 
         symbols: list[DocumentSymbol] = []
         pattern = rf"(def|class)\s+(\w*{re.escape(query)}\w*)"
@@ -581,6 +629,9 @@ class IDEIntegration:
                         )
         except Exception as exc:
             logger.error(f"Workspace symbol search error: {exc}")
+
+        # Store in cache
+        self._set_cached(cache_key, [s.to_dict() for s in symbols])
 
         return symbols
 

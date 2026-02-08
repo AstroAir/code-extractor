@@ -17,6 +17,7 @@ from .boolean import (
     BooleanQueryParser,
     evaluate_boolean_query,
     evaluate_boolean_query_with_items,
+    extract_terms,
     parse_boolean_query,
 )
 from .fuzzy import (
@@ -24,6 +25,7 @@ from .fuzzy import (
     FuzzyMatch,
     calculate_similarity,
     fuzzy_match,
+    fuzzy_regex_pattern,
     fuzzy_search_advanced,
     suggest_corrections,
 )
@@ -36,7 +38,7 @@ from .scorer import (
     score_item,
     sort_items,
 )
-from .semantic import semantic_similarity_score
+from .semantic import concept_to_patterns, expand_semantic_query, semantic_similarity_score
 from .semantic_advanced import SemanticSearchEngine
 
 __all__ = [
@@ -48,11 +50,13 @@ __all__ = [
     "parse_boolean_query",
     "evaluate_boolean_query",
     "evaluate_boolean_query_with_items",
+    "extract_terms",
     # Fuzzy search
     "FuzzyAlgorithm",
     "FuzzyMatch",
     "calculate_similarity",
     "fuzzy_match",
+    "fuzzy_regex_pattern",
     "fuzzy_search_advanced",
     "suggest_corrections",
     # Scoring and ranking
@@ -63,6 +67,8 @@ __all__ = [
     "score_item",
     "sort_items",
     # Semantic search
+    "concept_to_patterns",
+    "expand_semantic_query",
     "semantic_similarity_score",
     "SemanticSearchEngine",
 ]

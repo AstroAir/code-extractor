@@ -173,3 +173,28 @@ class TestFileWatchingManager:
         mgr.disable_auto_watch()
         assert mgr._auto_watch_enabled is False
         mock_wm.stop_all.assert_called_once()
+
+    def test_set_cache_invalidation_callback(self):
+        mgr = FileWatchingManager(SearchConfig())
+        callback = MagicMock()
+        mgr.set_cache_invalidation_callback(callback)
+        assert mgr._cache_invalidation_callback is callback
+
+    def test_enable_auto_watch_passes_callback(self, tmp_path: Path):
+        """Verify that cache_invalidation_callback is passed through to add_watcher."""
+        cfg = SearchConfig(paths=[str(tmp_path)])
+        mgr = FileWatchingManager(cfg)
+        callback = MagicMock()
+        mgr.set_cache_invalidation_callback(callback)
+        mgr.set_indexer(MagicMock())
+
+        mock_wm = MagicMock()
+        mock_wm.add_watcher.return_value = True
+        mock_wm.start_all.return_value = 1
+        mgr.watch_manager = mock_wm
+
+        result = mgr.enable_auto_watch()
+        assert result is True
+        # Verify callback was passed through
+        call_kwargs = mock_wm.add_watcher.call_args
+        assert call_kwargs[1].get("cache_invalidation_callback") is callback

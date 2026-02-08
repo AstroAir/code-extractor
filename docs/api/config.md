@@ -114,5 +114,5 @@ strict_hash_check = false
 ## Related
 
 - [Types](types.md) - Configuration-related types
-- [Performance](../performance.md) - Performance tuning guide
-- [Configuration Guide](../configuration.md) - Detailed configuration documentation
+- [Performance](../guide/performance.md) - Performance tuning guide
+- [Configuration Guide](../guide/configuration.md) - Detailed configuration documentation

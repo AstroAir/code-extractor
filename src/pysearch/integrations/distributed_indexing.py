@@ -558,7 +558,7 @@ class DistributedIndexingEngine:
         await self.start_workers()
 
         try:
-            # Create work items for file discovery
+            # Phase 1: Create work items for file discovery
             for directory in directories:
                 work_item = WorkItem(
                     item_id=f"discover_{directory}",
@@ -568,6 +568,10 @@ class DistributedIndexingEngine:
                 )
                 await self.work_queue.add_work_item(work_item)
 
+            # Track pipeline phases
+            discovery_done = False
+            pipeline_items_created = False
+
             # Monitor progress
             start_time = time.time()
             last_update = 0.0
@@ -575,6 +579,81 @@ class DistributedIndexingEngine:
             while True:
                 # Get queue stats
                 stats = self.work_queue.get_stats()
+
+                # Phase 2: Once file discovery completes, create downstream pipeline items
+                if not discovery_done:
+                    # Check if all discovery items have completed
+                    all_discovery_complete = all(
+                        f"discover_{d}" in self.work_queue._completed
+                        for d in directories
+                    )
+                    if all_discovery_complete and not pipeline_items_created:
+                        discovery_done = True
+                        pipeline_items_created = True
+
+                        # Collect all discovered files from completed discovery items
+                        all_files: list[str] = []
+                        for item_id, item in self.work_queue._completed.items():
+                            if item.item_type == WorkItemType.FILE_DISCOVERY:
+                                discovered = item.data.get("discovered_files", [])
+                                all_files.extend(discovered)
+
+                        logger.info(
+                            f"File discovery complete: {len(all_files)} files found. "
+                            f"Creating pipeline work items."
+                        )
+
+                        # Create downstream work items for each discovered file
+                        for idx, file_path in enumerate(all_files):
+                            file_id = f"file_{idx}"
+
+                            # CONTENT_EXTRACTION depends on discovery
+                            extract_id = f"extract_{file_id}"
+                            await self.work_queue.add_work_item(WorkItem(
+                                item_id=extract_id,
+                                item_type=WorkItemType.CONTENT_EXTRACTION,
+                                priority=8,
+                                data={"file_path": file_path},
+                            ))
+
+                            # ENTITY_PARSING depends on content extraction
+                            parse_id = f"parse_{file_id}"
+                            await self.work_queue.add_work_item(WorkItem(
+                                item_id=parse_id,
+                                item_type=WorkItemType.ENTITY_PARSING,
+                                priority=6,
+                                data={"file_path": file_path},
+                                dependencies=[extract_id],
+                            ))
+
+                            # CHUNKING depends on content extraction
+                            chunk_id = f"chunk_{file_id}"
+                            await self.work_queue.add_work_item(WorkItem(
+                                item_id=chunk_id,
+                                item_type=WorkItemType.CHUNKING,
+                                priority=5,
+                                data={"file_path": file_path},
+                                dependencies=[extract_id],
+                            ))
+
+                            # EMBEDDING_GENERATION depends on chunking
+                            embed_id = f"embed_{file_id}"
+                            await self.work_queue.add_work_item(WorkItem(
+                                item_id=embed_id,
+                                item_type=WorkItemType.EMBEDDING_GENERATION,
+                                priority=4,
+                                data={"file_path": file_path},
+                                dependencies=[chunk_id],
+                            ))
+
+                        # INDEX_UPDATE at the end (one per directory)
+                        for directory in directories:
+                            await self.work_queue.add_work_item(WorkItem(
+                                item_id=f"index_update_{directory}",
+                                item_type=WorkItemType.INDEX_UPDATE,
+                                priority=2,
+                                data={"directory": directory},
+                            ))
 
                 # Calculate progress
                 total_items = (
@@ -600,8 +679,8 @@ class DistributedIndexingEngine:
                     )
                     last_update = current_time
 
-                # Check if done
-                if stats["pending_items"] == 0 and stats["queue_size"] == 0:
+                # Check if done (only after pipeline items are created)
+                if pipeline_items_created and stats["pending_items"] == 0 and stats["queue_size"] == 0:
                     break
 
                 # Check for timeout

@@ -39,12 +39,17 @@ class MultiRepoIntegrationManager:
         self.multi_repo_engine: Any = None
         self._multi_repo_enabled = False
 
-    def enable_multi_repo(self, repositories: list[dict[str, Any]] | None = None) -> bool:
+    def enable_multi_repo(
+        self,
+        repositories: list[dict[str, Any]] | None = None,
+        max_workers: int = 4,
+    ) -> bool:
         """
         Enable multi-repository search functionality.
 
         Args:
             repositories: List of repository configurations
+            max_workers: Maximum number of parallel workers for searches
 
         Returns:
             True if multi-repo was enabled successfully, False otherwise
@@ -55,7 +60,7 @@ class MultiRepoIntegrationManager:
         try:
             from ...integrations.multi_repo import MultiRepoSearchEngine
 
-            self.multi_repo_engine = MultiRepoSearchEngine()
+            self.multi_repo_engine = MultiRepoSearchEngine(max_workers=max_workers)
 
             if repositories and self.multi_repo_engine:
                 for repo_config in repositories:
@@ -96,6 +101,25 @@ class MultiRepoIntegrationManager:
 
         try:
             return self.multi_repo_engine.add_repository(name, path, **kwargs)  # type: ignore[no-any-return]
+        except Exception:
+            return False
+
+    def configure_repository(self, name: str, **config_updates: Any) -> bool:
+        """
+        Update repository configuration.
+
+        Args:
+            name: Repository name
+            **config_updates: Configuration updates (priority, enabled, etc.)
+
+        Returns:
+            True if configuration was updated, False otherwise
+        """
+        if not self.multi_repo_engine:
+            return False
+
+        try:
+            return self.multi_repo_engine.configure_repository(name, **config_updates)  # type: ignore[no-any-return]
         except Exception:
             return False
 

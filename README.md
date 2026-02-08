@@ -1,23 +1,58 @@
 # pysearch
 
-pysearch is a high-performance, context-aware search engine for Python codebases that supports text/regex/AST/semantic search, providing both CLI and programmable API interfaces, designed for engineering-grade retrieval in large multi-module projects.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+pysearch is a high-performance, context-aware search engine for Python codebases that supports text/regex/AST/semantic/fuzzy/boolean/GraphRAG search, providing CLI, Python API, and MCP (Model Context Protocol) interfaces, designed for engineering-grade retrieval in large multi-module projects.
 
 ## Features Overview
 
-- **Code Block Matching**: Functions, classes, decorators, imports, strings/comments, arbitrary code snippets
-- **Context-Aware**: Returns matched code with configurable context lines
-- **Project-Wide Search**: Efficient indexing and caching, optimized for large codebases
-- **Multiple Match Types**: Regex, AST structural, semantic (lightweight vector/symbolic features)
-- **Highly Customizable**: Include/exclude directories, file types, context windows, filters (function names, class names, decorators, imports, etc.)
-- **Multiple Output Formats**: Plain text, JSON, highlighted console output
-- **Scoring and Ranking**: Configurable result scoring rules
-- **Performance Metrics**: Search time, files scanned, match counts, etc.
-- **CLI & API**: Command-line operations and Python embedded calls
-- **Testing & Benchmarks**: pytest coverage > 90%, with benchmark scripts
+### Search Capabilities
+
+- **Text/Regex Search**: Enhanced regex via `regex` library with multiline mode and named groups
+- **AST Structural Search**: Python AST-based matching with function/class/decorator/import filters
+- **Semantic Search**: Lightweight symbolic + optional transformer-based embedding search
+- **Fuzzy Search**: Multiple algorithms (Levenshtein, Jaro-Winkler, n-gram) with typo tolerance via `rapidfuzz`
+- **Boolean Search**: Logical operators (`AND`, `OR`, `NOT`) for complex query composition
+- **GraphRAG Search**: Graph Retrieval-Augmented Generation combining knowledge graphs with vector similarity
+
+### Indexing & Storage
+
+- **Multi-Index Architecture**: Code snippets, full-text (SQLite FTS5), chunk, and vector indexes
+- **Content-Addressed Caching**: SHA256-based deduplication with tag-based index management
+- **Vector Database Support**: LanceDB, Qdrant, and Chroma backends
+- **Embedding Providers**: OpenAI, HuggingFace, and local model support
+- **Distributed Indexing**: Multi-process parallel indexing for large codebases
+- **Advanced Chunking**: Code-aware chunking with tree-sitter integration for 20+ languages
+
+### Analysis & Intelligence
+
+- **Dependency Analysis**: Import graph generation, circular dependency detection, and metrics
+- **GraphRAG Engine**: Entity extraction, relationship mapping, and knowledge graph construction
+- **Language Detection**: Automatic programming language identification for 20+ languages
+- **Content Addressing**: SHA256-based content deduplication across branches
+
+### Developer Experience
+
+- **CLI & Python API**: Full-featured command-line interface and programmable API
+- **MCP Integration**: Model Context Protocol servers for LLM tool integration
+- **IDE Integration**: Jump-to-definition, find references, completions, hover info, and diagnostics
+- **File Watcher**: Real-time file monitoring with automatic index updates
+- **Search History**: Session tracking, bookmarks, and search analytics
+- **Multiple Output Formats**: Plain text, JSON, syntax-highlighted console output
+- **Performance Monitoring**: Real-time profiling, metrics collection, and optimization suggestions
+
+### Reliability & Performance
+
+- **Parallel Processing**: Multi-threaded file processing with configurable worker pools
+- **Advanced Error Handling**: Circuit breaker pattern, recovery manager, and error aggregation
+- **Configurable Scoring**: Pluggable ranking strategies with result deduplication and clustering
+- **Smart Caching**: Multi-level cache (in-memory + disk) with LRU eviction and TTL
 
 ## Installation
 
-Recommended Python 3.10+.
+Requires Python 3.10+.
 
 ### Basic Installation
 
@@ -25,24 +60,37 @@ Recommended Python 3.10+.
 pip install -e .
 ```
 
-### Development Setup
-
-For development, use the provided setup script:
+### Optional Dependencies
 
 ```bash
-./scripts/dev-install.sh
+# File watching support
+pip install -e ".[watch]"
+
+# GraphRAG and enhanced analysis
+pip install -e ".[graphrag]"
+
+# Vector database support
+pip install -e ".[vector]"
+
+# Advanced semantic search (transformer models)
+pip install -e ".[semantic]"
+
+# All optional features
+pip install -e ".[all]"
 ```
 
-Or manually:
+### Development Setup
 
 ```bash
+# Using the setup script
+./scripts/dev-install.sh
+
+# Or manually
 pip install -e ".[dev]"
 pre-commit install
 ```
 
 ### Validation
-
-Verify your installation:
 
 ```bash
 make validate
@@ -59,7 +107,7 @@ Find all function definitions:
 pysearch find --pattern "def " --path ./src --include "**/*.py"
 ```
 
-Search for handler functions with regex:
+Regex search with context:
 ```bash
 pysearch find \
   --pattern "def.*handler" \
@@ -77,7 +125,7 @@ pysearch find \
   --filter-decorator "lru_cache"
 ```
 
-Semantic search for database-related code:
+Semantic search:
 ```bash
 pysearch find \
   --pattern "database connection" \
@@ -85,7 +133,7 @@ pysearch find \
   --context 5
 ```
 
-Boolean queries with logical operators:
+Boolean queries:
 ```bash
 pysearch find \
   --pattern "(async AND handler) NOT test" \
@@ -93,59 +141,43 @@ pysearch find \
   --context 3
 ```
 
-Count-only search (fast counting without content):
+Count-only (fast):
 ```bash
-pysearch find \
-  --pattern "def" \
-  --count
+pysearch find --pattern "def" --count
 ```
 
-Limit results per file:
-```bash
-pysearch find \
-  --pattern "function" \
-  --max-per-file 3
-```
-
-### API Usage
+### Python API
 
 Basic search:
 ```python
 from pysearch import PySearch, SearchConfig
 
-# Create search configuration
 config = SearchConfig(
     paths=["."],
     include=["**/*.py"],
     context=3
 )
 
-# Initialize search engine
 engine = PySearch(config)
-
-# Perform search
 results = engine.search("def main")
 print(f"Found {len(results.items)} matches in {results.stats.elapsed_ms}ms")
 
-# Process results
 for item in results.items:
     print(f"\n{item.file}:{item.start_line}-{item.end_line}")
     for line in item.lines:
         print(f"  {line}")
 ```
 
-Advanced query with filters:
+Advanced query with AST filters:
 ```python
-from pysearch.types import Query, ASTFilters
+from pysearch.core.types import Query, ASTFilters
 
-# Create AST filters
 filters = ASTFilters(
     func_name=".*handler",
     decorator="lru_cache|cache",
     imported="requests\\.(get|post)"
 )
 
-# Create advanced query
 query = Query(
     pattern="def",
     use_ast=True,
@@ -154,156 +186,225 @@ query = Query(
     context=5
 )
 
-# Execute query
 results = engine.run(query)
 ```
 
 Multi-repository search:
 ```python
-from pysearch.multi_repo import MultiRepoSearchEngine
+from pysearch.integrations import MultiRepoSearchEngine
 
-# Initialize multi-repo engine
 multi_engine = MultiRepoSearchEngine()
-
-# Add repositories
 multi_engine.add_repository("frontend", "./frontend")
 multi_engine.add_repository("backend", "./backend")
-multi_engine.add_repository("shared", "./shared-lib")
 
-# Search across all repositories
 results = multi_engine.search_all("async def")
-
-# Process results by repository
 for repo_name, repo_results in results.repository_results.items():
     print(f"{repo_name}: {len(repo_results.items)} matches")
 ```
 
-## Core Capabilities
+GraphRAG search:
+```python
+from pysearch import PySearch, SearchConfig, GraphRAGQuery
 
-- **Text/Regex Search**: Enhanced regex capabilities based on `regex` library, supporting multiline mode and named groups
-- **AST Search**: Based on `ast` module and custom matchers, filter or locate nodes by function/class/decorator/import
-- **Semantic Search**: Lightweight vector + symbolic features, considering structure and identifier semantics (no external models required)
-- **Indexing & Caching**: Records file mtime, hash, size for incremental updates
-- **Output & Highlighting**: `rich`/`pygments` console highlighting, `orjson` fast JSON output
+config = SearchConfig(paths=["./src"])
+engine = PySearch(config)
+
+# Build knowledge graph from codebase
+engine.build_knowledge_graph()
+
+# Query with GraphRAG
+query = GraphRAGQuery(
+    query="functions related to authentication",
+    entity_types=["function", "class"],
+    max_depth=3,
+    use_embeddings=True
+)
+results = engine.graphrag_search(query)
+```
+
+Fuzzy search:
+```python
+from pysearch.search import fuzzy_search_advanced, FuzzyAlgorithm
+
+results = fuzzy_search_advanced(
+    query="authetication",  # typo intended
+    candidates=code_symbols,
+    algorithm=FuzzyAlgorithm.LEVENSHTEIN,
+    threshold=0.7
+)
+```
 
 ## Project Structure
 
 ```text
-├── src/pysearch/          # Core PySearch library
-├── mcp/                   # MCP (Model Context Protocol) servers
-│   ├── servers/           # MCP server implementations
-│   ├── shared/            # Shared MCP utilities
-│   └── README.md          # MCP documentation
-├── tools/                 # Development and utility tools
-├── examples/              # Usage examples and demos
-├── tests/                 # Test suite
-├── docs/                  # Documentation
-├── scripts/               # Build and development scripts
-├── configs/               # Configuration files
-└── .venv/                 # Virtual environment (development)
+src/pysearch/
+├── core/                  # Core engine, config, types, history, managers
+│   ├── api.py             # Main PySearch engine class
+│   ├── config.py          # SearchConfig and RankStrategy
+│   ├── types/             # Core data types (basic, GraphRAG)
+│   ├── history/           # Search history, bookmarks, analytics, sessions
+│   └── managers/          # Internal manager modules
+│       ├── hybrid_search.py              # Semantic and hybrid search
+│       ├── graphrag_integration.py       # GraphRAG knowledge graph
+│       ├── ide_integration.py            # IDE hooks (go-to-def, references)
+│       ├── distributed_indexing_integration.py  # Distributed parallel indexing
+│       ├── multi_repo_integration.py     # Multi-repository search
+│       ├── dependency_integration.py     # Dependency analysis
+│       ├── file_watching.py              # Real-time file monitoring
+│       ├── cache_integration.py          # Cache management
+│       ├── indexing_integration.py       # Metadata indexing
+│       └── parallel_processing.py        # Parallel search execution
+├── search/                # Search strategies and pattern matching
+│   ├── matchers.py        # Text, regex, AST matching
+│   ├── boolean.py         # Boolean query parser and evaluator
+│   ├── fuzzy.py           # Fuzzy search (multiple algorithms)
+│   ├── scorer.py          # Ranking, deduplication, clustering
+│   ├── semantic.py        # Lightweight semantic search
+│   └── semantic_advanced.py  # Transformer-based semantic search
+├── analysis/              # Code analysis and understanding
+│   ├── graphrag/          # GraphRAG engine (entity extraction, relationships)
+│   ├── dependency_analysis.py   # Dependency graphs and circular detection
+│   ├── language_detection.py    # Language identification
+│   ├── language_support.py      # Tree-sitter multi-language processing
+│   └── content_addressing.py    # Content-addressed indexing
+├── indexing/              # Indexing and caching systems
+│   ├── indexer.py         # Core file indexer
+│   ├── advanced/          # Advanced indexing (chunking, coordinator, engine)
+│   ├── cache/             # Cache backends, cleanup, statistics
+│   ├── indexes/           # Specialized indexes (full-text, vector, chunk, snippets)
+│   └── metadata/          # Metadata indexer and database
+├── integrations/          # External integrations
+│   ├── multi_repo.py      # Multi-repository search
+│   ├── distributed_indexing.py  # Distributed parallel indexing
+│   └── ide_hooks.py       # IDE integration (LSP-like features)
+├── storage/               # Data storage and persistence
+│   ├── vector_db.py       # Vector DB abstraction (LanceDB, Qdrant, Chroma)
+│   └── qdrant_client.py   # Qdrant vector store client
+├── utils/                 # Utilities and helpers
+│   ├── error_handling.py          # Error hierarchy and collectors
+│   ├── advanced_error_handling.py # Circuit breaker, recovery manager
+│   ├── file_watcher.py            # File system monitoring
+│   ├── performance_monitoring.py  # Profiling and metrics
+│   ├── formatter.py               # Output formatting
+│   ├── helpers.py                 # Common utilities
+│   ├── logging_config.py          # Logging configuration
+│   └── metadata_filters.py       # Metadata-based filtering
+└── cli/                   # Command-line interface
+    └── main.py            # CLI entry point (Click-based)
+
+mcp/                       # MCP (Model Context Protocol) servers
+├── servers/               # MCP server implementations
+├── shared/                # Shared MCP utilities
+└── README.md              # MCP documentation
+
+tests/                     # Test suite (unit, integration, performance)
+docs/                      # Comprehensive documentation
+scripts/                   # Build and development scripts
+configs/                   # Configuration examples
 ```
-
-### Clean Project Organization
-
-The project maintains a clean structure with:
-- **No cache directories**: All cache files (`.mypy_cache`, `.pytest_cache`, etc.) are automatically regenerated
-- **Single virtual environment**: Uses `.venv/` for consistent development environment
-- **No build artifacts**: Build outputs are excluded and regenerated as needed
-- **Organized source code**: Clear separation between core library, tools, and documentation
 
 ### MCP Servers
 
-PySearch includes several MCP server implementations for LLM integration:
-
-- **Main MCP Server**: Advanced features with fuzzy search, analysis, and composition
-- **Basic MCP Server**: Core search functionality (legacy)
-- **FastMCP Server**: Optimized performance implementation
-
-Run an MCP server:
+PySearch includes MCP server implementations for LLM integration:
 
 ```bash
 ./scripts/run-mcp-server.sh main
 ```
 
-#### MCP Documentation
+Documentation:
+- [MCP Overview](docs/mcp/index.md) - Introduction to MCP integration
+- [MCP Tutorial](docs/mcp/tutorial.md) - Step-by-step setup guide
+- [MCP API Reference](docs/mcp/api.md) - All MCP tool documentation
+- [Advanced MCP Features](docs/mcp/advanced.md) - Advanced capabilities
 
-Comprehensive documentation for MCP integration is available:
-- [MCP Overview](docs/mcp-overview.md) - Introduction to MCP integration
-- [MCP Tutorial](docs/mcp-tutorial.md) - Step-by-step guide to using MCP with PySearch
-- [MCP API Reference](docs/mcp-api.md) - Detailed API documentation for all MCP tools
-- [Advanced MCP Features](docs/mcp-advanced.md) - In-depth coverage of advanced capabilities
+## Core Architecture
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                      User Interface Layer                       │
+├─────────────────────────────────────────────────────────────────┤
+│  CLI (Click)  │  Python API  │  MCP Servers  │  IDE Hooks      │
+├─────────────────────────────────────────────────────────────────┤
+│                       Core Engine Layer                         │
+├─────────────────────────────────────────────────────────────────┤
+│  PySearch  │  Query Engine  │  GraphRAG  │  Search History      │
+├─────────────────────────────────────────────────────────────────┤
+│                     Processing Layer                            │
+├─────────────────────────────────────────────────────────────────┤
+│  Matchers  │  Fuzzy  │  Boolean  │  Semantic  │  Scorer         │
+├─────────────────────────────────────────────────────────────────┤
+│                    Indexing & Storage Layer                      │
+├─────────────────────────────────────────────────────────────────┤
+│  Indexer  │  Cache  │  Vector DB  │  Metadata  │  Chunks        │
+├─────────────────────────────────────────────────────────────────┤
+│                      Foundation Layer                           │
+├─────────────────────────────────────────────────────────────────┤
+│  Language Detection  │  File Watcher  │  Error Handling  │ Utils│
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ## Common Use Cases
 
 ### Code Navigation and Discovery
 
-Find all function definitions in a project:
 ```bash
+# Find all function definitions
 pysearch find --pattern "def " --path ./src --include "**/*.py"
-```
 
-Locate all class definitions:
-```bash
+# Locate all class definitions
 pysearch find --pattern "class " --path . --regex --filter-class-name ".*"
-```
 
-Find imports of specific modules:
-```bash
+# Find imports of specific modules
 pysearch find --pattern "from requests import" --path . --context 2
 ```
 
 ### Refactoring and Code Analysis
 
-Find all usages of a specific function:
 ```bash
+# Find all usages of a specific function
 pysearch find --pattern "deprecated_function" --path . --context 3
-```
 
-Locate all TODO comments:
-```bash
+# Locate all TODO comments
 pysearch find --pattern "TODO|FIXME|HACK" --regex --comments
-```
 
-Find functions with specific decorators:
-```bash
+# Find functions with specific decorators
 pysearch find --pattern "def" --ast --filter-decorator "lru_cache|cache"
 ```
 
-### Code Quality and Patterns
+### Code Quality and Security
 
-Search for potential security issues:
 ```bash
+# Search for potential security issues
 pysearch find --pattern "eval|exec|subprocess" --regex --context 5
-```
 
-Find async/await patterns:
-```bash
+# Find async/await patterns
 pysearch find --pattern "async def|await " --regex --semantic
-```
 
-Locate error handling patterns:
-```bash
+# Locate error handling patterns
 pysearch find --pattern "try:|except:|finally:" --regex --context 3
 ```
 
-### Documentation and Learning
+### Dependency Analysis
 
-Find examples of specific patterns:
-```bash
-pysearch find --pattern "database connection" --semantic --context 10
+```python
+from pysearch.analysis import DependencyAnalyzer, CircularDependencyDetector
+
+analyzer = DependencyAnalyzer("./src")
+graph = analyzer.build_dependency_graph()
+
+# Detect circular dependencies
+detector = CircularDependencyDetector(graph)
+cycles = detector.find_cycles()
+for cycle in cycles:
+    print(f"Circular dependency: {' -> '.join(cycle)}")
+
+# Get dependency metrics
+metrics = analyzer.calculate_metrics()
+print(f"Total modules: {metrics.total_modules}")
+print(f"Avg coupling: {metrics.avg_coupling:.2f}")
 ```
 
-Locate test functions:
-```bash
-pysearch find --pattern "test_" --path ./tests --filter-func-name "test_.*"
-```
-
-Search for configuration patterns:
-```bash
-pysearch find --pattern "config|settings" --semantic --include "**/*.py"
-```
-
-## CLI Usage
+## CLI Reference
 
 ```bash
 pysearch find \
@@ -319,60 +420,63 @@ pysearch find \
   --rank "ast_weight:2,text_weight:1"
 ```
 
-### Main Parameters
+### Key Parameters
 
-- `--path`: Search paths (multiple allowed)
-- `--include/--exclude`: Include/exclude glob patterns
-- `--pattern`: Text/regex pattern or semantic query
-- `--regex`: Enable regex matching
-- `--context`: Number of context lines
-- `--format`: Output format (text/json/highlight)
-- `--filter-func-name/--filter-class-name/--filter-decorator/--filter-import`: AST filters
-- `--rank`: Ranking weight configuration
-- `--docstrings/--comments/--strings`: Whether to search docstrings, comments, string literals
-- `--stats`: Print performance statistics
+| Parameter | Description |
+|-----------|-------------|
+| `--path` | Search paths (multiple allowed) |
+| `--include/--exclude` | Include/exclude glob patterns |
+| `--pattern` | Text/regex pattern or semantic query |
+| `--regex` | Enable regex matching |
+| `--ast` | Enable AST structural search |
+| `--semantic` | Enable semantic search |
+| `--logic` | Enable boolean query mode |
+| `--context` | Number of context lines |
+| `--format` | Output format (`text`/`json`/`highlight`) |
+| `--count` | Count-only mode (fast) |
+| `--max-per-file` | Limit results per file |
+| `--filter-func-name` | Filter by function name (regex) |
+| `--filter-class-name` | Filter by class name (regex) |
+| `--filter-decorator` | Filter by decorator (regex) |
+| `--filter-import` | Filter by import (regex) |
+| `--parallel/--no-parallel` | Toggle parallel processing |
+| `--workers` | Number of worker threads |
+| `--cache/--no-cache` | Toggle result caching |
+| `--stats` | Print performance statistics |
 
-## Programming Interface
+See [CLI Reference](docs/guide/cli-reference.md) for complete documentation.
 
-```python
-from pysearch import PySearch, SearchConfig, Query, OutputFormat
-
-cfg = SearchConfig(
-    paths=["."],
-    include=["**/*.py"],
-    exclude=["**/.venv/**", "**/build/**"],
-    context=3,
-    output_format=OutputFormat.JSON,
-    enable_docstrings=True,
-    enable_comments=True,
-    enable_strings=True,
-)
-
-engine = PySearch(cfg)
-res = engine.run(Query(pattern="ClassName", use_regex=False, use_ast=True))
-print(res.stats, len(res.items))
-```
-
-## Testing & Benchmarks
-
-Run tests with coverage:
+## Testing
 
 ```bash
+# Run all tests
 pytest
+
+# Run with coverage
+pytest --cov=pysearch
+
+# Run specific test categories
+pytest -m unit           # Unit tests
+pytest -m integration    # Integration tests
+pytest -m benchmark      # Performance benchmarks
+pytest -m "not slow"     # Skip slow tests
 ```
 
-Run benchmarks:
+## Documentation
 
-```bash
-pytest tests/benchmarks -k benchmark -q
-```
-
-## Roadmap
-
-- **Advanced Semantic Search**: Optional external embedding backends
-- **IDE/Editor Integration**: VS Code/JetBrains with protocol-based output
-- **Parallel & Distributed Indexing**: Multi-process/multi-threaded indexing
-- **Advanced Syntax Highlighting**: More refined highlighting and differentiated display
+- [Installation Guide](docs/getting-started/installation.md) - System requirements and setup
+- [Usage Guide](docs/guide/usage.md) - Getting started and common workflows
+- [CLI Reference](docs/guide/cli-reference.md) - Complete command-line reference
+- [API Reference](docs/api/index.md) - Python API documentation
+- [Configuration Guide](docs/guide/configuration.md) - All configuration options
+- [Architecture](docs/advanced/architecture.md) - System design and internals
+- [Advanced Features](docs/advanced/features.md) - Enhanced indexing engine
+- [GraphRAG Guide](docs/advanced/graphrag.md) - Knowledge graph search
+- [Advanced Indexing](docs/advanced/indexing-guide.md) - Indexing engine deep dive
+- [Performance Tuning](docs/guide/performance.md) - Optimization guide
+- [MCP Integration](docs/mcp/index.md) - Model Context Protocol
+- [Troubleshooting](docs/help/troubleshooting.md) - Common issues and solutions
+- [FAQ](docs/help/faq.md) - Frequently asked questions
 
 ## License
 

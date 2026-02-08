@@ -11,6 +11,8 @@ specific manager or advanced capability:
 - dependency_integration: Code dependency analysis
 - file_watching: Real-time file monitoring and auto-updates
 - cache_integration: Caching management
+- distributed_indexing_integration: Distributed parallel indexing
+- ide_integration: IDE hooks and features (jump-to-definition, references, etc.)
 - multi_repo_integration: Multi-repository search support
 - parallel_processing: Parallel search execution strategies
 

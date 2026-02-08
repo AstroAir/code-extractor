@@ -74,11 +74,11 @@ Use Cases:
     - Documentation and comment analysis
 
 For detailed documentation, examples, and advanced usage patterns, see:
-    - docs/usage.md for getting started
-    - docs/configuration.md for configuration options
-    - docs/architecture.md for implementation details
+    - docs/guide/usage.md for getting started
+    - docs/guide/configuration.md for configuration options
+    - docs/advanced/architecture.md for implementation details
     - examples/ directory for practical examples
-    - Project repository: https://github.com/your-org/pysearch
+    - Project repository: https://github.com/AstroAir/pysearch
 """
 
 from .analysis.language_detection import detect_language, get_supported_languages
@@ -157,7 +157,7 @@ __author__ = "Max Qian"
 __email__ = "astro_air@126.com"
 __license__ = "MIT"
 __description__ = "High-performance, context-aware search engine for Python codebases"
-__url__ = "https://github.com/your-org/pysearch"
+__url__ = "https://github.com/AstroAir/pysearch"
 
 # Public API
 __all__ = [

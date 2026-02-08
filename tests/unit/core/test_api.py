@@ -39,8 +39,8 @@ class TestPySearchInit:
     def test_init_default_caching_disabled(self, tmp_path: Path):
         cfg = SearchConfig(paths=[str(tmp_path)])
         engine = PySearch(cfg)
-        assert engine._caching_enabled is False
-        assert engine._multi_repo_enabled is False
+        assert engine.is_caching_enabled() is False
+        assert engine.is_multi_repo_enabled() is False
 
 
 class TestPySearchSearch:
@@ -141,7 +141,9 @@ class TestPySearchCaching:
     def test_get_cache_stats_not_enabled(self, tmp_path: Path):
         cfg = SearchConfig(paths=[str(tmp_path)])
         engine = PySearch(cfg)
-        assert engine.get_cache_stats() == {}
+        stats = engine.get_cache_stats()
+        assert isinstance(stats, dict)
+        assert stats.get("enabled") is False
 
     def test_get_cache_stats_enabled(self, tmp_path: Path):
         cfg = SearchConfig(paths=[str(tmp_path)])
@@ -153,7 +155,7 @@ class TestPySearchCaching:
     def test_invalidate_cache_for_file_not_enabled(self, tmp_path: Path):
         cfg = SearchConfig(paths=[str(tmp_path)])
         engine = PySearch(cfg)
-        assert engine.invalidate_cache_for_file("test.py") == 0
+        engine.invalidate_cache_for_file("test.py")  # should not raise
 
 
 class TestPySearchHistory:

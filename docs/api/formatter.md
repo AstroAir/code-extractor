@@ -276,5 +276,5 @@ print(formatted)
 ## Related
 
 - [Types](types.md) - Result and output types
-- [CLI Reference](../cli-reference.md) - Command-line formatting options
+- [CLI Reference](../guide/cli-reference.md) - Command-line formatting options
 - [Utils](utils.md) - Utility functions for formatting

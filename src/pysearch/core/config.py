@@ -46,6 +46,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from ..utils.error_handling import ConfigurationError
 from .types import Language, OutputFormat
 
 
@@ -223,6 +224,44 @@ class SearchConfig:
     def is_optional_features_enabled(self) -> bool:
         """Check if any optional features are enabled."""
         return self.enable_graphrag or self.enable_metadata_indexing or self.qdrant_enabled
+
+    def validate(self) -> None:
+        """Validate core configuration and raise ConfigurationError on issues.
+
+        Raises:
+            ConfigurationError: If the configuration is invalid.
+        """
+        if not self.paths:
+            raise ConfigurationError(
+                "At least one search path must be specified",
+                context={"field": "paths"},
+            )
+
+        if self.context < 0:
+            raise ConfigurationError(
+                "Context lines must be non-negative",
+                context={"field": "context", "value": self.context},
+            )
+
+        if self.workers < 0:
+            raise ConfigurationError(
+                "Worker count must be non-negative (0 = auto-detect CPU count)",
+                context={"field": "workers", "value": self.workers},
+            )
+
+        if self.file_size_limit <= 0:
+            raise ConfigurationError(
+                "File size limit must be positive",
+                context={"field": "file_size_limit", "value": self.file_size_limit},
+            )
+
+        # Also validate optional features
+        issues = self.validate_optional_config()
+        if issues:
+            raise ConfigurationError(
+                f"Optional feature configuration issues: {'; '.join(issues)}",
+                context={"issues": issues},
+            )
 
     def validate_optional_config(self) -> list[str]:
         """Validate optional feature configuration and return any issues."""

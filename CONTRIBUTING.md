@@ -641,8 +641,8 @@ git branch -d feat/semantic-search-improvements
 
 If you have questions about contributing:
 
-1. **Check the [FAQ](docs/faq.md)**
-2. **Search [GitHub Discussions](https://github.com/your-org/pysearch/discussions)**
+1. **Check the [FAQ](docs/help/faq.md)**
+2. **Search [GitHub Discussions](https://github.com/AstroAir/pysearch/discussions)**
 3. **Create a new discussion** for general questions
 4. **Open an issue** for specific problems
 

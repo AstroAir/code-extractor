@@ -1,0 +1,389 @@
+{
+  "sessions": {
+    "6d97c15fe5a1": {
+      "session_id": "6d97c15fe5a1",
+      "user_id": "test_user",
+      "created_at": "2026-02-08 12:23:37.063236",
+      "last_accessed": "2026-02-08 12:23:37.063236",
+      "priority": "SessionPriority.NORMAL",
+      "intent": "SearchIntent.UNKNOWN",
+      "queries": [],
+      "context": {},
+      "cached_results": {},
+      "current_files": [],
+      "search_focus": null,
+      "recent_patterns": [],
+      "correlation_context": {},
+      "total_searches": 0,
+      "successful_searches": 0,
+      "avg_search_time": 0.0,
+      "patterns_discovered": []
+    },
+    "3c499eb75a5b": {
+      "session_id": "3c499eb75a5b",
+      "user_id": "info_user",
+      "created_at": "2026-02-08 12:23:37.080326",
+      "last_accessed": "2026-02-08 12:23:37.086171",
+      "priority": "SessionPriority.NORMAL",
+      "intent": "SearchIntent.UNKNOWN",
+      "queries": [],
+      "context": {},
+      "cached_results": {},
+      "current_files": [],
+      "search_focus": null,
+      "recent_patterns": [],
+      "correlation_context": {},
+      "total_searches": 0,
+      "successful_searches": 0,
+      "avg_search_time": 0.0,
+      "patterns_discovered": []
+    },
+    "d8e5e8cd7b9f": {
+      "session_id": "d8e5e8cd7b9f",
+      "user_id": "tracker",
+      "created_at": "2026-02-08 12:23:37.100469",
+      "last_accessed": "2026-02-08 12:23:37.134228",
+      "priority": "SessionPriority.NORMAL",
+      "intent": "SearchIntent.EXPLORATION",
+      "queries": [
+        {
+          "pattern": "def",
+          "type": "text",
+          "use_regex": false,
+          "use_ast": false,
+          "use_semantic": false,
+          "timestamp": "2026-02-08T12:23:37.126832",
+          "session_context": {
+            "session_id": "d8e5e8cd7b9f",
+            "intent": "unknown",
+            "search_focus": null,
+            "current_files_count": 0,
+            "recent_patterns_count": 0,
+            "total_searches": 0,
+            "success_rate": 0.0,
+            "patterns_discovered_count": 0
+          }
+        }
+      ],
+      "context": {
+        "last_successful_search": "2026-02-08T12:23:37.126832",
+        "recent_result_count": 4
+      },
+      "cached_results": {},
+      "current_files": [],
+      "search_focus": null,
+      "recent_patterns": [
+        "def"
+      ],
+      "correlation_context": {},
+      "total_searches": 1,
+      "successful_searches": 1,
+      "avg_search_time": 0.00927510000019538,
+      "patterns_discovered": [
+        "def"
+      ]
+    },
+    "c09cd8a81872": {
+      "session_id": "c09cd8a81872",
+      "user_id": "e2e_tester",
+      "created_at": "2026-02-08 12:23:38.612156",
+      "last_accessed": "2026-02-08 12:23:38.732856",
+      "priority": "SessionPriority.HIGH",
+      "intent": "SearchIntent.REFACTORING",
+      "queries": [
+        {
+          "pattern": "password",
+          "type": "text",
+          "use_regex": false,
+          "use_ast": false,
+          "use_semantic": false,
+          "timestamp": "2026-02-08T12:23:38.633255",
+          "session_context": {
+            "session_id": "c09cd8a81872",
+            "intent": "unknown",
+            "search_focus": null,
+            "current_files_count": 0,
+            "recent_patterns_count": 0,
+            "total_searches": 0,
+            "success_rate": 0.0,
+            "patterns_discovered_count": 0
+          }
+        },
+        {
+          "pattern": "class\\s+\\w+",
+          "type": "regex",
+          "use_regex": true,
+          "use_ast": false,
+          "use_semantic": false,
+          "timestamp": "2026-02-08T12:23:38.707395",
+          "session_context": {
+            "session_id": "c09cd8a81872",
+            "intent": "exploration",
+            "search_focus": null,
+            "current_files_count": 0,
+            "recent_patterns_count": 1,
+            "total_searches": 1,
+            "success_rate": 1.0,
+            "patterns_discovered_count": 1
+          }
+        }
+      ],
+      "context": {
+        "last_successful_search": "2026-02-08T12:23:38.707395",
+        "recent_result_count": 2
+      },
+      "cached_results": {},
+      "current_files": [],
+      "search_focus": null,
+      "recent_patterns": [
+        "password",
+        "class\\s+\\w+"
+      ],
+      "correlation_context": {},
+      "total_searches": 2,
+      "successful_searches": 2,
+      "avg_search_time": 0.01789299999973082,
+      "patterns_discovered": [
+        "password",
+        "class\\s+\\w+"
+      ]
+    },
+    "d4421952ca9f": {
+      "session_id": "d4421952ca9f",
+      "user_id": "real_repo_investigator",
+      "created_at": "2026-02-08 12:23:42.779245",
+      "last_accessed": "2026-02-08 12:23:43.354374",
+      "priority": "SessionPriority.HIGH",
+      "intent": "SearchIntent.REFACTORING",
+      "queries": [
+        {
+          "pattern": "token",
+          "type": "text",
+          "use_regex": false,
+          "use_ast": false,
+          "use_semantic": false,
+          "timestamp": "2026-02-08T12:23:42.869868",
+          "session_context": {
+            "session_id": "d4421952ca9f",
+            "intent": "unknown",
+            "search_focus": null,
+            "current_files_count": 0,
+            "recent_patterns_count": 0,
+            "total_searches": 0,
+            "success_rate": 0.0,
+            "patterns_discovered_count": 0
+          }
+        },
+        {
+          "pattern": "@property",
+          "type": "regex",
+          "use_regex": true,
+          "use_ast": false,
+          "use_semantic": false,
+          "timestamp": "2026-02-08T12:23:42.978990",
+          "session_context": {
+            "session_id": "d4421952ca9f",
+            "intent": "exploration",
+            "search_focus": null,
+            "current_files_count": 0,
+            "recent_patterns_count": 1,
+            "total_searches": 1,
+            "success_rate": 1.0,
+            "patterns_discovered_count": 1
+          }
+        },
+        {
+          "pattern": "class",
+          "type": "ast",
+          "use_regex": false,
+          "use_ast": true,
+          "use_semantic": false,
+          "timestamp": "2026-02-08T12:23:43.149592",
+          "session_context": {
+            "session_id": "d4421952ca9f",
+            "intent": "exploration",
+            "search_focus": null,
+            "current_files_count": 0,
+            "recent_patterns_count": 2,
+            "total_searches": 2,
+            "success_rate": 1.0,
+            "patterns_discovered_count": 2
+          }
+        },
+        {
+          "pattern": "async def",
+          "type": "multi_pattern",
+          "use_regex": false,
+          "use_ast": false,
+          "use_semantic": false,
+          "timestamp": "2026-02-08T12:23:43.271691",
+          "session_context": {
+            "session_id": "d4421952ca9f",
+            "intent": "refactoring",
+            "search_focus": null,
+            "current_files_count": 0,
+            "recent_patterns_count": 3,
+            "total_searches": 3,
+            "success_rate": 1.0,
+            "patterns_discovered_count": 3
+          }
+        },
+        {
+          "pattern": "self._",
+          "type": "multi_pattern",
+          "use_regex": false,
+          "use_ast": false,
+          "use_semantic": false,
+          "timestamp": "2026-02-08T12:23:43.354374",
+          "session_context": {
+            "session_id": "d4421952ca9f",
+            "intent": "refactoring",
+            "search_focus": null,
+            "current_files_count": 0,
+            "recent_patterns_count": 4,
+            "total_searches": 4,
+            "success_rate": 1.0,
+            "patterns_discovered_count": 4
+          }
+        }
+      ],
+      "context": {
+        "last_successful_search": "2026-02-08T12:23:43.354374",
+        "recent_result_count": 80
+      },
+      "cached_results": {},
+      "current_files": [],
+      "search_focus": null,
+      "recent_patterns": [
+        "token",
+        "@property",
+        "class",
+        "async def",
+        "self._"
+      ],
+      "correlation_context": {},
+      "total_searches": 5,
+      "successful_searches": 5,
+      "avg_search_time": 0.07832493999958387,
+      "patterns_discovered": [
+        "async def",
+        "token",
+        "self._",
+        "@property",
+        "class"
+      ]
+    }
+  },
+  "user_profiles": {
+    "test_user": {
+      "user_id": "test_user",
+      "created_at": "2026-02-08T12:23:37.063236",
+      "preferences": {},
+      "search_patterns": {},
+      "language_preferences": {},
+      "common_paths": {},
+      "session_count": 1,
+      "total_search_time": 0.0,
+      "successful_searches": 0,
+      "failed_searches": 0
+    },
+    "info_user": {
+      "user_id": "info_user",
+      "created_at": "2026-02-08T12:23:37.080326",
+      "preferences": {},
+      "search_patterns": {},
+      "language_preferences": {},
+      "common_paths": {},
+      "session_count": 1,
+      "total_search_time": 0.0,
+      "successful_searches": 0,
+      "failed_searches": 0
+    },
+    "tracker": {
+      "user_id": "tracker",
+      "created_at": "2026-02-08T12:23:37.100469",
+      "preferences": {},
+      "search_patterns": {
+        "def": 1
+      },
+      "language_preferences": {},
+      "common_paths": {},
+      "session_count": 1,
+      "total_search_time": 0.00927510000019538,
+      "successful_searches": 1,
+      "failed_searches": 0
+    },
+    "e2e_tester": {
+      "user_id": "e2e_tester",
+      "created_at": "2026-02-08T12:23:38.612156",
+      "preferences": {},
+      "search_patterns": {
+        "password": 1,
+        "class\\s+\\w+": 1
+      },
+      "language_preferences": {},
+      "common_paths": {},
+      "session_count": 1,
+      "total_search_time": 0.03578599999946164,
+      "successful_searches": 2,
+      "failed_searches": 0
+    },
+    "real_repo_investigator": {
+      "user_id": "real_repo_investigator",
+      "created_at": "2026-02-08T12:23:42.779245",
+      "preferences": {},
+      "search_patterns": {
+        "token": 1,
+        "@property": 1,
+        "class": 1,
+        "async def": 1,
+        "self._": 1
+      },
+      "language_preferences": {},
+      "common_paths": {},
+      "session_count": 1,
+      "total_search_time": 0.3916246999979194,
+      "successful_searches": 5,
+      "failed_searches": 0
+    }
+  },
+  "correlation_graph": {
+    "def": [],
+    "password": [
+      "class\\s+\\w+"
+    ],
+    "class\\s+\\w+": [
+      "password"
+    ],
+    "token": [
+      "class",
+      "@property",
+      "async def",
+      "self._"
+    ],
+    "@property": [
+      "class",
+      "async def",
+      "self._",
+      "token"
+    ],
+    "class": [
+      "@property",
+      "async def",
+      "self._",
+      "token"
+    ],
+    "async def": [
+      "class",
+      "@property",
+      "self._",
+      "token"
+    ],
+    "self._": [
+      "class",
+      "@property",
+      "async def",
+      "token"
+    ]
+  }
+}

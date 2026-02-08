@@ -204,6 +204,32 @@ class DependencyIntegrationManager:
         except Exception:
             return []
 
+    def check_dependency_path(
+        self, source: str, target: str, graph: Any | None = None
+    ) -> bool:
+        """
+        Check if there is a dependency path from source module to target module.
+
+        Uses DependencyGraph.has_path() for efficient graph traversal.
+
+        Args:
+            source: Source module name
+            target: Target module name
+            graph: Dependency graph to use (if None, analyzes current project)
+
+        Returns:
+            True if a dependency path exists from source to target
+        """
+        self._ensure_dependency_analyzer()
+
+        if graph is None:
+            graph = self.analyze_dependencies()
+
+        try:
+            return graph.has_path(source, target)
+        except Exception:
+            return False
+
     def get_module_coupling_metrics(self, graph: Any | None = None) -> dict[str, Any]:
         """
         Calculate module coupling metrics.

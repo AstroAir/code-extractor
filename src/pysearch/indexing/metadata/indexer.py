@@ -124,6 +124,11 @@ class MetadataIndexer:
             if not content:
                 return
 
+            # Clean up stale entities for this file before re-indexing
+            file_path_str = str(file_path)
+            if await self.metadata_index.file_exists(file_path_str):
+                await self.metadata_index.delete_entities_by_file(file_path_str)
+
             # Get basic file info
             stat = file_path.stat()
             language = detect_language(file_path)
@@ -275,6 +280,140 @@ class MetadataIndexer:
         }
 
         return results
+
+    async def query(self, query: IndexQuery) -> dict[str, Any]:
+        """Query the enhanced index (alias for query_index for API compatibility)."""
+        return await self.query_index(query)
+
+    async def update_files(self, file_paths: list[str]) -> None:
+        """Incrementally update the index for specific files.
+
+        Args:
+            file_paths: List of file path strings to re-index.
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        for fp in file_paths:
+            path = Path(fp)
+            if path.exists():
+                await self._index_file(path, include_semantic=True)
+                logger.debug(f"Updated index for file: {fp}")
+
+    async def remove_files(self, file_paths: list[str]) -> None:
+        """Remove specific files from the index.
+
+        Args:
+            file_paths: List of file path strings to remove.
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        for fp in file_paths:
+            await self._remove_file_metadata(Path(fp))
+
+    async def optimize(self) -> None:
+        """Optimize the metadata index for better query performance."""
+        if not self._initialized:
+            await self.initialize()
+
+        if self.metadata_index._connection:
+            self.metadata_index._connection.execute("ANALYZE")
+            self.metadata_index._connection.execute("VACUUM")
+            self.metadata_index._connection.commit()
+            logger.info("Metadata index optimized (ANALYZE + VACUUM)")
+
+    async def clear(self) -> None:
+        """Clear the entire metadata index."""
+        if not self._initialized:
+            await self.initialize()
+
+        if self.metadata_index._connection:
+            cursor = self.metadata_index._connection.cursor()
+            cursor.execute("DELETE FROM entities")
+            cursor.execute("DELETE FROM files")
+            self.metadata_index._connection.commit()
+            logger.info("Metadata index cleared")
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get synchronous metadata index statistics (for non-async callers)."""
+        if not self.metadata_index._connection:
+            return {}
+
+        try:
+            cursor = self.metadata_index._connection.cursor()
+            cursor.execute("SELECT COUNT(*) FROM files")
+            total_files = cursor.fetchone()[0] or 0
+            cursor.execute("SELECT COUNT(*) FROM entities")
+            total_entities = cursor.fetchone()[0] or 0
+            return {
+                "total_files": total_files,
+                "total_entities": total_entities,
+                "initialized": self._initialized,
+            }
+        except Exception:
+            return {}
+
+    def get_size_info(self) -> dict[str, Any]:
+        """Get information about index size and storage."""
+        try:
+            db_path = self.metadata_index.db_path
+            size_bytes = db_path.stat().st_size if db_path.exists() else 0
+            return {
+                "db_path": str(db_path),
+                "size_bytes": size_bytes,
+                "size_mb": size_bytes / (1024 * 1024),
+            }
+        except Exception:
+            return {}
+
+    def get_health_status(self) -> dict[str, Any]:
+        """Get health status of the metadata index."""
+        status = "healthy" if self._initialized and self.metadata_index._connection else "not_initialized"
+        stats = self.get_stats()
+        return {
+            "status": status,
+            "initialized": self._initialized,
+            "total_files": stats.get("total_files", 0),
+            "total_entities": stats.get("total_entities", 0),
+        }
+
+    async def backup(self, backup_path: str) -> None:
+        """Create a backup of the metadata index database.
+
+        Args:
+            backup_path: Destination path for the backup file.
+        """
+        import shutil
+
+        if self.metadata_index.db_path.exists():
+            shutil.copy2(str(self.metadata_index.db_path), backup_path)
+            logger.info(f"Metadata index backed up to {backup_path}")
+        else:
+            raise FileNotFoundError(f"Metadata database not found at {self.metadata_index.db_path}")
+
+    async def restore(self, backup_path: str) -> None:
+        """Restore the metadata index from a backup.
+
+        Args:
+            backup_path: Path to the backup file to restore from.
+        """
+        import shutil
+
+        backup = Path(backup_path)
+        if not backup.exists():
+            raise FileNotFoundError(f"Backup file not found: {backup_path}")
+
+        # Close existing connection
+        await self.metadata_index.close()
+
+        # Replace database file
+        shutil.copy2(backup_path, str(self.metadata_index.db_path))
+
+        # Re-initialize
+        self._initialized = False
+        await self.initialize()
+        logger.info(f"Metadata index restored from {backup_path}")
 
     async def close(self) -> None:
         """Close the metadata indexer."""

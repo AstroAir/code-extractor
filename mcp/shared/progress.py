@@ -22,54 +22,41 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-# Import removed due to circular dependency
-# from ..servers.mcp_server import PySearchMCPServer
+# NOTE: ProgressAwareSearchServer is kept for backward compatibility with tests.
+# In production, progress tracking is integrated directly into PySearchEngine
+# (see pysearch_mcp_server.py). New code should use PySearchEngine + ProgressTracker
+# directly instead of ProgressAwareSearchServer.
 
 
-# Mock base class for testing
-class PySearchMCPServer:
-    """Mock base class for progress-aware server."""
+class _MockSearchBase:
+    """Minimal base class for ProgressAwareSearchServer (test compatibility only)."""
 
     def __init__(self, name: str = "Mock Server"):
         self.name = name
         self.current_config = None
 
     async def search_regex(self, pattern: str, paths: list[str] | None, context: int) -> Any:
-        """Mock search_regex method."""
         from ..servers.pysearch_mcp_server import SearchResponse
-
-        return SearchResponse(
-            items=[],
-            stats={"files_scanned": 0},
-            query_info={},
-            total_matches=0,
-            execution_time_ms=0,
-        )
+        return SearchResponse(items=[], stats={"files_scanned": 0}, query_info={},
+                              total_matches=0, execution_time_ms=0)
 
     async def search_text(self, pattern: str, paths: list[str] | None, context: int) -> Any:
-        """Mock search_text method."""
         from ..servers.pysearch_mcp_server import SearchResponse
-
-        return SearchResponse(
-            items=[],
-            stats={"files_scanned": 0},
-            query_info={},
-            total_matches=0,
-            execution_time_ms=0,
-        )
+        return SearchResponse(items=[], stats={"files_scanned": 0}, query_info={},
+                              total_matches=0, execution_time_ms=0)
 
     async def analyze_file_content(
         self, file_path: str, include_complexity: bool, include_quality: bool
     ) -> Any:
-        """Mock analyze_file_content method."""
+        class _MockResult:
+            complexity_score = 1.0
+            code_quality_score = 1.0
+            language = "python"
+        return _MockResult()
 
-        class MockAnalysisResult:
-            def __init__(self) -> None:
-                self.complexity_score = 1.0
-                self.code_quality_score = 1.0
-                self.language = "python"
 
-        return MockAnalysisResult()
+# Keep old name importable for tests that reference PySearchMCPServer
+PySearchMCPServer = _MockSearchBase
 
 
 class ProgressStatus(Enum):
@@ -230,7 +217,7 @@ class ProgressTracker:
                 del self.cancellation_flags[operation_id]
 
 
-class ProgressAwareSearchServer(PySearchMCPServer):
+class ProgressAwareSearchServer(_MockSearchBase):
     """
     PySearch MCP Server with progress reporting capabilities.
 

@@ -94,6 +94,13 @@ class AnalyticsManager:
             day = datetime.fromtimestamp(entry.timestamp).strftime("%Y-%m-%d")
             search_frequency[day] += 1
 
+        # Count unique sessions (approximate from entry timestamps with 30-min gaps)
+        session_count = 1
+        sorted_entries = sorted(recent_entries, key=lambda e: e.timestamp)
+        for i in range(1, len(sorted_entries)):
+            if sorted_entries[i].timestamp - sorted_entries[i - 1].timestamp > 1800:
+                session_count += 1
+
         return {
             "total_searches": total_searches,
             "successful_searches": successful_searches,
@@ -103,6 +110,7 @@ class AnalyticsManager:
             "most_used_languages": most_used_languages,
             "average_search_time": average_search_time,
             "search_frequency": dict(search_frequency),
+            "session_count": session_count,
         }
 
     def get_pattern_suggestions(

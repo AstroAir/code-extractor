@@ -131,6 +131,7 @@ class FileMetadata:
     author: str | None = None  # From git blame or file attributes
     created_date: float | None = None
     modified_date: float | None = None
+    content_hash: str | None = None  # SHA1 hash of file content
 
 
 # match_spans: list of (line_index, (start_col, end_col))

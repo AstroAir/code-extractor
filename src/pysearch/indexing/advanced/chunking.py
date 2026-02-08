@@ -46,7 +46,7 @@ from pathlib import Path
 from typing import Any
 
 from ...analysis.language_detection import detect_language
-from ...analysis.language_support import CodeChunk, language_registry
+from ...analysis.language_support import CodeChunk, LanguageConfig, language_registry
 from ...core.types import Language
 from ...utils.logging_config import get_logger
 
@@ -210,6 +210,17 @@ class ChunkingStrategyBase(ABC):
 class StructuralChunker(ChunkingStrategyBase):
     """Structure-aware chunking using AST/tree-sitter."""
 
+    def _build_language_config(self) -> LanguageConfig:
+        """Build a LanguageConfig from the current ChunkingConfig."""
+        return LanguageConfig(
+            max_chunk_size=self.config.max_chunk_size,
+            min_chunk_size=self.config.min_chunk_size,
+            respect_boundaries=self.config.respect_boundaries,
+            include_comments=True,
+            include_docstrings=True,
+            include_imports=True,
+        )
+
     async def chunk_content(
         self,
         content: str,
@@ -217,9 +228,11 @@ class StructuralChunker(ChunkingStrategyBase):
         file_path: str = "",
     ) -> AsyncGenerator[MetadataCodeChunk, None]:
         """Chunk content based on code structure."""
+        # Apply LanguageConfig to synchronize chunking settings with the processor
+        lang_config = self._build_language_config()
         processor = language_registry.get_processor(language)
-
         if processor:
+            processor.config = lang_config
             # Use tree-sitter based chunking
             async for chunk in processor.chunk_code(content, self.config.max_chunk_size):
                 enhanced_chunk = MetadataCodeChunk(

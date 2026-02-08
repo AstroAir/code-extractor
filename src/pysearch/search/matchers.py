@@ -94,7 +94,7 @@ def _offset_to_line_col(line_starts: list[int], offset: int) -> tuple[int, int]:
 
 
 def _is_match_in_string_or_comment(
-    text: str, line_index: int, start_col: int, end_col: int
+    lines: list[str], line_index: int, start_col: int, end_col: int
 ) -> tuple[bool, bool, bool]:
     """
     Check if a match is in a string literal, comment, or docstring.
@@ -104,10 +104,15 @@ def _is_match_in_string_or_comment(
     - Handles single/double quotes and triple-quoted strings
     - Recognizes raw strings (r"...", r'...')
 
+    Args:
+        lines: Pre-split lines of the file (avoids repeated splitlines per match)
+        line_index: 0-based line index of the match
+        start_col: Start column of the match
+        end_col: End column of the match
+
     Returns:
         Tuple of (is_in_string, is_in_comment, is_in_docstring)
     """
-    lines = split_lines_keepends(text)
     if line_index >= len(lines):
         return False, False, False
 
@@ -394,7 +399,7 @@ def search_in_file(
         filtered_tms = []
         for tm in tms:
             is_in_string, is_in_comment, is_in_docstring = _is_match_in_string_or_comment(
-                text, tm.line_index, tm.start_col, tm.end_col
+                lines, tm.line_index, tm.start_col, tm.end_col
             )
 
             # Include match based on query settings

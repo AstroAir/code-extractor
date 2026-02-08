@@ -13,5 +13,11 @@ to provide intelligent code search and understanding capabilities.
 
 # Import main classes
 from .core import EntityExtractor, RelationshipMapper
+from .engine import GraphRAGEngine, KnowledgeGraphBuilder
 
-__all__ = ["EntityExtractor", "RelationshipMapper"]
+__all__ = [
+    "EntityExtractor",
+    "RelationshipMapper",
+    "KnowledgeGraphBuilder",
+    "GraphRAGEngine",
+]

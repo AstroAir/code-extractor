@@ -64,7 +64,7 @@ from ...core.types import (
     RelationType,
 )
 from ...search.semantic_advanced import SemanticEmbedding
-from ...storage.qdrant_client import QdrantConfig, QdrantVectorStore
+from ...storage.qdrant_client import QdrantConfig, QdrantVectorStore, normalize_vector
 from ...utils.helpers import read_text_safely
 from .core import EntityExtractor, RelationshipMapper
 
@@ -442,7 +442,9 @@ class GraphRAGEngine:
             return
 
         vectors = [
-            entity.embedding for entity in entities_with_embeddings if entity.embedding is not None
+            normalize_vector(entity.embedding)
+            for entity in entities_with_embeddings
+            if entity.embedding is not None
         ]
         metadata = []
         ids = []
@@ -567,10 +569,10 @@ class GraphRAGEngine:
         self, entities: list[CodeEntity], knowledge_graph: KnowledgeGraph, query: GraphRAGQuery
     ) -> list[CodeEntity]:
         """Expand entity set using graph relationships."""
-        expanded = set(entities)
+        expanded: dict[str, CodeEntity] = {e.id: e for e in entities}
 
         for _hop in range(query.max_hops):
-            current_entities = list(expanded)
+            current_entities = list(expanded.values())
 
             for entity in current_entities:
                 related = knowledge_graph.get_related_entities(
@@ -579,9 +581,9 @@ class GraphRAGEngine:
 
                 for related_entity, relationship in related:
                     if relationship.confidence >= query.min_confidence:
-                        expanded.add(related_entity)
+                        expanded[related_entity.id] = related_entity
 
-        return list(expanded)
+        return list(expanded.values())
 
     async def _find_relevant_relationships(
         self, entities: list[CodeEntity], knowledge_graph: KnowledgeGraph, query: GraphRAGQuery
@@ -688,6 +690,26 @@ class GraphRAGEngine:
 
         return stats
 
+    async def get_stats_async(self) -> dict[str, Any]:
+        """Get knowledge graph and engine statistics including vector store details."""
+        stats = self.get_stats()
+
+        # Include vector store collection listing
+        if self.vector_store and self.vector_store.is_available():
+            try:
+                collections = await self.vector_store.list_collections()
+                stats["vector_collections"] = collections
+
+                # Get info for the main code_entities collection
+                if "code_entities" in collections:
+                    info = await self.vector_store.get_collection_info("code_entities")
+                    stats["code_entities_info"] = info
+            except Exception as e:
+                logger.warning(f"Failed to get vector store stats: {e}")
+                stats["vector_collections"] = []
+
+        return stats
+
     async def add_entities(self, entities: list[CodeEntity]) -> None:
         """Add entities to the knowledge graph incrementally."""
         knowledge_graph = self.graph_builder.knowledge_graph
@@ -767,6 +789,31 @@ class GraphRAGEngine:
                 object.__setattr__(entity, "confidence", value)
             else:
                 entity.properties[key] = value
+
+        # Sync metadata updates to Qdrant vector store if available
+        if self.vector_store and self.vector_store.is_available():
+            try:
+                vector_metadata = {
+                    "entity_id": entity.id,
+                    "name": entity.name,
+                    "entity_type": entity.entity_type.value,
+                    "file_path": str(entity.file_path),
+                    "start_line": entity.start_line,
+                    "language": (
+                        entity.language.value
+                        if hasattr(entity.language, "value")
+                        else str(entity.language)
+                    ),
+                    "signature": entity.signature or "",
+                    "docstring": entity.docstring or "",
+                }
+                await self.vector_store.update_vector_metadata(
+                    collection_name="code_entities",
+                    vector_id=entity_id,
+                    metadata=vector_metadata,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to sync entity metadata to Qdrant: {e}")
 
         logger.debug(f"Updated entity {entity_id} with {len(updates)} changes")
 
@@ -901,6 +948,94 @@ class GraphRAGEngine:
             f"Imported knowledge graph with {len(knowledge_graph.entities)} entities "
             f"and {len(knowledge_graph.relationships)} relationships"
         )
+
+    async def reset_graph(self) -> None:
+        """Reset the knowledge graph and delete all associated vector data."""
+        # Clear in-memory graph
+        self.graph_builder.knowledge_graph = KnowledgeGraph()
+
+        # Delete vector collection if available
+        if self.vector_store and self.vector_store.is_available():
+            try:
+                await self.vector_store.delete_collection("code_entities")
+                logger.info("Deleted code_entities vector collection")
+            except Exception as e:
+                logger.warning(f"Failed to delete vector collection: {e}")
+
+        # Remove cached graph file
+        cache_path = self.graph_builder._cache_path
+        if cache_path.exists():
+            try:
+                cache_path.unlink()
+                logger.info(f"Removed cached knowledge graph: {cache_path}")
+            except Exception as e:
+                logger.warning(f"Failed to remove cached graph: {e}")
+
+        logger.info("Knowledge graph reset complete")
+
+    async def batch_find_similar(self, entity_ids: list[str], limit: int = 10) -> dict[str, list[CodeEntity]]:
+        """Find similar entities for multiple entities using batch vector search.
+
+        Uses Qdrant's batch_search API for efficient multi-query similarity search.
+
+        Args:
+            entity_ids: List of entity IDs to find similar entities for.
+            limit: Maximum number of similar entities per query.
+
+        Returns:
+            Dict mapping entity_id to list of similar entities.
+        """
+        knowledge_graph = self.graph_builder.knowledge_graph
+        results: dict[str, list[CodeEntity]] = {}
+
+        if not self.vector_store or not self.vector_store.is_available():
+            # Fallback: use sequential find_similar_entities
+            for entity_id in entity_ids:
+                results[entity_id] = await self.find_similar_entities(entity_id, limit)
+            return results
+
+        # Collect valid query vectors
+        valid_ids: list[str] = []
+        query_vectors: list[list[float]] = []
+        for entity_id in entity_ids:
+            entity = knowledge_graph.get_entity(entity_id)
+            if entity and entity.embedding:
+                valid_ids.append(entity_id)
+                query_vectors.append(normalize_vector(entity.embedding))
+
+        if not query_vectors:
+            return {eid: [] for eid in entity_ids}
+
+        try:
+            batch_results = await self.vector_store.batch_search(
+                query_vectors=query_vectors,
+                collection_name="code_entities",
+                top_k=limit + 1,  # +1 to exclude self
+            )
+
+            for entity_id, search_results in zip(valid_ids, batch_results, strict=False):
+                similar: list[CodeEntity] = []
+                for result in search_results:
+                    if result.id != entity_id:
+                        found_entity = knowledge_graph.get_entity(result.id)
+                        if found_entity:
+                            similar.append(found_entity)
+                    if len(similar) >= limit:
+                        break
+                results[entity_id] = similar
+
+        except Exception as e:
+            logger.error(f"Batch similarity search failed: {e}")
+            # Fallback to sequential
+            for entity_id in valid_ids:
+                results[entity_id] = await self.find_similar_entities(entity_id, limit)
+
+        # Fill in entities that had no embedding
+        for entity_id in entity_ids:
+            if entity_id not in results:
+                results[entity_id] = []
+
+        return results
 
     async def close(self) -> None:
         """Close the GraphRAG engine and cleanup resources."""

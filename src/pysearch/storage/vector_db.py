@@ -277,6 +277,24 @@ class VectorDatabase(ABC):
         """Check if collection exists."""
         pass
 
+    async def batch_search_vectors(
+        self,
+        collection_name: str,
+        query_vectors: list[list[float]],
+        limit: int = 10,
+        filters: dict[str, Any] | None = None,
+    ) -> list[list[VectorSearchResult]]:
+        """Search for similar vectors for multiple queries in a single batch.
+
+        Default implementation falls back to sequential search_vectors calls.
+        Subclasses may override this for more efficient batch operations.
+        """
+        results = []
+        for qv in query_vectors:
+            result = await self.search_vectors(collection_name, qv, limit, filters)
+            results.append(result)
+        return results
+
 
 class LanceDBProvider(VectorDatabase):
     """LanceDB vector database implementation."""
@@ -529,6 +547,48 @@ class QdrantProvider(VectorDatabase):
         except Exception as e:
             logger.error(f"Error searching Qdrant: {e}")
             return []
+
+    async def batch_search_vectors(
+        self,
+        collection_name: str,
+        query_vectors: list[list[float]],
+        limit: int = 10,
+        filters: dict[str, Any] | None = None,
+    ) -> list[list[VectorSearchResult]]:
+        """Optimized batch search using Qdrant's native batch_search API."""
+        store = await self._get_store()
+
+        try:
+            batch_results = await store.batch_search(
+                query_vectors=query_vectors,
+                collection_name=collection_name,
+                top_k=limit,
+                filter_conditions=filters,
+            )
+
+            all_search_results: list[list[VectorSearchResult]] = []
+            for single_result in batch_results:
+                search_results = []
+                for result in single_result:
+                    payload = result.payload or {}
+                    search_results.append(
+                        VectorSearchResult(
+                            chunk_id=result.id,
+                            content=payload.get("content", ""),
+                            file_path=payload.get("file_path", ""),
+                            start_line=payload.get("start_line", 0),
+                            end_line=payload.get("end_line", 0),
+                            similarity_score=result.score,
+                            metadata=payload,
+                        )
+                    )
+                all_search_results.append(search_results)
+
+            return all_search_results
+
+        except Exception as e:
+            logger.error(f"Error batch searching Qdrant: {e}")
+            return [[] for _ in query_vectors]
 
     async def delete_vectors(
         self,
@@ -861,6 +921,51 @@ class VectorIndexManager:
         ]
 
         return filtered_results
+
+    async def batch_search(
+        self,
+        queries: list[str],
+        collection_name: str,
+        limit: int = 10,
+        filters: dict[str, Any] | None = None,
+        similarity_threshold: float = 0.0,
+    ) -> list[list[VectorSearchResult]]:
+        """
+        Batch search for semantically similar code chunks across multiple queries.
+
+        Uses optimized batch operations when the underlying provider supports it
+        (e.g., Qdrant's native batch search API), falling back to sequential
+        search for other providers.
+
+        Args:
+            queries: List of search query texts
+            collection_name: Vector collection to search
+            limit: Maximum number of results per query
+            filters: Optional metadata filters
+            similarity_threshold: Minimum similarity score
+
+        Returns:
+            List of result lists, one per query
+        """
+        if not queries:
+            return []
+
+        # Generate query embeddings in batch
+        query_vectors = await self.embedding_provider.embed_texts(queries)
+
+        # Use batch search on the vector database
+        all_results = await self.vector_db.batch_search_vectors(
+            collection_name, query_vectors, limit, filters
+        )
+
+        # Filter by similarity threshold
+        if similarity_threshold > 0.0:
+            all_results = [
+                [r for r in results if r.similarity_score >= similarity_threshold]
+                for results in all_results
+            ]
+
+        return all_results
 
     async def delete_chunks(
         self,

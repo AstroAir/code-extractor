@@ -34,23 +34,31 @@ fastmcp run mcp/servers/pysearch_mcp_server.py
 python -m mcp.servers.pysearch_mcp_server --transport http --host 127.0.0.1 --port 9000
 ```
 
-## Available Tools (13)
+## Available Tools (19)
 
 | Category | Tool | Description |
 |----------|------|-------------|
 | Core Search | `search_text` | Text pattern search across files |
-| Core Search | `search_regex` | Regex pattern search with validation |
+| Core Search | `search_regex` | Regex pattern search with regex-specific validation |
 | Core Search | `search_ast` | AST-based structural search with filters |
 | Core Search | `search_semantic` | Semantic concept search with expansion |
 | Advanced | `search_fuzzy` | Fuzzy approximate string matching |
 | Advanced | `search_multi_pattern` | Multi-pattern search with AND/OR |
+| Advanced | `suggest_corrections` | Spelling corrections from codebase identifiers |
+| Advanced | `search_word_fuzzy` | Word-level fuzzy search with similarity algorithms |
 | Analysis | `analyze_file` | File metrics (lines, functions, classes) |
 | Config | `configure_search` | Update search configuration |
 | Config | `get_search_config` | Get current configuration |
 | Config | `get_supported_languages` | List supported languages |
-| Config | `clear_caches` | Clear all caches |
+| Config | `clear_caches` | Clear caches, optimize resources, cleanup sessions |
 | Utility | `get_search_history` | Recent search history |
-| Utility | `get_server_health` | Server health diagnostics |
+| Utility | `get_server_health` | Comprehensive health: cache, sessions, operations, memory |
+| Session | `create_session` | Create context-aware search session |
+| Session | `get_session_info` | Session details, intent, recommendations |
+| Progress | `get_operation_progress` | Query progress of running operations |
+| Progress | `cancel_operation` | Cancel a running operation |
+
+All search tools accept an optional `session_id` parameter for context-aware tracking.
 
 ## MCP Resources
 
@@ -58,7 +66,8 @@ python -m mcp.servers.pysearch_mcp_server --transport http --host 127.0.0.1 --po
 |-----|-------------|
 | `pysearch://config/current` | Current search configuration |
 | `pysearch://history/searches` | Search history |
-| `pysearch://stats/overview` | Server statistics |
+| `pysearch://stats/overview` | Comprehensive statistics with session & progress data |
+| `pysearch://sessions/analytics` | Session management analytics |
 | `pysearch://languages/supported` | Supported languages |
 
 ## MCP Client Configuration

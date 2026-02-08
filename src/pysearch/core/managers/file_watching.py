@@ -42,6 +42,7 @@ class FileWatchingManager:
         self.watch_manager: Any = None
         self._auto_watch_enabled = False
         self._indexer: Any = None
+        self._cache_invalidation_callback: Callable[[list[Any]], None] | None = None
 
     def _ensure_watch_manager(self) -> None:
         """Lazy load the watch manager to avoid circular imports."""
@@ -53,6 +54,16 @@ class FileWatchingManager:
     def set_indexer(self, indexer: Any) -> None:
         """Set the indexer instance for auto-updates."""
         self._indexer = indexer
+
+    def set_cache_invalidation_callback(
+        self, callback: Callable[[list[Any]], None]
+    ) -> None:
+        """Set the callback to invoke when files change, for cache invalidation.
+
+        Args:
+            callback: Function accepting a list of changed file Paths.
+        """
+        self._cache_invalidation_callback = callback
 
     def enable_auto_watch(
         self, debounce_delay: float = 0.5, batch_size: int = 50, max_batch_delay: float = 5.0
@@ -77,38 +88,40 @@ class FileWatchingManager:
 
         self._ensure_watch_manager()
 
+        if not self.watch_manager:
+            return False
+
         try:
             # Create watchers for all configured paths
             for i, path in enumerate(self.config.paths):
                 watcher_name = f"path_{i}"
-                if self.watch_manager:
-                    success = self.watch_manager.add_watcher(
-                        name=watcher_name,
-                        path=path,
-                        config=self.config,
-                        indexer=self._indexer,
-                        debounce_delay=debounce_delay,
-                        batch_size=batch_size,
-                        max_batch_delay=max_batch_delay,
-                    )
-
+                success = self.watch_manager.add_watcher(
+                    name=watcher_name,
+                    path=path,
+                    config=self.config,
+                    indexer=self._indexer,
+                    debounce_delay=debounce_delay,
+                    batch_size=batch_size,
+                    max_batch_delay=max_batch_delay,
+                    cache_invalidation_callback=self._cache_invalidation_callback,
+                )
                 if not success:
+                    # Rollback any watchers already added
+                    self.watch_manager.stop_all()
                     return False
 
             # Start all watchers
-            if self.watch_manager:
-                started = self.watch_manager.start_all()
-            else:
-                started = 0
+            started = self.watch_manager.start_all()
             if started == len(self.config.paths):
                 self._auto_watch_enabled = True
                 return True
             else:
-                if self.watch_manager:
-                    self.watch_manager.stop_all()
+                self.watch_manager.stop_all()
                 return False
 
         except Exception:
+            if self.watch_manager:
+                self.watch_manager.stop_all()
             return False
 
     def disable_auto_watch(self) -> None:

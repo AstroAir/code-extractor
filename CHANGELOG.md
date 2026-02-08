@@ -14,4 +14,4 @@ This project's changelog follows Keep a Changelog and Semantic Versioning (SemVe
 - Documentation & templates: README, LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, Issue/PR templates
 - Developer experience: Makefile, pre-commit, EditorConfig, .gitignore
 
-[0.1.0]: https://github.com/your-org/pysearch/releases/tag/v0.1.0
+[0.1.0]: https://github.com/AstroAir/pysearch/releases/tag/v0.1.0

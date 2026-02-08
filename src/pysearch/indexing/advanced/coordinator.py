@@ -24,13 +24,14 @@ from pathlib import Path
 from typing import Any
 
 from ...analysis.content_addressing import (
+    ContentAddress,
     GlobalCacheManager,
     IndexingProgressUpdate,
     IndexTag,
     PathAndCacheKey,
 )
 from ...core.config import SearchConfig
-from ...utils.error_handling import ErrorCollector
+from ...utils.error_handling import CircuitBreaker, ErrorCollector
 from ...utils.logging_config import get_logger
 from .base import CodebaseIndex
 from .locking import IndexLock
@@ -52,6 +53,8 @@ class IndexCoordinator:
         self.global_cache = GlobalCacheManager(config.resolve_cache_dir())
         self.error_collector = ErrorCollector()
         self.lock = IndexLock(config.resolve_cache_dir())
+        # Circuit breakers per index to prevent cascading failures
+        self._circuit_breakers: dict[str, CircuitBreaker] = {}
 
     def add_index(self, index: CodebaseIndex) -> None:
         """Add an index to the coordinator."""
@@ -124,6 +127,29 @@ class IndexCoordinator:
                 )
 
                 try:
+                    # Get or create circuit breaker for this index
+                    if index.artifact_id not in self._circuit_breakers:
+                        self._circuit_breakers[index.artifact_id] = CircuitBreaker(
+                            failure_threshold=3,
+                            recovery_timeout=30.0,
+                            success_threshold=2,
+                        )
+                    breaker = self._circuit_breakers[index.artifact_id]
+
+                    # Check if circuit breaker allows this operation
+                    if not breaker.can_execute():
+                        logger.warning(
+                            f"Circuit breaker open for index {index.artifact_id}, skipping"
+                        )
+                        completed_time += index.relative_expected_time
+                        yield IndexingProgressUpdate(
+                            progress=completed_time / total_expected_time,
+                            description=f"Skipped {index.artifact_id} (circuit breaker open)",
+                            status="indexing",
+                            warnings=[f"{index.artifact_id}: circuit breaker open"],
+                        )
+                        continue
+
                     # Calculate what needs to be updated for this index
                     from ...analysis.content_addressing import ContentAddressedIndexer
 
@@ -144,8 +170,13 @@ class IndexCoordinator:
                             # Update global cache
                             for item in items:
                                 if result_type == "compute":
-                                    # Store in global cache (implementation depends on index type)
-                                    pass
+                                    # Store computed content in global cache for cross-branch reuse
+                                    await self.global_cache.store_cached_content(
+                                        content_hash=item.cache_key,
+                                        artifact_id=index.artifact_id,
+                                        content={"path": item.path, "cache_key": item.cache_key},
+                                        tags=[index_tag],
+                                    )
                                 elif result_type == "delete":
                                     await self.global_cache.remove_tag(
                                         item.cache_key, index.artifact_id, index_tag
@@ -172,10 +203,12 @@ class IndexCoordinator:
                         )
 
                     completed_time += index.relative_expected_time
+                    breaker.record_success()
 
                 except Exception as e:
                     logger.error(f"Error updating index {index.artifact_id}: {e}")
                     self.error_collector.add_error(e, file_path=Path(index.artifact_id))
+                    breaker.record_failure()
 
                     # Continue with other indexes
                     completed_time += index.relative_expected_time
@@ -185,6 +218,14 @@ class IndexCoordinator:
                         status="indexing",
                         warnings=[f"{index.artifact_id}: {str(e)}"],
                     )
+
+            # Cleanup orphaned content from global cache
+            try:
+                orphaned_count = await self.global_cache.cleanup_orphaned_content()
+                if orphaned_count > 0:
+                    logger.info(f"Cleaned up {orphaned_count} orphaned cache entries")
+            except Exception as e:
+                logger.warning(f"Error during orphaned content cleanup: {e}")
 
             # Final completion
             yield IndexingProgressUpdate(
@@ -200,3 +241,38 @@ class IndexCoordinator:
 
         finally:
             await self.lock.release()
+
+    async def build_content_addresses(
+        self, file_paths: list[str]
+    ) -> dict[str, ContentAddress]:
+        """
+        Build content addresses for a list of files using ContentAddress.from_file().
+
+        This provides SHA256-based content tracking for efficient change detection
+        and cross-branch caching.
+
+        Args:
+            file_paths: List of file paths to build content addresses for
+
+        Returns:
+            Dictionary mapping file paths to their ContentAddress objects
+        """
+        addresses: dict[str, ContentAddress] = {}
+
+        for path in file_paths:
+            try:
+                address = await ContentAddress.from_file(path)
+                addresses[path] = address
+            except Exception as e:
+                logger.warning(f"Failed to build content address for {path}: {e}")
+
+        return addresses
+
+    async def cleanup_cache(self) -> int:
+        """
+        Cleanup orphaned content from the global cache.
+
+        Returns:
+            Number of orphaned entries removed
+        """
+        return await self.global_cache.cleanup_orphaned_content()

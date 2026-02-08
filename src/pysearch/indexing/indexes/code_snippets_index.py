@@ -161,11 +161,26 @@ class CodeSnippetsIndex(CodebaseIndex):
                 else:
                     entities = []
 
+                # Use language processor to analyze dependencies and complexity
+                file_dependencies = processor.analyze_dependencies(content) if processor else []
+                file_complexity = processor.calculate_complexity(content) if processor else 0.0
+
                 # Store entities in database
                 current_time = time.time()
                 for entity in entities:
                     # Calculate quality score
                     quality_score = self._calculate_entity_quality(entity)
+
+                    # Extract entity-level content for complexity calculation
+                    entity_lines = content.split("\n")[
+                        max(0, entity.start_line - 1) : entity.end_line
+                    ]
+                    entity_content = "\n".join(entity_lines)
+                    entity_complexity = (
+                        processor.calculate_complexity(entity_content)
+                        if processor and entity_content.strip()
+                        else file_complexity
+                    )
 
                     # Insert snippet
                     cursor = conn.execute(
@@ -187,9 +202,9 @@ class CodeSnippetsIndex(CodebaseIndex):
                             language.value,
                             entity.start_line,
                             entity.end_line,
-                            0.0,  # Default complexity score
+                            entity_complexity,
                             quality_score,
-                            json.dumps([]),  # Default empty dependencies
+                            json.dumps(file_dependencies),
                             json.dumps(entity.properties),
                             current_time,
                         ),

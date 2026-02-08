@@ -132,12 +132,14 @@ class ChangeProcessor:
         batch_size: int = 50,
         debounce_delay: float = 0.5,
         max_batch_delay: float = 5.0,
+        cache_invalidation_callback: Callable[[list[Path]], None] | None = None,
     ):
         self.indexer = indexer
         self.batch_size = batch_size
         self.debounce_delay = debounce_delay
         self.max_batch_delay = max_batch_delay
         self.logger = get_logger()
+        self._cache_invalidation_callback = cache_invalidation_callback
 
         # Event processing
         self._pending_events: dict[Path, FileEvent] = {}
@@ -145,7 +147,8 @@ class ChangeProcessor:
         self._last_batch_time = time.time()
         self._debounce_timer: threading.Timer | None = None
 
-        # Statistics
+        # Statistics (protected by _stats_lock for thread safety)
+        self._stats_lock = threading.Lock()
         self.events_processed = 0
         self.batches_processed = 0
         self.last_processing_time = 0.0
@@ -196,24 +199,25 @@ class ChangeProcessor:
                 self._debounce_timer.cancel()
                 self._debounce_timer = None
 
-        # Process events outside the lock
+        # Process events outside the processing lock
         self._process_event_batch(events)
 
-        # Update statistics
+        # Update statistics with dedicated stats lock for thread safety
         processing_time = time.time() - start_time
-        self.events_processed += len(events)
-        self.batches_processed += 1
-        self.last_processing_time = processing_time
+        with self._stats_lock:
+            self.events_processed += len(events)
+            self.batches_processed += 1
+            self.last_processing_time = processing_time
 
         self.logger.debug(f"Processed {len(events)} file events in {processing_time:.3f}s")
 
     def _process_event_batch(self, events: list[FileEvent]) -> None:
-        """Process a batch of file events."""
+        """Process a batch of file events using incremental index updates."""
         try:
             # Group events by type for efficient processing
-            created_files = []
-            modified_files = []
-            deleted_files = []
+            created_files: list[Path] = []
+            modified_files: list[Path] = []
+            deleted_files: list[Path] = []
 
             for event in events:
                 if event.is_directory:
@@ -231,14 +235,35 @@ class ChangeProcessor:
                         deleted_files.append(event.old_path)
                     created_files.append(event.path)
 
-            # Update indexer
+            # Perform incremental index updates instead of full rescan
             if created_files or modified_files or deleted_files:
-                # Trigger a rescan to update the index
-                # The indexer's scan() method will detect changes and removals automatically
                 try:
-                    self.indexer.scan()
+                    # Update/add entries for created and modified files
+                    for file_path in created_files + modified_files:
+                        self.indexer.update_file(file_path)
+
+                    # Remove entries for deleted files
+                    for file_path in deleted_files:
+                        self.indexer.remove_file(file_path)
+
+                    # Persist the updated index
+                    self.indexer.save()
                 except Exception as e:
-                    self.logger.error(f"Error updating indexer: {e}")
+                    self.logger.error(f"Error during incremental index update: {e}")
+                    # Fall back to full rescan on error
+                    try:
+                        self.indexer.scan()
+                        self.indexer.save()
+                    except Exception as e2:
+                        self.logger.error(f"Fallback full rescan also failed: {e2}")
+
+            # Invalidate caches for all affected files
+            all_affected = created_files + modified_files + deleted_files
+            if all_affected and self._cache_invalidation_callback:
+                try:
+                    self._cache_invalidation_callback(all_affected)
+                except Exception as e:
+                    self.logger.error(f"Error invalidating caches: {e}")
 
             self.logger.info(
                 f"Index updated: {len(created_files)} created, "
@@ -408,6 +433,7 @@ class FileWatcher:
         indexer: Indexer | None = None,
         change_handler: Callable[[list[FileEvent]], None] | None = None,
         recursive: bool = True,
+        cache_invalidation_callback: Callable[[list[Path]], None] | None = None,
         **processor_kwargs: Any,
     ):
         """
@@ -419,12 +445,19 @@ class FileWatcher:
             indexer: Indexer instance for automatic updates
             change_handler: Custom handler for file change events
             recursive: Whether to watch subdirectories recursively
+            cache_invalidation_callback: Callback for cache invalidation on file changes
             **processor_kwargs: Additional arguments for ChangeProcessor
         """
         self.path = Path(path)
         self.config = config or SearchConfig()
         self.recursive = recursive
         self.logger = get_logger()
+
+        # State management (initialized before early return so properties always work)
+        self._is_watching = False
+        self._paused = False
+        self._watch_handle: Any = None
+        self._start_time: float | None = None
 
         # Check if watchdog is available
         if not WATCHDOG_AVAILABLE:
@@ -441,16 +474,15 @@ class FileWatcher:
         if indexer is None:
             indexer = Indexer(self.config)
 
-        self._change_processor = ChangeProcessor(indexer, **processor_kwargs)
+        self._change_processor = ChangeProcessor(
+            indexer,
+            cache_invalidation_callback=cache_invalidation_callback,
+            **processor_kwargs,
+        )
         self._event_handler = PySearchEventHandler(
             self.config, self._change_processor, change_handler
         )
         self._observer = Observer()
-
-        # State management
-        self._is_watching = False
-        self._watch_handle: Any = None  # ObservedWatch when watching
-        self._start_time: float | None = None
 
     @property
     def is_available(self) -> bool:
@@ -670,6 +702,65 @@ class WatchManager:
     def get_all_stats(self) -> dict[str, dict[str, Any]]:
         """Get statistics for all watchers."""
         return {name: watcher.get_stats() for name, watcher in self.watchers.items()}
+
+    def pause_all(self) -> None:
+        """Pause all watchers by stopping their observers without clearing state."""
+        for name, watcher in self.watchers.items():
+            try:
+                if watcher.is_watching and watcher._observer is not None:
+                    watcher._observer.stop()
+                    watcher._observer.join(timeout=5.0)
+                    watcher._is_watching = False
+                    watcher._paused = True
+            except Exception as e:
+                self.logger.error(f"Error pausing watcher '{name}': {e}")
+
+    def resume_all(self) -> None:
+        """Resume all previously paused watchers."""
+        for name, watcher in self.watchers.items():
+            try:
+                if getattr(watcher, "_paused", False):
+                    watcher.restart()
+                    watcher._paused = False
+            except Exception as e:
+                self.logger.error(f"Error resuming watcher '{name}': {e}")
+
+    def get_watcher_status(self, name: str) -> dict[str, Any]:
+        """Get status information for a specific watcher.
+
+        Args:
+            name: Name of the watcher
+
+        Returns:
+            Dictionary with watcher status information
+        """
+        watcher = self.watchers.get(name)
+        if watcher is None:
+            return {}
+
+        stats = watcher.get_stats()
+        stats["paused"] = getattr(watcher, "_paused", False)
+        return stats
+
+    def set_filters(
+        self,
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
+    ) -> None:
+        """Set file patterns to include or exclude from watching.
+
+        Updates the config on all managed watchers so that their event handlers
+        respect the new patterns on subsequent events.
+
+        Args:
+            include_patterns: Glob patterns for files to include
+            exclude_patterns: Glob patterns for files to exclude
+        """
+        for watcher in self.watchers.values():
+            if include_patterns is not None:
+                watcher.config.include = include_patterns
+            if exclude_patterns is not None:
+                watcher.config.exclude = exclude_patterns
 
     def __enter__(self) -> WatchManager:
         """Context manager entry."""

@@ -7,6 +7,7 @@ with real file operations and CLI invocations.
 
 import json
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -39,7 +40,7 @@ class TestClass:
             # Run count-only search
             result = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "pysearch.cli",
                     "find",
@@ -83,7 +84,7 @@ def func2():
             # Run count-only search with JSON format
             result = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "pysearch.cli",
                     "find",
@@ -130,11 +131,11 @@ def normal_function():
             # Run count-only search with regex
             result = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "pysearch.cli",
                     "find",
-                    r"def .*_handler",
+                    r"def \w+_handler",
                     "--regex",
                     "--path",
                     str(test_dir),
@@ -178,7 +179,7 @@ def function4():
             # Run search without limit
             result_no_limit = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "pysearch.cli",
                     "find",
@@ -196,7 +197,7 @@ def function4():
             # Run search with limit of 2
             result_with_limit = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "pysearch.cli",
                     "find",
@@ -245,7 +246,7 @@ def function{i}_3():
             # Run search with per-file limit
             result = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "pysearch.cli",
                     "find",
@@ -301,7 +302,7 @@ def async_helper():
             # Run boolean search: async AND handler NOT test
             result = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "pysearch.cli",
                     "find",
@@ -356,7 +357,7 @@ def helper_function():
             # Run boolean search: handler OR controller
             result = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "pysearch.cli",
                     "find",
@@ -401,7 +402,7 @@ def test_main():
             # Run boolean search with quoted terms
             result = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "pysearch.cli",
                     "find",
@@ -440,7 +441,7 @@ class TestCLIOptionValidation:
         """Test that --fuzzy and --logic cannot be used together."""
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "pysearch.cli",
                 "find",
@@ -462,7 +463,7 @@ class TestCLIOptionValidation:
         """Test that --count cannot be used with highlight format."""
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "pysearch.cli",
                 "find",
@@ -490,7 +491,7 @@ class TestCLIOptionValidation:
             # Run with malformed boolean query
             result = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "pysearch.cli",
                     "find",
@@ -535,7 +536,7 @@ def sync_handler():
             # Run combined search
             result = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "pysearch.cli",
                     "find",
@@ -560,7 +561,8 @@ def sync_handler():
             assert "total_matches" in data
             assert "files_matched" in data
             # Due to max-per-file=1, should have at most 1 match per file
-            assert data["total_matches"] <= 1
+            # (but there is only 1 file, so total_matches should be <= files_matched)
+            assert data["total_matches"] <= data["files_matched"]
 
     def test_regex_with_count_and_boolean(self):
         """Test --regex with --count and --logic."""
@@ -582,7 +584,7 @@ def test_handler():
             # This test checks the behavior when both are specified
             result = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "pysearch.cli",
                     "find",

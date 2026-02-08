@@ -312,7 +312,7 @@ class FullTextIndex(CodebaseIndex):
                 fc.file_type,
                 fm.file_size,
                 fm.line_count,
-                fts_content.rank
+                rank
             FROM fts_content fc
             JOIN fts_metadata fm ON fc.path = fm.path
             JOIN fts_tags ft ON fm.id = ft.metadata_id

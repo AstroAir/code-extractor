@@ -93,13 +93,25 @@ class BooleanQueryParser:
         return left
 
     def _parse_and_expression(self) -> BooleanQuery:
-        """Parse AND expressions (middle precedence)."""
+        """Parse AND expressions (middle precedence).
+
+        Also treats adjacent NOT/term tokens as implicit AND
+        (e.g. ``handler NOT test`` → ``handler AND (NOT test)``).
+        """
         left = self._parse_not_expression()
 
-        while self._current_token() == "AND":
-            self._consume_token()  # consume AND
-            right = self._parse_not_expression()
-            left = BooleanQuery(operator=BooleanOperator.AND, left=left, right=right)
+        while True:
+            tok = self._current_token()
+            if tok == "AND":
+                self._consume_token()  # consume AND
+                right = self._parse_not_expression()
+                left = BooleanQuery(operator=BooleanOperator.AND, left=left, right=right)
+            elif tok is not None and tok not in ("OR", ")"):
+                # Implicit AND: next token is NOT or a term/parenthesised expr
+                right = self._parse_not_expression()
+                left = BooleanQuery(operator=BooleanOperator.AND, left=left, right=right)
+            else:
+                break
 
         return left
 
@@ -187,13 +199,10 @@ class BooleanQueryEvaluator:
         if not existing_items:
             return []
 
-        # First do a quick whole-file check for AND/NOT queries
-        # If the whole file doesn't match, no items can match
-        if not self.evaluate(query, file_content):
-            return []
-
-        # For each item, evaluate the boolean query against the item's own
-        # content window (the lines around the match) for finer filtering
+        # Evaluate each item against its own content window rather than
+        # short-circuiting on the whole file.  The whole-file check is
+        # wrong for NOT queries: a block may satisfy NOT even when the
+        # whole file does not.
         filtered_items: list[SearchItem] = []
         for item in existing_items:
             if not item.lines:
@@ -203,6 +212,18 @@ class BooleanQueryEvaluator:
                 filtered_items.append(item)
 
         return filtered_items
+
+
+def extract_terms(query: BooleanQuery) -> list[str]:
+    """Extract all search terms from a BooleanQuery tree."""
+    terms: list[str] = []
+    if query.term is not None:
+        terms.append(query.term)
+    if query.left is not None:
+        terms.extend(extract_terms(query.left))
+    if query.right is not None:
+        terms.extend(extract_terms(query.right))
+    return terms
 
 
 # Convenience functions

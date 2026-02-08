@@ -34,6 +34,7 @@ from typing import Any
 
 from ..config import SearchConfig
 from ..types import Query, SearchResult
+from ...utils.helpers import read_text_safely
 
 
 class CacheIntegrationManager:
@@ -45,7 +46,8 @@ class CacheIntegrationManager:
         self._caching_enabled = False
 
         # In-memory caches for backward compatibility
-        self._file_content_cache: dict[Path, tuple[float, str]] = {}
+        # file content cache: path -> (mtime, access_time, content)
+        self._file_content_cache: dict[Path, tuple[float, float, str]] = {}
         self._search_result_cache: dict[str, tuple[float, SearchResult]] = {}
         self._cache_lock = threading.RLock()
         self.cache_ttl: float = 300.0  # 5 minutes TTL
@@ -137,7 +139,7 @@ class CacheIntegrationManager:
 
         try:
             cache_key = self._generate_cache_key(query)
-            file_dependencies = self._get_file_dependencies(result)
+            file_dependencies = {str(p) for p in self._get_file_dependencies(result)}
             self.cache_manager.set(key=cache_key, value=result, file_dependencies=file_dependencies)
         except Exception:
             pass
@@ -193,7 +195,8 @@ class CacheIntegrationManager:
 
         This method implements an in-memory cache for file contents to avoid
         repeatedly reading the same files. Cache entries are invalidated when
-        the file's modification time changes.
+        the file's modification time changes. Uses LRU eviction based on
+        access time when the cache exceeds its size limit.
 
         Args:
             path: Path to the file to read
@@ -208,23 +211,25 @@ class CacheIntegrationManager:
 
             with self._cache_lock:
                 if path in self._file_content_cache:
-                    cached_mtime, content = self._file_content_cache[path]
+                    cached_mtime, _access_time, content = self._file_content_cache[path]
                     if cached_mtime == current_mtime:
+                        # Update access time for LRU tracking
+                        self._file_content_cache[path] = (cached_mtime, time.time(), content)
                         return content
 
                 # Cache miss or outdated - read file
                 try:
-                    from ...utils.helpers import read_text_safely
-
                     file_content = read_text_safely(path, max_bytes=self.config.max_file_bytes)
                     if file_content is not None:
-                        self._file_content_cache[path] = (current_mtime, file_content)
+                        self._file_content_cache[path] = (current_mtime, time.time(), file_content)
 
-                        # Limit cache size
+                        # LRU eviction: remove least recently accessed entries
                         if len(self._file_content_cache) > 1000:
-                            # Remove oldest 20% of entries
-                            to_remove = list(self._file_content_cache.keys())[:200]
-                            for k in to_remove:
+                            sorted_entries = sorted(
+                                self._file_content_cache.items(),
+                                key=lambda item: item[1][1],  # sort by access_time (oldest first)
+                            )
+                            for k, _ in sorted_entries[:200]:
                                 del self._file_content_cache[k]
 
                         return file_content
@@ -280,7 +285,7 @@ class CacheIntegrationManager:
         # Invalidate search results that depend on this file
         if self.cache_manager:
             try:
-                self.cache_manager.invalidate_by_file(file_path)
+                self.cache_manager.invalidate_by_file(str(file_path))
             except Exception:
                 pass
 

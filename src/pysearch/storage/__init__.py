@@ -12,7 +12,13 @@ The storage module provides a clean abstraction over different
 storage backends, ensuring data persistence and efficient retrieval.
 """
 
-from .qdrant_client import QdrantConfig, QdrantVectorStore, VectorSearchResult as QdrantSearchResult
+from .qdrant_client import (
+    QdrantConfig,
+    QdrantVectorStore,
+    VectorSearchResult as QdrantSearchResult,
+    cosine_similarity,
+    normalize_vector,
+)
 from .vector_db import (
     ChromaProvider,
     EmbeddingConfig,
@@ -46,4 +52,7 @@ __all__ = [
     "QdrantConfig",
     "QdrantVectorStore",
     "QdrantSearchResult",
+    # Vector utilities
+    "normalize_vector",
+    "cosine_similarity",
 ]
