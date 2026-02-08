@@ -594,6 +594,9 @@ class IDEIntegration:
         """
         Search for symbols across the entire workspace.
 
+        When multi-repo is enabled, also searches across all registered
+        repositories for a truly workspace-wide symbol lookup.
+
         Args:
             query: Optional filter string for symbol names.
 
@@ -612,6 +615,7 @@ class IDEIntegration:
         symbols: list[DocumentSymbol] = []
         pattern = rf"(def|class)\s+(\w*{re.escape(query)}\w*)"
 
+        # Search in the primary engine's paths
         try:
             result = self.engine.search(pattern, regex=True, context=0)
             for item in result.items:
@@ -629,6 +633,34 @@ class IDEIntegration:
                         )
         except Exception as exc:
             logger.error(f"Workspace symbol search error: {exc}")
+
+        # Also search across multi-repo repositories if enabled
+        try:
+            if self.engine.is_multi_repo_enabled():
+                multi_result = self.engine.search_all_repositories(
+                    pattern=pattern, use_regex=True, context=0
+                )
+                if multi_result and multi_result.repository_results:
+                    seen = {(s.name, s.line, s.detail) for s in symbols}
+                    for _repo_name, repo_result in multi_result.repository_results.items():
+                        for item in repo_result.items:
+                            for raw_line in item.lines:
+                                m = re.search(pattern, raw_line)
+                                if m:
+                                    kind = "function" if m.group(1) == "def" else "class"
+                                    key = (m.group(2), item.start_line, str(item.file))
+                                    if key not in seen:
+                                        seen.add(key)
+                                        symbols.append(
+                                            DocumentSymbol(
+                                                name=m.group(2),
+                                                kind=kind,
+                                                line=item.start_line,
+                                                detail=str(item.file),
+                                            )
+                                        )
+        except Exception as exc:
+            logger.error(f"Multi-repo workspace symbol search error: {exc}")
 
         # Store in cache
         self._set_cached(cache_key, [s.to_dict() for s in symbols])

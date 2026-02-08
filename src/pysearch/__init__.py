@@ -117,6 +117,7 @@ from .utils.logging_config import (
     enable_debug_logging,
     get_logger,
 )
+from .core.workspace import RepositoryConfig, WorkspaceConfig, WorkspaceManager
 from .utils.metadata_filters import create_metadata_filters
 
 # Metadata indexing functionality (optional)
@@ -183,6 +184,10 @@ __all__ = [
     "EntityRelationship",
     "EntityType",
     "RelationType",
+    # Workspace management
+    "WorkspaceConfig",
+    "WorkspaceManager",
+    "RepositoryConfig",
     # Utility functions
     "detect_language",
     "get_supported_languages",

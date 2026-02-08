@@ -278,10 +278,23 @@ class DependencyAnalyzer:
         self.language_parsers = {
             Language.PYTHON: self._parse_python_imports,
             Language.JAVASCRIPT: self._parse_javascript_imports,
-            Language.TYPESCRIPT: self._parse_javascript_imports,  # Similar to JS
+            Language.TYPESCRIPT: self._parse_javascript_imports,
             Language.JAVA: self._parse_java_imports,
             Language.CSHARP: self._parse_csharp_imports,
             Language.GO: self._parse_go_imports,
+            Language.RUST: self._parse_rust_imports,
+            Language.PHP: self._parse_php_imports,
+            Language.RUBY: self._parse_ruby_imports,
+            Language.KOTLIN: self._parse_kotlin_imports,
+            Language.SWIFT: self._parse_swift_imports,
+            Language.SCALA: self._parse_scala_imports,
+            Language.C: self._parse_c_cpp_imports,
+            Language.CPP: self._parse_c_cpp_imports,
+            Language.DART: self._parse_dart_imports,
+            Language.LUA: self._parse_lua_imports,
+            Language.PERL: self._parse_perl_imports,
+            Language.ELIXIR: self._parse_elixir_imports,
+            Language.HASKELL: self._parse_haskell_imports,
         }
 
     def analyze_file(self, file_path: Path) -> list[ImportNode]:
@@ -579,6 +592,316 @@ class DependencyAnalyzer:
                         language=Language.GO,
                     )
                     imports.append(import_node)
+
+        return imports
+
+    def _parse_rust_imports(self, content: str, file_path: Path) -> list[ImportNode]:
+        """Parse Rust use/extern crate statements."""
+        imports = []
+        lines = content.split("\n")
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+
+            # use path::to::module;
+            use_match = re.match(r"use\s+([\w:]+(?:::\{[^}]+\})?)\s*;", line)
+            if use_match:
+                module = use_match.group(1)
+                import_node = ImportNode(
+                    module=module,
+                    line_number=line_num,
+                    import_type="use",
+                    language=Language.RUST,
+                )
+                imports.append(import_node)
+
+            # extern crate name;
+            extern_match = re.match(r"extern\s+crate\s+(\w+)\s*;", line)
+            if extern_match:
+                crate = extern_match.group(1)
+                import_node = ImportNode(
+                    module=crate,
+                    line_number=line_num,
+                    import_type="extern_crate",
+                    language=Language.RUST,
+                )
+                imports.append(import_node)
+
+        return imports
+
+    def _parse_php_imports(self, content: str, file_path: Path) -> list[ImportNode]:
+        """Parse PHP use/require/include statements."""
+        imports = []
+        lines = content.split("\n")
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+
+            # use Namespace\Class;
+            use_match = re.match(r"use\s+([a-zA-Z_\\][\w\\]*)\s*;", line)
+            if use_match:
+                ns = use_match.group(1)
+                import_node = ImportNode(
+                    module=ns,
+                    line_number=line_num,
+                    import_type="use",
+                    language=Language.PHP,
+                )
+                imports.append(import_node)
+
+            # require/include variants
+            req_match = re.match(
+                r'(?:require|include)(?:_once)?\s*[\(]?\s*[\'"]([^\'"]+)[\'"]\s*[\)]?\s*;', line
+            )
+            if req_match:
+                path = req_match.group(1)
+                import_node = ImportNode(
+                    module=path,
+                    line_number=line_num,
+                    import_type="require",
+                    language=Language.PHP,
+                )
+                imports.append(import_node)
+
+        return imports
+
+    def _parse_ruby_imports(self, content: str, file_path: Path) -> list[ImportNode]:
+        """Parse Ruby require/require_relative/load statements."""
+        imports = []
+        lines = content.split("\n")
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+
+            # require 'gem' or require "gem"
+            req_match = re.match(r'require\s+[\'"]([^\'"]+)[\'"]', line)
+            if req_match:
+                module = req_match.group(1)
+                import_node = ImportNode(
+                    module=module,
+                    line_number=line_num,
+                    import_type="require",
+                    language=Language.RUBY,
+                )
+                imports.append(import_node)
+
+            # require_relative './file'
+            rel_match = re.match(r'require_relative\s+[\'"]([^\'"]+)[\'"]', line)
+            if rel_match:
+                module = rel_match.group(1)
+                import_node = ImportNode(
+                    module=module,
+                    line_number=line_num,
+                    is_relative=True,
+                    import_type="require_relative",
+                    language=Language.RUBY,
+                )
+                imports.append(import_node)
+
+        return imports
+
+    def _parse_kotlin_imports(self, content: str, file_path: Path) -> list[ImportNode]:
+        """Parse Kotlin import statements."""
+        imports = []
+        lines = content.split("\n")
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+
+            import_match = re.match(r"import\s+([\w.]+(?:\.\*)?)", line)
+            if import_match:
+                module = import_match.group(1)
+                import_node = ImportNode(
+                    module=module,
+                    line_number=line_num,
+                    import_type="import",
+                    language=Language.KOTLIN,
+                )
+                imports.append(import_node)
+
+        return imports
+
+    def _parse_swift_imports(self, content: str, file_path: Path) -> list[ImportNode]:
+        """Parse Swift import statements."""
+        imports = []
+        lines = content.split("\n")
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+
+            import_match = re.match(r"import\s+(?:(?:struct|class|enum|protocol|func)\s+)?(\w+(?:\.\w+)*)", line)
+            if import_match:
+                module = import_match.group(1)
+                import_node = ImportNode(
+                    module=module,
+                    line_number=line_num,
+                    import_type="import",
+                    language=Language.SWIFT,
+                )
+                imports.append(import_node)
+
+        return imports
+
+    def _parse_scala_imports(self, content: str, file_path: Path) -> list[ImportNode]:
+        """Parse Scala import statements."""
+        imports = []
+        lines = content.split("\n")
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+
+            import_match = re.match(r"import\s+([\w.]+(?:\.\{[^}]+\}|\._)?)", line)
+            if import_match:
+                module = import_match.group(1)
+                import_node = ImportNode(
+                    module=module,
+                    line_number=line_num,
+                    import_type="import",
+                    language=Language.SCALA,
+                )
+                imports.append(import_node)
+
+        return imports
+
+    def _parse_c_cpp_imports(self, content: str, file_path: Path) -> list[ImportNode]:
+        """Parse C/C++ #include directives."""
+        imports = []
+        lines = content.split("\n")
+        lang = Language.CPP if file_path.suffix.lower() in {".cpp", ".cxx", ".cc", ".hpp", ".hxx", ".hh"} else Language.C
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+
+            include_match = re.match(r'#include\s*([<"])([^>"]+)[>"]', line)
+            if include_match:
+                bracket, header = include_match.groups()
+                import_node = ImportNode(
+                    module=header,
+                    line_number=line_num,
+                    import_type="system_include" if bracket == "<" else "local_include",
+                    language=lang,
+                )
+                imports.append(import_node)
+
+        return imports
+
+    def _parse_dart_imports(self, content: str, file_path: Path) -> list[ImportNode]:
+        """Parse Dart import/export statements."""
+        imports = []
+        lines = content.split("\n")
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+
+            import_match = re.match(r'(?:import|export)\s+[\'"]([^\'"]+)[\'"]', line)
+            if import_match:
+                module = import_match.group(1)
+                import_node = ImportNode(
+                    module=module,
+                    line_number=line_num,
+                    import_type="import",
+                    language=Language.DART,
+                )
+                imports.append(import_node)
+
+        return imports
+
+    def _parse_lua_imports(self, content: str, file_path: Path) -> list[ImportNode]:
+        """Parse Lua require statements."""
+        imports = []
+        lines = content.split("\n")
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+
+            req_match = re.match(r'(?:local\s+\w+\s*=\s*)?require\s*[\(]?\s*[\'"]([^\'"]+)[\'"]', line)
+            if req_match:
+                module = req_match.group(1)
+                import_node = ImportNode(
+                    module=module,
+                    line_number=line_num,
+                    import_type="require",
+                    language=Language.LUA,
+                )
+                imports.append(import_node)
+
+        return imports
+
+    def _parse_perl_imports(self, content: str, file_path: Path) -> list[ImportNode]:
+        """Parse Perl use/require statements."""
+        imports = []
+        lines = content.split("\n")
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+
+            use_match = re.match(r"use\s+([A-Z]\w+(?:::\w+)*)", line)
+            if use_match:
+                module = use_match.group(1)
+                import_node = ImportNode(
+                    module=module,
+                    line_number=line_num,
+                    import_type="use",
+                    language=Language.PERL,
+                )
+                imports.append(import_node)
+
+            req_match = re.match(r'require\s+[\'"]?([^\'";\s]+)', line)
+            if req_match:
+                module = req_match.group(1)
+                import_node = ImportNode(
+                    module=module,
+                    line_number=line_num,
+                    import_type="require",
+                    language=Language.PERL,
+                )
+                imports.append(import_node)
+
+        return imports
+
+    def _parse_elixir_imports(self, content: str, file_path: Path) -> list[ImportNode]:
+        """Parse Elixir import/use/alias/require statements."""
+        imports = []
+        lines = content.split("\n")
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+
+            for keyword in ("import", "use", "alias", "require"):
+                match = re.match(rf"{keyword}\s+([\w.]+)", line)
+                if match:
+                    module = match.group(1)
+                    import_node = ImportNode(
+                        module=module,
+                        line_number=line_num,
+                        import_type=keyword,
+                        language=Language.ELIXIR,
+                    )
+                    imports.append(import_node)
+                    break
+
+        return imports
+
+    def _parse_haskell_imports(self, content: str, file_path: Path) -> list[ImportNode]:
+        """Parse Haskell import statements."""
+        imports = []
+        lines = content.split("\n")
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+
+            import_match = re.match(r"import\s+(?:qualified\s+)?([A-Z]\w+(?:\.\w+)*)", line)
+            if import_match:
+                module = import_match.group(1)
+                is_qualified = "qualified" in line
+                import_node = ImportNode(
+                    module=module,
+                    line_number=line_num,
+                    import_type="qualified" if is_qualified else "import",
+                    language=Language.HASKELL,
+                    metadata={"qualified": is_qualified},
+                )
+                imports.append(import_node)
 
         return imports
 

@@ -1,0 +1,61 @@
+# pysearch workspace configuration example
+# Copy this file to your project root as .pysearch-workspace.toml and modify as needed
+#
+# Usage:
+#   pysearch workspace open .pysearch-workspace.toml
+#   pysearch workspace discover --root /path/to/projects
+#   pysearch workspace search "def main"
+
+[workspace]
+name = "my-project"
+description = "Multi-repository project workspace"
+root_path = "."
+
+[workspace.search]
+# Global search settings applied to all repositories (unless overridden)
+include = ["**/*.py", "**/*.js", "**/*.ts"]
+exclude = ["**/.venv/**", "**/.git/**", "**/__pycache__/**", "**/node_modules/**", "**/build/**", "**/dist/**"]
+context = 3
+parallel = true
+workers = 0           # 0 = auto-detect CPU count
+max_workers = 4       # max parallel workers for cross-repo search
+follow_symlinks = false
+
+# Repository definitions
+# Each [[workspace.repositories]] block defines one repository
+
+[[workspace.repositories]]
+name = "core-lib"
+path = "/path/to/core-lib"
+priority = "high"      # "high", "normal", "low"
+enabled = true
+project_type = "python"
+# Per-repo overrides (optional, overrides global search settings)
+include = ["**/*.py", "**/*.pyi"]
+exclude = ["**/.venv/**", "**/__pycache__/**", "**/*.egg-info/**"]
+
+[[workspace.repositories]]
+name = "web-app"
+path = "/path/to/web-app"
+priority = "normal"
+enabled = true
+project_type = "node"
+include = ["**/*.ts", "**/*.tsx", "**/*.js"]
+exclude = ["**/node_modules/**", "**/dist/**", "**/.next/**"]
+
+[[workspace.repositories]]
+name = "api-server"
+path = "/path/to/api-server"
+priority = "normal"
+enabled = true
+project_type = "go"
+include = ["**/*.go"]
+exclude = ["**/vendor/**"]
+
+# You can also add repositories without specific overrides
+# They will use the global workspace.search settings
+[[workspace.repositories]]
+name = "docs"
+path = "/path/to/docs"
+priority = "low"
+enabled = true

@@ -15,6 +15,7 @@ specific manager or advanced capability:
 - ide_integration: IDE hooks and features (jump-to-definition, references, etc.)
 - multi_repo_integration: Multi-repository search support
 - parallel_processing: Parallel search execution strategies
+- workspace: Workspace configuration, persistence, and repository discovery
 
 These modules are used internally by the PySearch class to provide
 advanced functionality while keeping the core API clean and focused.

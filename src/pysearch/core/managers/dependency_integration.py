@@ -316,6 +316,74 @@ class DependencyIntegrationManager:
         except Exception:
             return []
 
+    def analyze_workspace_dependencies(
+        self, workspace_config: Any
+    ) -> dict[str, Any]:
+        """
+        Analyze dependencies across all repositories in a workspace.
+
+        Performs dependency analysis for each enabled repository and
+        identifies cross-repository dependencies.
+
+        Args:
+            workspace_config: WorkspaceConfig instance
+
+        Returns:
+            Dictionary with per-repo graphs, cross-repo deps, and summary
+        """
+        self._ensure_dependency_analyzer()
+
+        per_repo_graphs: dict[str, Any] = {}
+        cross_repo_deps: list[dict[str, str]] = []
+        all_modules: dict[str, str] = {}  # module_name -> repo_name
+
+        for repo_cfg in workspace_config.get_enabled_repositories():
+            repo_path = Path(repo_cfg.path)
+            if not repo_path.is_absolute():
+                repo_path = Path(workspace_config.root_path) / repo_path
+
+            if not repo_path.exists():
+                continue
+
+            try:
+                graph = self.analyze_dependencies(directory=repo_path)
+                per_repo_graphs[repo_cfg.name] = graph
+
+                # Track which modules belong to which repo
+                for module in graph.nodes:
+                    all_modules[module] = repo_cfg.name
+            except Exception:
+                per_repo_graphs[repo_cfg.name] = None
+
+        # Detect cross-repo dependencies
+        for repo_name, graph in per_repo_graphs.items():
+            if graph is None:
+                continue
+            try:
+                for source, edges in graph.edges.items():
+                    for edge in edges:
+                        target_repo = all_modules.get(edge.target)
+                        if target_repo and target_repo != repo_name:
+                            cross_repo_deps.append({
+                                "source_repo": repo_name,
+                                "source_module": source,
+                                "target_repo": target_repo,
+                                "target_module": edge.target,
+                            })
+            except Exception:
+                pass
+
+        return {
+            "per_repo_graphs": {
+                name: {"nodes": len(g.nodes), "edges": sum(len(e) for e in g.edges.values())}
+                for name, g in per_repo_graphs.items()
+                if g is not None
+            },
+            "cross_repo_dependencies": cross_repo_deps,
+            "total_repositories_analyzed": len(per_repo_graphs),
+            "total_cross_repo_deps": len(cross_repo_deps),
+        }
+
     def export_dependency_graph(self, graph: Any, format: str = "dot") -> str:
         """
         Export dependency graph in specified format.

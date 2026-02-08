@@ -104,6 +104,29 @@ try:
     _load_local("mcp.shared.validation", _shared_dir / "validation.py")
 
     _servers_dir = _mcp_pkg_dir / "servers"
+
+    # Load engine module (PySearchEngine, data structures)
+    _load_local("mcp.servers.engine", _servers_dir / "engine.py")
+
+    # Load tools sub-package and all tool registration modules
+    _tools_dir = _servers_dir / "tools"
+    _load_local("mcp.servers.tools", _tools_dir / "__init__.py")
+    _load_local("mcp.servers.tools.core_search", _tools_dir / "core_search.py")
+    _load_local("mcp.servers.tools.advanced_search", _tools_dir / "advanced_search.py")
+    _load_local("mcp.servers.tools.analysis", _tools_dir / "analysis.py")
+    _load_local("mcp.servers.tools.config", _tools_dir / "config.py")
+    _load_local("mcp.servers.tools.history", _tools_dir / "history.py")
+    _load_local("mcp.servers.tools.session", _tools_dir / "session.py")
+    _load_local("mcp.servers.tools.progress", _tools_dir / "progress.py")
+    _load_local("mcp.servers.tools.ide", _tools_dir / "ide.py")
+    _load_local("mcp.servers.tools.distributed", _tools_dir / "distributed.py")
+    _load_local("mcp.servers.tools.multi_repo", _tools_dir / "multi_repo.py")
+    _load_local("mcp.servers.tools.workspace", _tools_dir / "workspace.py")
+
+    # Load resources module
+    _load_local("mcp.servers.resources", _servers_dir / "resources.py")
+
+    # Load servers __init__ and main entry point
     _load_local("mcp.servers", _servers_dir / "__init__.py")
     _server_mod = _load_local(
         "mcp.servers.pysearch_mcp_server",

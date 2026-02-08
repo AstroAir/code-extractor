@@ -282,3 +282,197 @@ class TestIsTextFile:
 
     def test_makefile_is_text(self):
         assert is_text_file(Path("Makefile")) is True
+
+    @pytest.mark.parametrize(
+        "filename",
+        ["main.lua", "lib.pl", "app.dart", "server.ex", "module.hs",
+         "script.jl", "build.groovy", "main.zig"],
+    )
+    def test_new_language_text_files(self, filename: str):
+        assert is_text_file(Path(filename)) is True
+
+
+# ---------------------------------------------------------------------------
+# New language detection tests
+# ---------------------------------------------------------------------------
+class TestNewLanguageDetection:
+    """Tests for newly added language detection."""
+
+    @pytest.mark.parametrize(
+        "ext,expected",
+        [
+            (".lua", Language.LUA),
+            (".pl", Language.PERL),
+            (".dart", Language.DART),
+            (".ex", Language.ELIXIR),
+            (".exs", Language.ELIXIR),
+            (".hs", Language.HASKELL),
+            (".jl", Language.JULIA),
+            (".groovy", Language.GROOVY),
+            (".mm", Language.OBJECTIVE_C),
+            (".zig", Language.ZIG),
+        ],
+    )
+    def test_new_extensions(self, ext: str, expected: Language):
+        assert detect_language(Path(f"file{ext}")) == expected
+
+    @pytest.mark.parametrize(
+        "filename,expected",
+        [
+            ("Jenkinsfile", Language.GROOVY),
+            ("build.gradle", Language.GROOVY),
+            ("build.gradle.kts", Language.KOTLIN),
+            ("CMakeLists.txt", Language.MAKEFILE),
+            ("Justfile", Language.MAKEFILE),
+            ("Dockerfile.dev", Language.DOCKERFILE),
+        ],
+    )
+    def test_new_filename_patterns(self, filename: str, expected: Language):
+        assert detect_language(Path(filename)) == expected
+
+    @pytest.mark.parametrize(
+        "shebang,expected",
+        [
+            ("#!/usr/bin/env perl\nuse strict;", Language.PERL),
+            ("#!/usr/bin/env lua\nprint('hi')", Language.LUA),
+            ("#!/usr/bin/env elixir\nIO.puts", Language.ELIXIR),
+            ("#!/usr/bin/env python3\nprint()", Language.PYTHON),
+            ("#!/bin/zsh\necho hi", Language.SHELL),
+        ],
+    )
+    def test_new_shebang_patterns(self, shebang: str, expected: Language):
+        result = detect_language(Path("script"), shebang)
+        assert result == expected
+
+    def test_content_detection_c(self):
+        c_code = '#include <stdio.h>\nint main() {\n    printf("hello");\n}'
+        result = detect_language(Path("unknown_file"), c_code)
+        assert result in (Language.C, Language.CPP)
+
+    def test_content_detection_kotlin(self):
+        kt_code = "package com.example\nimport kotlin.io\nfun main() {\n    val x = 1\n}"
+        result = detect_language(Path("unknown_file"), kt_code)
+        assert result == Language.KOTLIN
+
+    def test_content_detection_shell(self):
+        sh_code = '#!/bin/bash\nexport PATH="/usr/bin"\necho "hello"\n${HOME}'
+        result = detect_language(Path("unknown_file"), sh_code)
+        assert result == Language.SHELL
+
+    def test_content_detection_lua(self):
+        lua_code = 'local function greet()\n    local x = 1\nend'
+        result = detect_language(Path("unknown_file"), lua_code)
+        assert result == Language.LUA
+
+    def test_content_detection_elixir(self):
+        ex_code = 'defmodule MyApp do\n  defp helper do\n    :ok |> IO.inspect()\n  end\nend'
+        result = detect_language(Path("unknown_file"), ex_code)
+        assert result == Language.ELIXIR
+
+    def test_content_detection_dart(self):
+        dart_code = "import 'package:flutter/material.dart';\nvoid main() {\n  final x = 1;\n}"
+        result = detect_language(Path("unknown_file"), dart_code)
+        assert result == Language.DART
+
+
+# ---------------------------------------------------------------------------
+# New language dependency analysis tests
+# ---------------------------------------------------------------------------
+class TestNewLanguageDependencyParsing:
+    """Tests for dependency parsing of newly supported languages."""
+
+    def test_rust_imports(self, tmp_path: Path):
+        from pysearch.analysis.dependency_analysis import DependencyAnalyzer
+
+        f = tmp_path / "main.rs"
+        f.write_text("use std::io;\nuse std::collections::HashMap;\nextern crate serde;\n", encoding="utf-8")
+        analyzer = DependencyAnalyzer()
+        imports = analyzer.analyze_file(f)
+        modules = [i.module for i in imports]
+        assert "std::io" in modules
+        assert "serde" in modules
+
+    def test_php_imports(self, tmp_path: Path):
+        from pysearch.analysis.dependency_analysis import DependencyAnalyzer
+
+        f = tmp_path / "app.php"
+        f.write_text("<?php\nuse App\\Models\\User;\nrequire_once 'config.php';\n", encoding="utf-8")
+        analyzer = DependencyAnalyzer()
+        imports = analyzer.analyze_file(f)
+        modules = [i.module for i in imports]
+        assert "App\\Models\\User" in modules
+        assert "config.php" in modules
+
+    def test_ruby_imports(self, tmp_path: Path):
+        from pysearch.analysis.dependency_analysis import DependencyAnalyzer
+
+        f = tmp_path / "app.rb"
+        f.write_text("require 'json'\nrequire_relative './helper'\n", encoding="utf-8")
+        analyzer = DependencyAnalyzer()
+        imports = analyzer.analyze_file(f)
+        modules = [i.module for i in imports]
+        assert "json" in modules
+        assert "./helper" in modules
+
+    def test_kotlin_imports(self, tmp_path: Path):
+        from pysearch.analysis.dependency_analysis import DependencyAnalyzer
+
+        f = tmp_path / "Main.kt"
+        f.write_text("import kotlin.collections.mutableListOf\nimport java.io.File\n", encoding="utf-8")
+        analyzer = DependencyAnalyzer()
+        imports = analyzer.analyze_file(f)
+        modules = [i.module for i in imports]
+        assert "kotlin.collections.mutableListOf" in modules
+
+    def test_c_cpp_includes(self, tmp_path: Path):
+        from pysearch.analysis.dependency_analysis import DependencyAnalyzer
+
+        f = tmp_path / "main.c"
+        f.write_text('#include <stdio.h>\n#include "mylib.h"\n', encoding="utf-8")
+        analyzer = DependencyAnalyzer()
+        imports = analyzer.analyze_file(f)
+        modules = [i.module for i in imports]
+        assert "stdio.h" in modules
+        assert "mylib.h" in modules
+
+    def test_dart_imports(self, tmp_path: Path):
+        from pysearch.analysis.dependency_analysis import DependencyAnalyzer
+
+        f = tmp_path / "main.dart"
+        f.write_text("import 'package:flutter/material.dart';\nimport 'dart:io';\n", encoding="utf-8")
+        analyzer = DependencyAnalyzer()
+        imports = analyzer.analyze_file(f)
+        modules = [i.module for i in imports]
+        assert "package:flutter/material.dart" in modules
+
+    def test_lua_imports(self, tmp_path: Path):
+        from pysearch.analysis.dependency_analysis import DependencyAnalyzer
+
+        f = tmp_path / "main.lua"
+        f.write_text("local json = require('cjson')\nrequire 'socket'\n", encoding="utf-8")
+        analyzer = DependencyAnalyzer()
+        imports = analyzer.analyze_file(f)
+        modules = [i.module for i in imports]
+        assert "cjson" in modules
+
+    def test_elixir_imports(self, tmp_path: Path):
+        from pysearch.analysis.dependency_analysis import DependencyAnalyzer
+
+        f = tmp_path / "app.ex"
+        f.write_text("use GenServer\nimport Enum\nalias MyApp.Repo\n", encoding="utf-8")
+        analyzer = DependencyAnalyzer()
+        imports = analyzer.analyze_file(f)
+        modules = [i.module for i in imports]
+        assert "GenServer" in modules
+        assert "Enum" in modules
+
+    def test_haskell_imports(self, tmp_path: Path):
+        from pysearch.analysis.dependency_analysis import DependencyAnalyzer
+
+        f = tmp_path / "Main.hs"
+        f.write_text("import Data.Map\nimport qualified Data.Text as T\n", encoding="utf-8")
+        analyzer = DependencyAnalyzer()
+        imports = analyzer.analyze_file(f)
+        modules = [i.module for i in imports]
+        assert "Data.Map" in modules
+        assert "Data.Text" in modules

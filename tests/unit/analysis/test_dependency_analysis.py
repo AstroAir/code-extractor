@@ -267,6 +267,19 @@ class TestDependencyAnalyzer:
             Language.JAVA,
             Language.CSHARP,
             Language.GO,
+            Language.RUST,
+            Language.PHP,
+            Language.RUBY,
+            Language.KOTLIN,
+            Language.SWIFT,
+            Language.SCALA,
+            Language.C,
+            Language.CPP,
+            Language.DART,
+            Language.LUA,
+            Language.PERL,
+            Language.ELIXIR,
+            Language.HASKELL,
         }
         assert set(analyzer.language_parsers.keys()) == expected
 

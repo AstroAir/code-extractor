@@ -72,6 +72,15 @@ class Language(str, Enum):
     MARKDOWN = "markdown"
     DOCKERFILE = "dockerfile"
     MAKEFILE = "makefile"
+    LUA = "lua"
+    PERL = "perl"
+    DART = "dart"
+    ELIXIR = "elixir"
+    HASKELL = "haskell"
+    JULIA = "julia"
+    GROOVY = "groovy"
+    OBJECTIVE_C = "objective_c"
+    ZIG = "zig"
     UNKNOWN = "unknown"
 
 

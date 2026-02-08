@@ -198,7 +198,8 @@ class TestLanguageRegistry:
 
     def test_supported_languages_include_treesitter_langs(self):
         langs = language_registry.get_supported_languages()
-        expected = {
+        # Tree-sitter languages are always registered
+        tree_sitter_langs = {
             Language.PYTHON,
             Language.JAVASCRIPT,
             Language.TYPESCRIPT,
@@ -208,7 +209,10 @@ class TestLanguageRegistry:
             Language.GO,
             Language.RUST,
         }
-        assert expected == langs
+        # All tree-sitter languages must be present
+        assert tree_sitter_langs.issubset(langs)
+        # RegexProcessor languages should also be registered
+        assert len(langs) > len(tree_sitter_langs)
 
     def test_register_processor(self):
         registry = LanguageRegistry()

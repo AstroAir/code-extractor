@@ -1,10 +1,10 @@
 {
   "sessions": {
-    "6d97c15fe5a1": {
-      "session_id": "6d97c15fe5a1",
+    "9d4027af974e": {
+      "session_id": "9d4027af974e",
       "user_id": "test_user",
-      "created_at": "2026-02-08 12:23:37.063236",
-      "last_accessed": "2026-02-08 12:23:37.063236",
+      "created_at": "2026-02-09 02:05:04.648141",
+      "last_accessed": "2026-02-09 02:05:04.648144",
       "priority": "SessionPriority.NORMAL",
       "intent": "SearchIntent.UNKNOWN",
       "queries": [],
@@ -19,11 +19,11 @@
       "avg_search_time": 0.0,
       "patterns_discovered": []
     },
-    "3c499eb75a5b": {
-      "session_id": "3c499eb75a5b",
+    "4efc86bf4ca5": {
+      "session_id": "4efc86bf4ca5",
       "user_id": "info_user",
-      "created_at": "2026-02-08 12:23:37.080326",
-      "last_accessed": "2026-02-08 12:23:37.086171",
+      "created_at": "2026-02-09 02:05:04.670546",
+      "last_accessed": "2026-02-09 02:05:04.684652",
       "priority": "SessionPriority.NORMAL",
       "intent": "SearchIntent.UNKNOWN",
       "queries": [],
@@ -38,11 +38,11 @@
       "avg_search_time": 0.0,
       "patterns_discovered": []
     },
-    "d8e5e8cd7b9f": {
-      "session_id": "d8e5e8cd7b9f",
+    "15ed25b7ace9": {
+      "session_id": "15ed25b7ace9",
       "user_id": "tracker",
-      "created_at": "2026-02-08 12:23:37.100469",
-      "last_accessed": "2026-02-08 12:23:37.134228",
+      "created_at": "2026-02-09 02:05:04.704126",
+      "last_accessed": "2026-02-09 02:05:04.751841",
       "priority": "SessionPriority.NORMAL",
       "intent": "SearchIntent.EXPLORATION",
       "queries": [
@@ -52,9 +52,9 @@
           "use_regex": false,
           "use_ast": false,
           "use_semantic": false,
-          "timestamp": "2026-02-08T12:23:37.126832",
+          "timestamp": "2026-02-09T02:05:04.745690",
           "session_context": {
-            "session_id": "d8e5e8cd7b9f",
+            "session_id": "15ed25b7ace9",
             "intent": "unknown",
             "search_focus": null,
             "current_files_count": 0,
@@ -66,7 +66,7 @@
         }
       ],
       "context": {
-        "last_successful_search": "2026-02-08T12:23:37.126832",
+        "last_successful_search": "2026-02-09T02:05:04.745724",
         "recent_result_count": 4
       },
       "cached_results": {},
@@ -78,16 +78,16 @@
       "correlation_context": {},
       "total_searches": 1,
       "successful_searches": 1,
-      "avg_search_time": 0.00927510000019538,
+      "avg_search_time": 0.014832199994998518,
       "patterns_discovered": [
         "def"
       ]
     },
-    "c09cd8a81872": {
-      "session_id": "c09cd8a81872",
+    "0dc8a49669b3": {
+      "session_id": "0dc8a49669b3",
       "user_id": "e2e_tester",
-      "created_at": "2026-02-08 12:23:38.612156",
-      "last_accessed": "2026-02-08 12:23:38.732856",
+      "created_at": "2026-02-09 02:05:05.656742",
+      "last_accessed": "2026-02-09 02:05:05.784745",
       "priority": "SessionPriority.HIGH",
       "intent": "SearchIntent.REFACTORING",
       "queries": [
@@ -97,9 +97,9 @@
           "use_regex": false,
           "use_ast": false,
           "use_semantic": false,
-          "timestamp": "2026-02-08T12:23:38.633255",
+          "timestamp": "2026-02-09T02:05:05.689846",
           "session_context": {
-            "session_id": "c09cd8a81872",
+            "session_id": "0dc8a49669b3",
             "intent": "unknown",
             "search_focus": null,
             "current_files_count": 0,
@@ -115,9 +115,9 @@
           "use_regex": true,
           "use_ast": false,
           "use_semantic": false,
-          "timestamp": "2026-02-08T12:23:38.707395",
+          "timestamp": "2026-02-09T02:05:05.769557",
           "session_context": {
-            "session_id": "c09cd8a81872",
+            "session_id": "0dc8a49669b3",
             "intent": "exploration",
             "search_focus": null,
             "current_files_count": 0,
@@ -129,7 +129,7 @@
         }
       ],
       "context": {
-        "last_successful_search": "2026-02-08T12:23:38.707395",
+        "last_successful_search": "2026-02-09T02:05:05.769573",
         "recent_result_count": 2
       },
       "cached_results": {},
@@ -142,17 +142,17 @@
       "correlation_context": {},
       "total_searches": 2,
       "successful_searches": 2,
-      "avg_search_time": 0.01789299999973082,
+      "avg_search_time": 0.02084149999791407,
       "patterns_discovered": [
         "password",
         "class\\s+\\w+"
       ]
     },
-    "d4421952ca9f": {
-      "session_id": "d4421952ca9f",
+    "09489b0049aa": {
+      "session_id": "09489b0049aa",
       "user_id": "real_repo_investigator",
-      "created_at": "2026-02-08 12:23:42.779245",
-      "last_accessed": "2026-02-08 12:23:43.354374",
+      "created_at": "2026-02-09 02:05:10.033721",
+      "last_accessed": "2026-02-09 02:05:10.616586",
       "priority": "SessionPriority.HIGH",
       "intent": "SearchIntent.REFACTORING",
       "queries": [
@@ -162,9 +162,9 @@
           "use_regex": false,
           "use_ast": false,
           "use_semantic": false,
-          "timestamp": "2026-02-08T12:23:42.869868",
+          "timestamp": "2026-02-09T02:05:10.134414",
           "session_context": {
-            "session_id": "d4421952ca9f",
+            "session_id": "09489b0049aa",
             "intent": "unknown",
             "search_focus": null,
             "current_files_count": 0,
@@ -180,9 +180,9 @@
           "use_regex": true,
           "use_ast": false,
           "use_semantic": false,
-          "timestamp": "2026-02-08T12:23:42.978990",
+          "timestamp": "2026-02-09T02:05:10.255682",
           "session_context": {
-            "session_id": "d4421952ca9f",
+            "session_id": "09489b0049aa",
             "intent": "exploration",
             "search_focus": null,
             "current_files_count": 0,
@@ -198,9 +198,9 @@
           "use_regex": false,
           "use_ast": true,
           "use_semantic": false,
-          "timestamp": "2026-02-08T12:23:43.149592",
+          "timestamp": "2026-02-09T02:05:10.418090",
           "session_context": {
-            "session_id": "d4421952ca9f",
+            "session_id": "09489b0049aa",
             "intent": "exploration",
             "search_focus": null,
             "current_files_count": 0,
@@ -216,9 +216,9 @@
           "use_regex": false,
           "use_ast": false,
           "use_semantic": false,
-          "timestamp": "2026-02-08T12:23:43.271691",
+          "timestamp": "2026-02-09T02:05:10.541297",
           "session_context": {
-            "session_id": "d4421952ca9f",
+            "session_id": "09489b0049aa",
             "intent": "refactoring",
             "search_focus": null,
             "current_files_count": 0,
@@ -234,9 +234,9 @@
           "use_regex": false,
           "use_ast": false,
           "use_semantic": false,
-          "timestamp": "2026-02-08T12:23:43.354374",
+          "timestamp": "2026-02-09T02:05:10.616588",
           "session_context": {
-            "session_id": "d4421952ca9f",
+            "session_id": "09489b0049aa",
             "intent": "refactoring",
             "search_focus": null,
             "current_files_count": 0,
@@ -248,7 +248,7 @@
         }
       ],
       "context": {
-        "last_successful_search": "2026-02-08T12:23:43.354374",
+        "last_successful_search": "2026-02-09T02:05:10.616609",
         "recent_result_count": 80
       },
       "cached_results": {},
@@ -264,20 +264,20 @@
       "correlation_context": {},
       "total_searches": 5,
       "successful_searches": 5,
-      "avg_search_time": 0.07832493999958387,
+      "avg_search_time": 0.062124300001596564,
       "patterns_discovered": [
-        "async def",
         "token",
-        "self._",
         "@property",
-        "class"
+        "async def",
+        "class",
+        "self._"
       ]
     }
   },
   "user_profiles": {
     "test_user": {
       "user_id": "test_user",
-      "created_at": "2026-02-08T12:23:37.063236",
+      "created_at": "2026-02-09T02:05:04.648159",
       "preferences": {},
       "search_patterns": {},
       "language_preferences": {},
@@ -289,7 +289,7 @@
     },
     "info_user": {
       "user_id": "info_user",
-      "created_at": "2026-02-08T12:23:37.080326",
+      "created_at": "2026-02-09T02:05:04.670567",
       "preferences": {},
       "search_patterns": {},
       "language_preferences": {},
@@ -301,7 +301,7 @@
     },
     "tracker": {
       "user_id": "tracker",
-      "created_at": "2026-02-08T12:23:37.100469",
+      "created_at": "2026-02-09T02:05:04.704140",
       "preferences": {},
       "search_patterns": {
         "def": 1
@@ -309,13 +309,13 @@
       "language_preferences": {},
       "common_paths": {},
       "session_count": 1,
-      "total_search_time": 0.00927510000019538,
+      "total_search_time": 0.014832199994998518,
       "successful_searches": 1,
       "failed_searches": 0
     },
     "e2e_tester": {
       "user_id": "e2e_tester",
-      "created_at": "2026-02-08T12:23:38.612156",
+      "created_at": "2026-02-09T02:05:05.656750",
       "preferences": {},
       "search_patterns": {
         "password": 1,
@@ -324,13 +324,13 @@
       "language_preferences": {},
       "common_paths": {},
       "session_count": 1,
-      "total_search_time": 0.03578599999946164,
+      "total_search_time": 0.04168299999582814,
       "successful_searches": 2,
       "failed_searches": 0
     },
     "real_repo_investigator": {
       "user_id": "real_repo_investigator",
-      "created_at": "2026-02-08T12:23:42.779245",
+      "created_at": "2026-02-09T02:05:10.033731",
       "preferences": {},
       "search_patterns": {
         "token": 1,
@@ -342,7 +342,7 @@
       "language_preferences": {},
       "common_paths": {},
       "session_count": 1,
-      "total_search_time": 0.3916246999979194,
+      "total_search_time": 0.31062150000798283,
       "successful_searches": 5,
       "failed_searches": 0
     }
@@ -356,34 +356,34 @@
       "password"
     ],
     "token": [
-      "class",
-      "@property",
       "async def",
-      "self._"
+      "class",
+      "self._",
+      "@property"
     ],
     "@property": [
-      "class",
       "async def",
-      "self._",
-      "token"
+      "token",
+      "class",
+      "self._"
     ],
     "class": [
-      "@property",
       "async def",
+      "token",
       "self._",
-      "token"
+      "@property"
     ],
     "async def": [
+      "token",
       "class",
-      "@property",
       "self._",
-      "token"
+      "@property"
     ],
     "self._": [
-      "class",
-      "@property",
       "async def",
-      "token"
+      "token",
+      "class",
+      "@property"
     ]
   }
 }

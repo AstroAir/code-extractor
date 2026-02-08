@@ -348,6 +348,151 @@ class SearchHistory:
             "unique_patterns": len(set(entry.query_pattern for entry in self._history)),
         }
 
+    def get_detailed_stats(self) -> dict[str, Any]:
+        """Get comprehensive search history statistics."""
+        self.load()
+        if not self._history:
+            return {
+                "total_searches": 0,
+                "unique_patterns": 0,
+                "total_elapsed_ms": 0.0,
+                "average_elapsed_ms": 0.0,
+                "average_success_score": 0.0,
+                "total_results": 0,
+                "average_results": 0.0,
+                "date_range": None,
+                "categories": {},
+                "storage_bytes": 0,
+            }
+
+        entries = list(self._history)
+        total = len(entries)
+        total_elapsed = sum(e.elapsed_ms for e in entries)
+        total_results = sum(e.items_count for e in entries)
+        total_score = sum(e.success_score for e in entries)
+
+        category_counts: dict[str, int] = {}
+        for e in entries:
+            cat = e.category.value if hasattr(e.category, "value") else str(e.category)
+            category_counts[cat] = category_counts.get(cat, 0) + 1
+
+        storage_bytes = 0
+        if self.history_file.exists():
+            storage_bytes = self.history_file.stat().st_size
+
+        return {
+            "total_searches": total,
+            "unique_patterns": len(set(e.query_pattern for e in entries)),
+            "total_elapsed_ms": total_elapsed,
+            "average_elapsed_ms": total_elapsed / total,
+            "average_success_score": total_score / total,
+            "total_results": total_results,
+            "average_results": total_results / total,
+            "date_range": {
+                "earliest": entries[0].timestamp,
+                "latest": entries[-1].timestamp,
+            },
+            "categories": category_counts,
+            "storage_bytes": storage_bytes,
+        }
+
+    def get_history_by_date_range(
+        self,
+        start_time: float | None = None,
+        end_time: float | None = None,
+        limit: int | None = None,
+    ) -> list[SearchHistoryEntry]:
+        """Get history entries within a date range."""
+        self.load()
+        filtered = list(self._history)
+        if start_time is not None:
+            filtered = [e for e in filtered if e.timestamp >= start_time]
+        if end_time is not None:
+            filtered = [e for e in filtered if e.timestamp <= end_time]
+        filtered = list(reversed(filtered))  # Most recent first
+        if limit:
+            return filtered[:limit]
+        return filtered
+
+    def get_history_by_category(
+        self, category: SearchCategory, limit: int | None = None
+    ) -> list[SearchHistoryEntry]:
+        """Get history entries filtered by category."""
+        self.load()
+        filtered = [e for e in reversed(self._history) if e.category == category]
+        if limit:
+            return filtered[:limit]
+        return filtered
+
+    def get_history_by_language(
+        self, language: str, limit: int | None = None
+    ) -> list[SearchHistoryEntry]:
+        """Get history entries that involved a specific programming language."""
+        self.load()
+        lang_lower = language.lower()
+        filtered = [
+            e for e in reversed(self._history)
+            if e.languages and lang_lower in {l.lower() for l in e.languages}
+        ]
+        if limit:
+            return filtered[:limit]
+        return filtered
+
+    def search_history(
+        self, query: str, limit: int | None = None
+    ) -> list[SearchHistoryEntry]:
+        """Full-text search across query patterns in history."""
+        self.load()
+        query_lower = query.lower()
+        filtered = [
+            e for e in reversed(self._history)
+            if query_lower in e.query_pattern.lower()
+        ]
+        if limit:
+            return filtered[:limit]
+        return filtered
+
+    def cleanup_old_history(self, days: int) -> int:
+        """Remove history entries older than specified days."""
+        self.load()
+        cutoff = time.time() - (days * 24 * 60 * 60)
+        original_len = len(self._history)
+        remaining = [e for e in self._history if e.timestamp >= cutoff]
+        self._history.clear()
+        for e in remaining:
+            self._history.append(e)
+        removed = original_len - len(self._history)
+        if removed > 0:
+            self.save_history()
+        return removed
+
+    def deduplicate_history(self) -> int:
+        """Remove duplicate consecutive entries with the same pattern and close timestamps."""
+        self.load()
+        if len(self._history) < 2:
+            return 0
+
+        entries = list(self._history)
+        deduplicated: list[SearchHistoryEntry] = [entries[0]]
+
+        for entry in entries[1:]:
+            prev = deduplicated[-1]
+            # Consider duplicate if same pattern within 2 seconds
+            if (
+                entry.query_pattern == prev.query_pattern
+                and abs(entry.timestamp - prev.timestamp) < 2.0
+            ):
+                continue
+            deduplicated.append(entry)
+
+        removed = len(entries) - len(deduplicated)
+        if removed > 0:
+            self._history.clear()
+            for e in deduplicated:
+                self._history.append(e)
+            self.save_history()
+        return removed
+
     # Delegate methods to other managers for backward compatibility
     def add_bookmark(self, name: str, query: Query, result: SearchResult) -> None:
         """Add a search as a bookmark."""

@@ -46,6 +46,8 @@ from .language_support import (
     LanguageConfig,
     LanguageProcessor,
     LanguageRegistry,
+    RegexLanguageConfig,
+    RegexProcessor,
     TreeSitterProcessor,
     language_registry,
 )
@@ -74,6 +76,8 @@ __all__ = [
     # Language support
     "LanguageProcessor",
     "TreeSitterProcessor",
+    "RegexProcessor",
+    "RegexLanguageConfig",
     "LanguageRegistry",
     "LanguageConfig",
     "CodeChunk",

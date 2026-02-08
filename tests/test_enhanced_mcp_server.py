@@ -16,6 +16,17 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from mcp.servers.pysearch_mcp_server import PySearchEngine
+from mcp.servers.engine import (
+    ConfigResponse,
+    PySearchEngine as PySearchEngineFromEngine,
+    SearchResponse,
+)
+from mcp.servers import (
+    ConfigResponse as ConfigResponseFromInit,
+    PySearchEngine as PySearchEngineFromInit,
+    SearchResponse as SearchResponseFromInit,
+    create_mcp_server,
+)
 
 from mcp.shared.resource_manager import ResourceManager
 from mcp.shared.session_manager import EnhancedSessionManager, UserProfile
@@ -305,6 +316,204 @@ class TestResourceManager:
         assert "cache_memory_mb" in memory_info
         assert "total_entries" in memory_info
         assert memory_info["cache_memory_mb"] >= 0
+
+
+class TestModularStructure:
+    """Test the modular MCP server structure after refactoring."""
+
+    # -- Import compatibility tests -----------------------------------------
+
+    def test_pysearch_engine_import_from_server(self):
+        """PySearchEngine should be importable from pysearch_mcp_server (backward compat)."""
+        assert PySearchEngine is not None
+        assert PySearchEngine is PySearchEngineFromEngine
+
+    def test_pysearch_engine_import_from_init(self):
+        """PySearchEngine should be importable from mcp.servers package."""
+        assert PySearchEngineFromInit is PySearchEngineFromEngine
+
+    def test_search_response_import_from_engine(self):
+        """SearchResponse should be importable from engine module."""
+        assert SearchResponse is not None
+
+    def test_search_response_import_from_init(self):
+        """SearchResponse should be importable from mcp.servers package."""
+        assert SearchResponseFromInit is SearchResponse
+
+    def test_config_response_import_from_engine(self):
+        """ConfigResponse should be importable from engine module."""
+        assert ConfigResponse is not None
+
+    def test_config_response_import_from_init(self):
+        """ConfigResponse should be importable from mcp.servers package."""
+        assert ConfigResponseFromInit is ConfigResponse
+
+    def test_create_mcp_server_importable(self):
+        """create_mcp_server should be importable from mcp.servers package."""
+        assert create_mcp_server is not None
+        assert callable(create_mcp_server)
+
+    # -- Engine tests -------------------------------------------------------
+
+    @pytest.fixture
+    def engine(self):
+        """Create a PySearchEngine instance."""
+        return PySearchEngine()
+
+    def test_engine_initialization(self, engine):
+        """PySearchEngine should initialize with default config."""
+        assert engine.search_engine is not None
+        assert engine.current_config is not None
+        assert engine.search_history == []
+        assert engine.validator is not None
+        assert engine.resource_manager is not None
+        assert engine.session_manager is not None
+        assert engine.progress_tracker is not None
+
+    def test_engine_get_search_config(self, engine):
+        """get_search_config should return a ConfigResponse."""
+        config = engine.get_search_config()
+        assert isinstance(config, ConfigResponse)
+        assert config.context_lines == 3
+        assert config.parallel is True
+        assert config.workers == 4
+        assert isinstance(config.paths, list)
+
+    def test_engine_get_supported_languages(self, engine):
+        """get_supported_languages should return a non-empty list."""
+        languages = engine.get_supported_languages()
+        assert isinstance(languages, list)
+        assert len(languages) > 0
+        assert "python" in languages
+
+    def test_engine_configure_search(self, engine):
+        """configure_search should update and return new config."""
+        resp = engine.configure_search(context=5, workers=2)
+        assert isinstance(resp, ConfigResponse)
+        assert resp.context_lines == 5
+        assert resp.workers == 2
+
+    def test_engine_clear_caches(self, engine):
+        """clear_caches should return a status dict."""
+        result = engine.clear_caches()
+        assert isinstance(result, dict)
+        assert "status" in result
+
+    def test_engine_get_search_history_empty(self, engine):
+        """get_search_history should return empty list initially."""
+        history = engine.get_search_history()
+        assert history == []
+
+    def test_engine_search_text(self, engine):
+        """search_text on current directory should return a SearchResponse."""
+        resp = engine.search_text("import", paths=["./src"], context=1)
+        assert isinstance(resp, SearchResponse)
+        assert resp.total_matches >= 0
+        assert resp.execution_time_ms >= 0
+        assert isinstance(resp.items, list)
+        assert isinstance(resp.stats, dict)
+        assert isinstance(resp.query_info, dict)
+
+    def test_engine_search_text_adds_history(self, engine):
+        """search_text should add an entry to search history."""
+        engine.search_text("def", paths=["./src"], context=1)
+        history = engine.get_search_history(limit=5)
+        assert len(history) >= 1
+        assert history[-1]["query"]["pattern"] == "def"
+        assert history[-1]["search_type"] == "text"
+
+    def test_engine_search_regex(self, engine):
+        """search_regex should return a SearchResponse with use_regex=True."""
+        resp = engine.search_regex(r"def\s+\w+", paths=["./src"], context=1)
+        assert isinstance(resp, SearchResponse)
+        assert resp.query_info["use_regex"] is True
+
+    def test_engine_search_regex_invalid(self, engine):
+        """search_regex with invalid pattern should raise ValueError."""
+        with pytest.raises(ValueError, match="Invalid regex"):
+            engine.search_regex("[unclosed", paths=["./src"])
+
+    def test_engine_analyze_file(self, engine):
+        """analyze_file should return metrics for a Python file."""
+        # Analyze a known file in the project
+        result = engine.analyze_file("./src/pysearch/__init__.py")
+        assert isinstance(result, dict)
+        assert "total_lines" in result
+        assert "code_lines" in result
+        assert "language" in result
+        assert result["language"] == "python"
+        assert result["total_lines"] > 0
+
+    def test_engine_analyze_file_not_found(self, engine):
+        """analyze_file with non-existent path should raise ValueError."""
+        with pytest.raises(ValueError, match="File not found"):
+            engine.analyze_file("/nonexistent/path.py")
+
+    # -- Tool registration tests --------------------------------------------
+
+    def test_tool_registration_imports(self):
+        """All tool registration functions should be importable."""
+        from mcp.servers.tools import register_all_tools
+        from mcp.servers.tools.core_search import register_core_search_tools
+        from mcp.servers.tools.advanced_search import register_advanced_search_tools
+        from mcp.servers.tools.analysis import register_analysis_tools
+        from mcp.servers.tools.config import register_config_tools
+        from mcp.servers.tools.history import register_history_tools
+        from mcp.servers.tools.session import register_session_tools
+        from mcp.servers.tools.progress import register_progress_tools
+        from mcp.servers.tools.ide import register_ide_tools
+        from mcp.servers.tools.distributed import register_distributed_tools
+        from mcp.servers.tools.multi_repo import register_multi_repo_tools
+        from mcp.servers.tools.workspace import register_workspace_tools
+
+        assert callable(register_all_tools)
+        assert callable(register_core_search_tools)
+        assert callable(register_advanced_search_tools)
+        assert callable(register_analysis_tools)
+        assert callable(register_config_tools)
+        assert callable(register_history_tools)
+        assert callable(register_session_tools)
+        assert callable(register_progress_tools)
+        assert callable(register_ide_tools)
+        assert callable(register_distributed_tools)
+        assert callable(register_multi_repo_tools)
+        assert callable(register_workspace_tools)
+
+    def test_resources_registration_import(self):
+        """register_resources should be importable from resources module."""
+        from mcp.servers.resources import register_resources
+
+        assert callable(register_resources)
+
+    # -- SearchResponse / ConfigResponse dataclass tests --------------------
+
+    def test_search_response_dataclass(self):
+        """SearchResponse should be a proper dataclass."""
+        resp = SearchResponse(
+            items=[{"file": "test.py", "start_line": 1}],
+            stats={"files_scanned": 10},
+            query_info={"pattern": "test"},
+            total_matches=1,
+            execution_time_ms=42.0,
+        )
+        assert resp.total_matches == 1
+        assert resp.execution_time_ms == 42.0
+        assert len(resp.items) == 1
+
+    def test_config_response_dataclass(self):
+        """ConfigResponse should be a proper dataclass."""
+        resp = ConfigResponse(
+            paths=["."],
+            include_patterns=["**/*.py"],
+            exclude_patterns=["**/node_modules/**"],
+            context_lines=3,
+            parallel=True,
+            workers=4,
+            languages=None,
+        )
+        assert resp.paths == ["."]
+        assert resp.context_lines == 3
+        assert resp.parallel is True
 
 
 @pytest.mark.skip(reason="EnhancedPySearchMCPServer class not yet implemented")

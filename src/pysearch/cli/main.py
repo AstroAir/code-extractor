@@ -572,6 +572,26 @@ def find_cmd(
 @click.option("--cleanup-sessions", type=int, help="清理指定天数之前的旧会话")
 @click.option("--bookmark-search", help="在书签中搜索")
 @click.option("--bookmark-stats", is_flag=True, help="显示书签统计信息")
+@click.option("--export", "export_fmt", type=click.Choice(["json", "csv"]), help="导出历史记录 (json 或 csv)")
+@click.option("--export-output", help="导出文件路径 (默认: history_export.<格式>)")
+@click.option("--import-file", "import_path", help="从 JSON 文件导入历史记录")
+@click.option("--import-replace", is_flag=True, help="导入时替换而非合并")
+@click.option("--backup", "backup_path", help="备份历史数据到文件")
+@click.option("--restore", "restore_path", help="从备份文件恢复历史数据")
+@click.option("--validate-backup", "validate_path", help="验证备份文件")
+@click.option("--date-from", help="按开始日期过滤 (格式: YYYY-MM-DD)")
+@click.option("--date-to", help="按结束日期过滤 (格式: YYYY-MM-DD)")
+@click.option("--category", help="按类别过滤 (function/class/variable/import/comment/string/regex/general)")
+@click.option("--language", help="按编程语言过滤")
+@click.option("--search", "search_query", help="在历史记录中全文搜索")
+@click.option("--cleanup-history", type=int, help="清理指定天数之前的旧历史记录")
+@click.option("--deduplicate", is_flag=True, help="去除重复的历史记录")
+@click.option("--detailed-stats", is_flag=True, help="显示详细统计信息")
+@click.option("--trends", is_flag=True, help="显示搜索趋势")
+@click.option("--category-trends", is_flag=True, help="显示类别使用趋势")
+@click.option("--failed-patterns", is_flag=True, help="显示最常失败的搜索模式")
+@click.option("--session-summary", help="显示指定会话的详细摘要 (会话ID)")
+@click.option("--compare-sessions", nargs=2, type=(str, str), default=(None, None), help="比较两个会话 (会话ID1 会话ID2)")
 def history_cmd(
     limit: int,
     pattern: str | None,
@@ -592,6 +612,26 @@ def history_cmd(
     cleanup_sessions: int | None,
     bookmark_search: str | None,
     bookmark_stats: bool,
+    export_fmt: str | None,
+    export_output: str | None,
+    import_path: str | None,
+    import_replace: bool,
+    backup_path: str | None,
+    restore_path: str | None,
+    validate_path: str | None,
+    date_from: str | None,
+    date_to: str | None,
+    category: str | None,
+    language: str | None,
+    search_query: str | None,
+    cleanup_history: int | None,
+    deduplicate: bool,
+    detailed_stats: bool,
+    trends: bool,
+    category_trends: bool,
+    failed_patterns: bool,
+    session_summary: str | None,
+    compare_sessions: tuple[str | None, str | None],
 ) -> None:
     """显示搜索历史记录和分析。"""
     cfg = SearchConfig()
@@ -806,7 +846,205 @@ def history_cmd(
             click.echo(f"  {key}: {value}")
         return
 
-    if tags:
+    # ── New enhanced history options ──
+
+    if export_fmt:
+        output_file = export_output or f"history_export.{export_fmt}"
+        start_ts = None
+        end_ts = None
+        if date_from:
+            from datetime import datetime as dt
+            start_ts = dt.strptime(date_from, "%Y-%m-%d").timestamp()
+        if date_to:
+            from datetime import datetime as dt
+            end_ts = dt.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59).timestamp()
+        count = engine.export_history(output_file, export_fmt, start_time=start_ts, end_time=end_ts)
+        click.echo(f"Exported {count} history entries to '{output_file}' ({export_fmt} format).")
+        return
+
+    if import_path:
+        try:
+            count = engine.import_history(import_path, merge=not import_replace)
+            mode = "replaced" if import_replace else "merged"
+            click.echo(f"Imported history ({mode}). Total entries: {count}")
+        except (FileNotFoundError, ValueError) as e:
+            click.echo(f"Import failed: {e}", err=True)
+            sys.exit(1)
+        return
+
+    if backup_path:
+        counts = engine.backup_history(backup_path)
+        click.echo(f"Backup created: {backup_path}")
+        for key, value in counts.items():
+            click.echo(f"  {key}: {value}")
+        return
+
+    if restore_path:
+        try:
+            counts = engine.restore_history(restore_path)
+            click.echo(f"Restored from: {restore_path}")
+            for key, value in counts.items():
+                click.echo(f"  {key}: {value}")
+        except (FileNotFoundError, ValueError) as e:
+            click.echo(f"Restore failed: {e}", err=True)
+            sys.exit(1)
+        return
+
+    if validate_path:
+        result = engine.validate_backup(validate_path)
+        if result.get("valid"):
+            click.echo(f"Backup is valid (created: {result.get('backup_time_iso', 'unknown')})")
+            for key, value in result.items():
+                if key not in ("valid", "backup_time_iso", "version"):
+                    click.echo(f"  {key}: {value}")
+        else:
+            click.echo(f"Backup is invalid: {result.get('error', 'unknown error')}", err=True)
+            sys.exit(1)
+        return
+
+    if cleanup_history is not None:
+        removed = engine.cleanup_old_history(cleanup_history)
+        click.echo(f"Removed {removed} history entries older than {cleanup_history} days.")
+        return
+
+    if deduplicate:
+        removed = engine.deduplicate_history()
+        click.echo(f"Removed {removed} duplicate history entries.")
+        return
+
+    if detailed_stats:
+        stats = engine.get_detailed_history_stats()
+        click.echo("Detailed History Statistics")
+        click.echo("=" * 40)
+        click.echo(f"  Total searches: {stats['total_searches']}")
+        click.echo(f"  Unique patterns: {stats['unique_patterns']}")
+        click.echo(f"  Total elapsed: {stats['total_elapsed_ms']:.1f}ms")
+        click.echo(f"  Avg elapsed: {stats['average_elapsed_ms']:.1f}ms")
+        click.echo(f"  Avg success score: {stats['average_success_score']:.2f}")
+        click.echo(f"  Total results: {stats['total_results']}")
+        click.echo(f"  Avg results: {stats['average_results']:.1f}")
+        click.echo(f"  Storage: {stats['storage_bytes']} bytes")
+        if stats.get("date_range"):
+            dr = stats["date_range"]
+            click.echo(f"  Earliest: {time.strftime('%Y-%m-%d %H:%M', time.localtime(dr['earliest']))}")
+            click.echo(f"  Latest: {time.strftime('%Y-%m-%d %H:%M', time.localtime(dr['latest']))}")
+        if stats.get("categories"):
+            click.echo("  Categories:")
+            for cat, cnt in stats["categories"].items():
+                click.echo(f"    {cat}: {cnt}")
+        return
+
+    if trends:
+        trend_data = engine.get_search_trends(days=days)
+        if not trend_data or not trend_data.get("daily_counts"):
+            click.echo("No trend data available. Build more search history first.")
+            return
+        click.echo(f"Search Trends (Last {days} days)")
+        click.echo("=" * 40)
+        click.echo(f"  Trend: {trend_data.get('trend', 'unknown')}")
+        click.echo(f"  Active days: {trend_data.get('total_days_active', 0)}")
+        click.echo(f"  Peak day: {trend_data.get('peak_day', 'N/A')} ({trend_data.get('peak_count', 0)} searches)")
+        click.echo("\n  Daily counts:")
+        for day in sorted(trend_data.get("daily_counts", {}).keys()):
+            cnt = trend_data["daily_counts"][day]
+            rate = trend_data.get("daily_success_rates", {}).get(day, 0)
+            click.echo(f"    {day}: {cnt} searches (success: {rate:.0%})")
+        return
+
+    if category_trends:
+        ct_data = engine.get_category_trends(days=days)
+        if not ct_data or not ct_data.get("weekly_categories"):
+            click.echo("No category trend data available.")
+            return
+        click.echo(f"Category Trends (Last {days} days)")
+        click.echo("=" * 40)
+        for week in sorted(ct_data.get("weekly_categories", {}).keys()):
+            cats = ct_data["weekly_categories"][week]
+            click.echo(f"  {week}: {', '.join(f'{c}={n}' for c, n in cats.items())}")
+        if ct_data.get("category_shifts"):
+            click.echo("\n  Significant shifts:")
+            for shift in ct_data["category_shifts"]:
+                click.echo(
+                    f"    {shift['category']} {shift['direction']} in {shift['week']} "
+                    f"({shift['from_count']} -> {shift['to_count']})"
+                )
+        return
+
+    if failed_patterns:
+        fp_data = engine.get_top_failed_patterns(limit=limit)
+        if not fp_data:
+            click.echo("No failed patterns found.")
+            return
+        click.echo("Top Failed Search Patterns")
+        click.echo("=" * 40)
+        for fp in fp_data:
+            click.echo(
+                f"  '{fp['pattern']}': {fp['failed_searches']}/{fp['total_searches']} failed "
+                f"({fp['failure_rate']:.0%})"
+            )
+        return
+
+    if session_summary:
+        summary = engine.get_session_summary(session_summary)
+        if "error" in summary:
+            click.echo(f"Error: {summary['error']}", err=True)
+            sys.exit(1)
+        click.echo(f"Session Summary: {summary['session_id']}")
+        click.echo("=" * 40)
+        click.echo(f"  Start: {summary.get('start_time_iso', 'N/A')}")
+        click.echo(f"  End: {summary.get('end_time_iso', 'ongoing')}")
+        click.echo(f"  Active: {summary.get('is_active', False)}")
+        click.echo(f"  Duration: {summary.get('duration_minutes', 0):.1f} min")
+        click.echo(f"  Searches: {summary.get('total_searches', 0)} (success: {summary.get('successful_searches', 0)}, failed: {summary.get('failed_searches', 0)})")
+        click.echo(f"  Success rate: {summary.get('success_rate', 0):.0%}")
+        click.echo(f"  Unique queries: {summary.get('unique_queries', 0)}")
+        if summary.get("repeated_queries"):
+            click.echo(f"  Repeated queries: {', '.join(summary['repeated_queries'])}")
+        if summary.get("primary_languages"):
+            click.echo(f"  Languages: {', '.join(summary['primary_languages'])}")
+        return
+
+    if compare_sessions[0] is not None:
+        sid1, sid2 = compare_sessions
+        comparison = engine.compare_sessions(sid1, sid2)
+        if "error" in comparison:
+            click.echo(f"Error: {comparison['error']}", err=True)
+            sys.exit(1)
+        click.echo(f"Session Comparison: {sid1} vs {sid2}")
+        click.echo("=" * 40)
+        s1 = comparison["session_1"]
+        s2 = comparison["session_2"]
+        click.echo(f"  Session 1: {s1['total_searches']} searches, {s1['success_rate']:.0%} success")
+        click.echo(f"  Session 2: {s2['total_searches']} searches, {s2['success_rate']:.0%} success")
+        click.echo(f"  Search count diff: {comparison['search_count_diff']:+d}")
+        click.echo(f"  Success rate diff: {comparison['success_rate_diff']:+.0%}")
+        if comparison.get("common_queries"):
+            click.echo(f"  Common queries: {', '.join(comparison['common_queries'][:5])}")
+        if comparison.get("only_in_session_1"):
+            click.echo(f"  Only in session 1: {', '.join(comparison['only_in_session_1'][:5])}")
+        if comparison.get("only_in_session_2"):
+            click.echo(f"  Only in session 2: {', '.join(comparison['only_in_session_2'][:5])}")
+        return
+
+    # ── Apply advanced filters to history listing ──
+
+    if search_query:
+        history_entries = engine.search_in_history(search_query, limit)
+    elif category:
+        history_entries = engine.get_history_by_category(category, limit)
+    elif language:
+        history_entries = engine.get_history_by_language(language, limit)
+    elif date_from or date_to:
+        start_ts = None
+        end_ts = None
+        if date_from:
+            from datetime import datetime as dt
+            start_ts = dt.strptime(date_from, "%Y-%m-%d").timestamp()
+        if date_to:
+            from datetime import datetime as dt
+            end_ts = dt.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59).timestamp()
+        history_entries = engine.get_history_by_date_range(start_ts, end_ts, limit)
+    elif tags:
         # Search by tags
         tag_list = [tag.strip() for tag in tags.split(",")]
         history_entries = engine.search_history_by_tags(tag_list)
@@ -1749,6 +1987,219 @@ def repo_cmd(
         f"Multi-repo search: {'ENABLED' if engine.is_multi_repo_enabled() else 'DISABLED'}"
     )
     click.echo("Use --enable, --add, --search for multi-repository management.")
+
+
+@cli.command("workspace")
+@click.option("--init", "init_name", default=None, help="初始化新工作区 (名称)")
+@click.option("--open", "open_path", default=None, help="打开工作区配置文件")
+@click.option("--save", "save_path", default=None, is_flag=False, flag_value=".", help="保存工作区配置")
+@click.option("--discover", "discover_root", default=None, is_flag=False, flag_value=".", help="自动发现仓库")
+@click.option("--max-depth", type=int, default=3, help="自动发现最大深度")
+@click.option("--add", "add_repo", nargs=2, type=(str, str), default=(None, None), help="添加仓库 (名称 路径)")
+@click.option(
+    "--priority",
+    type=click.Choice(["high", "normal", "low"]),
+    default="normal",
+    help="仓库优先级 (用于 --add)",
+)
+@click.option("--remove", "remove_repo", default=None, help="移除仓库")
+@click.option("--list", "list_repos", is_flag=True, default=False, help="列出工作区中的仓库")
+@click.option("--status", "show_status", is_flag=True, default=False, help="显示工作区状态摘要")
+@click.option("--search", "search_pattern", default=None, help="跨工作区搜索")
+@click.option("--regex", "ws_regex", is_flag=True, default=False, help="搜索时使用正则")
+@click.option("--max-results", type=int, default=1000, help="最大结果数")
+@click.option("--timeout", type=float, default=30.0, help="每个仓库搜索超时（秒）")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="输出格式",
+)
+def workspace_cmd(
+    init_name: str | None,
+    open_path: str | None,
+    save_path: str | None,
+    discover_root: str | None,
+    max_depth: int,
+    add_repo: tuple[str | None, str | None],
+    priority: str,
+    remove_repo: str | None,
+    list_repos: bool,
+    show_status: bool,
+    search_pattern: str | None,
+    ws_regex: bool,
+    max_results: int,
+    timeout: float,
+    fmt: str,
+) -> None:
+    """管理工作区（多仓库工作环境）。"""
+    cfg = SearchConfig()
+    engine = PySearch(cfg)
+
+    if init_name:
+        root = discover_root or "."
+        if engine.create_workspace(init_name, root, auto_discover=bool(discover_root), max_depth=max_depth):
+            click.echo(f"Workspace '{init_name}' created at '{root}'.")
+            if discover_root:
+                repos = engine.discover_repositories(root, max_depth=max_depth)
+                click.echo(f"  Discovered {len(repos)} repositories.")
+            # Auto-save
+            save_file = str(Path(root) / ".pysearch-workspace.toml")
+            if engine.save_workspace(save_file):
+                click.echo(f"  Saved to {save_file}")
+        else:
+            click.echo("Failed to create workspace.", err=True)
+            sys.exit(1)
+        return
+
+    if open_path:
+        if engine.open_workspace(open_path):
+            summary = engine.get_workspace_summary()
+            click.echo(f"Workspace '{summary.get('name', '?')}' opened.")
+            click.echo(f"  Repositories: {summary.get('total_repositories', 0)}")
+            click.echo(f"  Enabled: {summary.get('enabled_repositories', 0)}")
+        else:
+            click.echo(f"Failed to open workspace from '{open_path}'.", err=True)
+            sys.exit(1)
+        return
+
+    if save_path:
+        target = save_path if save_path != "." else None
+        if engine.save_workspace(target):
+            click.echo(f"Workspace saved to {target or 'default location'}.")
+        else:
+            click.echo("Failed to save workspace (no workspace loaded?).", err=True)
+            sys.exit(1)
+        return
+
+    if discover_root:
+        if not engine.is_multi_repo_enabled():
+            engine.enable_multi_repo()
+        repos = engine.discover_repositories(discover_root, max_depth=max_depth)
+        if not repos:
+            click.echo("No repositories discovered.")
+            return
+        click.echo(f"Discovered {len(repos)} repositories:")
+        for repo in repos:
+            ptype = repo.get("project_type", "")
+            ptype_str = f" [{ptype}]" if ptype else ""
+            click.echo(f"  {repo['name']}: {repo['path']}{ptype_str}")
+        return
+
+    if add_repo[0] is not None:
+        repo_name, repo_path = add_repo
+        if not engine.is_multi_repo_enabled():
+            engine.enable_multi_repo()
+        if engine.add_repository(repo_name, repo_path, priority=priority):
+            click.echo(f"Repository '{repo_name}' added (priority: {priority}).")
+        else:
+            click.echo(f"Failed to add repository '{repo_name}'.", err=True)
+            sys.exit(1)
+        return
+
+    if remove_repo:
+        if engine.remove_repository(remove_repo):
+            click.echo(f"Repository '{remove_repo}' removed.")
+        else:
+            click.echo(f"Repository '{remove_repo}' not found.", err=True)
+            sys.exit(1)
+        return
+
+    if list_repos:
+        summary = engine.get_workspace_summary()
+        if not summary:
+            click.echo("No workspace loaded. Use --open or --init first.")
+            return
+        if fmt == "json":
+            import orjson
+
+            sys.stdout.write(
+                orjson.dumps(summary, option=orjson.OPT_INDENT_2, default=str).decode()
+            )
+            sys.stdout.write("\n")
+        else:
+            click.echo(f"Workspace: {summary.get('name', '?')}")
+            click.echo("=" * 40)
+            click.echo(f"  Total repos: {summary.get('total_repositories', 0)}")
+            click.echo(f"  Enabled: {summary.get('enabled_repositories', 0)}")
+            click.echo(f"  Disabled: {summary.get('disabled_repositories', 0)}")
+            by_type = summary.get("repositories_by_type", {})
+            if by_type:
+                click.echo("  By type:")
+                for ptype, count in by_type.items():
+                    click.echo(f"    {ptype}: {count}")
+        return
+
+    if show_status:
+        summary = engine.get_workspace_summary()
+        if not summary:
+            click.echo("No workspace loaded.")
+            return
+        if fmt == "json":
+            import orjson
+
+            sys.stdout.write(
+                orjson.dumps(summary, option=orjson.OPT_INDENT_2, default=str).decode()
+            )
+            sys.stdout.write("\n")
+        else:
+            click.echo(f"Workspace: {summary.get('name', '?')}")
+            click.echo(f"  Root: {summary.get('root_path', '?')}")
+            click.echo(f"  Repositories: {summary.get('total_repositories', 0)}")
+            click.echo(f"  Enabled: {summary.get('enabled_repositories', 0)}")
+            search_settings = summary.get("search_settings", {})
+            if search_settings:
+                click.echo(f"  Parallel: {search_settings.get('parallel', '?')}")
+                click.echo(f"  Workers: {search_settings.get('workers', '?')}")
+                click.echo(f"  Max workers: {search_settings.get('max_workers', '?')}")
+        return
+
+    if search_pattern:
+        if not engine.is_multi_repo_enabled():
+            click.echo("Error: No workspace/multi-repo enabled. Use --open or --init first.", err=True)
+            sys.exit(1)
+        result = engine.search_all_repositories(
+            pattern=search_pattern,
+            use_regex=ws_regex,
+            max_results=max_results,
+            timeout=timeout,
+        )
+        if not result:
+            click.echo("No results found.")
+            return
+        if fmt == "json":
+            import orjson
+
+            sys.stdout.write(
+                orjson.dumps(vars(result), option=orjson.OPT_INDENT_2, default=str).decode()
+            )
+            sys.stdout.write("\n")
+        else:
+            click.echo("Workspace Search Results")
+            click.echo("=" * 40)
+            if hasattr(result, "successful_repositories"):
+                click.echo(f"  Repositories searched: {result.successful_repositories}")
+            if hasattr(result, "total_matches"):
+                click.echo(f"  Total matches: {result.total_matches}")
+            if hasattr(result, "repository_results") and result.repository_results:
+                for repo_name, repo_result in result.repository_results.items():
+                    click.echo(f"\n  [{repo_name}]")
+                    if hasattr(repo_result, "items"):
+                        for item in repo_result.items[:20]:
+                            click.echo(f"    {item.file}:{item.start_line}")
+        return
+
+    # Default: show help
+    click.echo("Workspace management commands:")
+    click.echo("  --init NAME     Create a new workspace")
+    click.echo("  --open PATH     Open a workspace config file")
+    click.echo("  --discover .    Auto-discover Git repositories")
+    click.echo("  --add NAME PATH Add a repository")
+    click.echo("  --list          List workspace repositories")
+    click.echo("  --status        Show workspace status")
+    click.echo("  --search PATTERN  Search across workspace")
+    click.echo("  --save [PATH]   Save workspace config")
 
 
 @cli.command("ide")

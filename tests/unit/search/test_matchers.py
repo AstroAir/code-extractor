@@ -94,6 +94,74 @@ class TestFindAstBlocks:
         assert isinstance(blocks, list)
 
 
+class TestIsMatchInStringOrComment:
+    """Tests for _is_match_in_string_or_comment function."""
+
+    def test_match_in_string(self):
+        from pysearch.search.matchers import _is_match_in_string_or_comment
+        lines = ['x = "hello world"']
+        in_str, in_comment, in_docstring = _is_match_in_string_or_comment(lines, 0, 5, 10)
+        assert in_str is True
+
+    def test_match_in_comment(self):
+        from pysearch.search.matchers import _is_match_in_string_or_comment
+        lines = ["x = 1  # hello world"]
+        in_str, in_comment, in_docstring = _is_match_in_string_or_comment(lines, 0, 9, 14)
+        assert in_comment is True
+
+    def test_match_in_normal_code(self):
+        from pysearch.search.matchers import _is_match_in_string_or_comment
+        lines = ["hello = 42"]
+        in_str, in_comment, in_docstring = _is_match_in_string_or_comment(lines, 0, 0, 5)
+        assert in_str is False
+        assert in_comment is False
+
+    def test_match_in_docstring(self):
+        from pysearch.search.matchers import _is_match_in_string_or_comment
+        lines = ['    """hello world"""']
+        in_str, in_comment, in_docstring = _is_match_in_string_or_comment(lines, 0, 7, 12)
+        assert in_docstring is True
+
+
+class TestAstNodeMatchesFilters:
+    """Tests for ast_node_matches_filters function."""
+
+    def test_function_name_match(self):
+        import ast
+        from pysearch.search.matchers import ast_node_matches_filters
+        tree = ast.parse("def hello(): pass")
+        node = tree.body[0]
+        assert ast_node_matches_filters(node, ASTFilters(func_name="hello")) is True
+
+    def test_function_name_no_match(self):
+        import ast
+        from pysearch.search.matchers import ast_node_matches_filters
+        tree = ast.parse("def hello(): pass")
+        node = tree.body[0]
+        assert ast_node_matches_filters(node, ASTFilters(func_name="world")) is False
+
+    def test_class_name_match(self):
+        import ast
+        from pysearch.search.matchers import ast_node_matches_filters
+        tree = ast.parse("class Foo:\n    pass")
+        node = tree.body[0]
+        assert ast_node_matches_filters(node, ASTFilters(class_name="Foo")) is True
+
+    def test_class_name_no_match(self):
+        import ast
+        from pysearch.search.matchers import ast_node_matches_filters
+        tree = ast.parse("class Foo:\n    pass")
+        node = tree.body[0]
+        assert ast_node_matches_filters(node, ASTFilters(class_name="Bar")) is False
+
+    def test_no_filters_matches_all(self):
+        import ast
+        from pysearch.search.matchers import ast_node_matches_filters
+        tree = ast.parse("x = 1")
+        node = tree.body[0]
+        assert ast_node_matches_filters(node, ASTFilters()) is True
+
+
 class TestSearchInFile:
     """Tests for search_in_file function."""
 
@@ -118,5 +186,25 @@ class TestSearchInFile:
     def test_ast_mode(self):
         content = "def hello():\n    pass\n\ndef world():\n    pass\n"
         query = Query(pattern="hello", use_ast=True, context=0)
+        items = search_in_file(Path("test.py"), content, query)
+        assert isinstance(items, list)
+
+    def test_with_context_lines(self):
+        content = "line1\nline2\nhello\nline4\nline5\n"
+        query = Query(pattern="hello", use_regex=False, context=1)
+        items = search_in_file(Path("test.py"), content, query)
+        assert len(items) >= 1
+        # Context should include surrounding lines
+        assert len(items[0].lines) >= 2
+
+    def test_semantic_mode(self):
+        content = "def connect_database():\n    conn = sqlite3.connect('db')\n    return conn\n"
+        query = Query(pattern="database connection", use_semantic=True, context=0)
+        items = search_in_file(Path("test.py"), content, query)
+        assert isinstance(items, list)
+
+    def test_no_pattern_returns_empty(self):
+        content = "hello world"
+        query = Query(pattern="", use_regex=False, context=0)
         items = search_in_file(Path("test.py"), content, query)
         assert isinstance(items, list)

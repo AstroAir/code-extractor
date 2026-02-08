@@ -120,7 +120,7 @@ class TestSoundex:
         assert soundex("Smith") == soundex("Smith")
 
 
-class TestFuzzyMatch:
+class TestFuzzyMatchFunction:
     """Tests for fuzzy_match function."""
 
     def test_exact_match(self):
@@ -134,6 +134,22 @@ class TestFuzzyMatch:
     def test_no_match(self):
         matches = fuzzy_match("hello", "xyz", max_distance=0)
         assert len(matches) == 0
+
+    def test_with_jaro_winkler_algorithm(self):
+        matches = fuzzy_match(
+            "hello world", "helo",
+            max_distance=1,
+            algorithm=FuzzyAlgorithm.JARO_WINKLER,
+        )
+        assert isinstance(matches, list)
+
+    def test_with_damerau_levenshtein(self):
+        matches = fuzzy_match(
+            "hello world", "hlelo",
+            max_distance=1,
+            algorithm=FuzzyAlgorithm.DAMERAU_LEVENSHTEIN,
+        )
+        assert isinstance(matches, list)
 
 
 class TestFuzzySearchAdvanced:
@@ -149,6 +165,49 @@ class TestFuzzySearchAdvanced:
             algorithms=[FuzzyAlgorithm.LEVENSHTEIN],
         )
         assert isinstance(matches, list)
+
+    def test_with_multiple_algorithms(self):
+        matches = fuzzy_search_advanced(
+            "hello world", "helo",
+            algorithms=[FuzzyAlgorithm.LEVENSHTEIN, FuzzyAlgorithm.JARO_WINKLER],
+        )
+        assert isinstance(matches, list)
+
+
+class TestMetaphone:
+    """Tests for metaphone function."""
+
+    def test_basic(self):
+        from pysearch.search.fuzzy import metaphone
+        code = metaphone("Robert")
+        assert isinstance(code, str)
+        assert len(code) > 0
+
+    def test_empty(self):
+        from pysearch.search.fuzzy import metaphone
+        code = metaphone("")
+        assert isinstance(code, str)
+
+    def test_same_sound(self):
+        from pysearch.search.fuzzy import metaphone
+        code1 = metaphone("Smith")
+        code2 = metaphone("Smith")
+        assert code1 == code2
+
+
+class TestFuzzyPattern:
+    """Tests for fuzzy_pattern function."""
+
+    def test_basic(self):
+        from pysearch.search.fuzzy import fuzzy_pattern
+        pattern = fuzzy_pattern("hello", max_distance=1)
+        assert isinstance(pattern, str)
+        assert len(pattern) > 0
+
+    def test_zero_distance(self):
+        from pysearch.search.fuzzy import fuzzy_pattern
+        pattern = fuzzy_pattern("test", max_distance=0)
+        assert isinstance(pattern, str)
 
 
 class TestCalculateSimilarity:
@@ -166,6 +225,18 @@ class TestCalculateSimilarity:
         score = calculate_similarity("hello", "hello", FuzzyAlgorithm.JARO_WINKLER)
         assert score == 1.0
 
+    def test_soundex(self):
+        score = calculate_similarity("Robert", "Rupert", FuzzyAlgorithm.SOUNDEX)
+        assert isinstance(score, float)
+
+    def test_damerau_levenshtein(self):
+        score = calculate_similarity("hello", "hello", FuzzyAlgorithm.DAMERAU_LEVENSHTEIN)
+        assert score == 1.0
+
+    def test_empty_strings(self):
+        score = calculate_similarity("", "", FuzzyAlgorithm.LEVENSHTEIN)
+        assert score == 1.0
+
 
 class TestSuggestCorrections:
     """Tests for suggest_corrections function."""
@@ -177,3 +248,17 @@ class TestSuggestCorrections:
         # Returns list of (word, score) tuples
         words = [s[0] if isinstance(s, tuple) else s for s in suggestions]
         assert "hello" in words or "help" in words
+
+    def test_exact_match_in_dict(self):
+        dictionary = ["hello", "world"]
+        suggestions = suggest_corrections("hello", dictionary)
+        assert isinstance(suggestions, list)
+
+    def test_empty_dictionary(self):
+        suggestions = suggest_corrections("hello", [])
+        assert suggestions == []
+
+    def test_max_suggestions(self):
+        dictionary = ["hello", "hallo", "hullo", "helly", "helps"]
+        suggestions = suggest_corrections("helo", dictionary, max_suggestions=2)
+        assert len(suggestions) <= 2

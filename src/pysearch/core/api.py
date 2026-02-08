@@ -63,7 +63,8 @@ from ..utils.metadata_filters import apply_metadata_filters, get_file_author
 from ..utils.helpers import create_file_metadata
 from .config import SearchConfig
 from .history import SearchHistory
-from .history.history_core import SearchHistoryEntry
+from .history.history_core import SearchCategory, SearchHistoryEntry
+from .history.history_export import ExportFormat, HistoryExporter
 from .managers.hybrid_search import HybridSearchManager
 from .managers.cache_integration import CacheIntegrationManager
 from .managers.dependency_integration import DependencyIntegrationManager
@@ -1612,6 +1613,145 @@ class PySearch:
         """
         return self.multi_repo_integration.sync_repositories()
 
+    # -- Workspace Management -----------------------------------------------
+
+    def open_workspace(self, config_path: Path | str) -> bool:
+        """
+        Open a workspace from a configuration file.
+
+        Loads the workspace TOML config, enables multi-repo search, and
+        registers all enabled repositories for cross-repo searching.
+
+        Args:
+            config_path: Path to .pysearch-workspace.toml
+
+        Returns:
+            True if workspace was opened successfully, False otherwise
+
+        Example:
+            >>> engine.open_workspace("/path/to/.pysearch-workspace.toml")
+            >>> results = engine.search_all_repositories("def main")
+        """
+        result = self.multi_repo_integration.load_workspace(config_path)
+        if result:
+            self.logger.info(f"Opened workspace from {config_path}")
+        else:
+            self.logger.error(f"Failed to open workspace from {config_path}")
+        return result
+
+    def create_workspace(
+        self,
+        name: str,
+        root_path: Path | str,
+        description: str = "",
+        auto_discover: bool = False,
+        max_depth: int = 3,
+        **metadata: Any,
+    ) -> bool:
+        """
+        Create a new workspace and optionally discover repositories.
+
+        Args:
+            name: Workspace name
+            root_path: Root directory for the workspace
+            description: Optional description
+            auto_discover: Whether to auto-discover Git repos in root_path
+            max_depth: Max directory depth for auto-discovery
+            **metadata: Arbitrary metadata
+
+        Returns:
+            True if workspace was created successfully
+
+        Example:
+            >>> engine.create_workspace(
+            ...     "my-project", "/path/to/root",
+            ...     auto_discover=True, max_depth=2
+            ... )
+        """
+        ws = self.multi_repo_integration.create_workspace(
+            name, root_path, description, **metadata
+        )
+        if ws is None:
+            self.logger.error("Failed to create workspace")
+            return False
+
+        self.logger.info(f"Created workspace '{name}' at {root_path}")
+
+        if auto_discover:
+            self.discover_repositories(root_path, max_depth=max_depth)
+
+        return True
+
+    def save_workspace(self, config_path: Path | str | None = None) -> bool:
+        """
+        Save the current workspace configuration to a TOML file.
+
+        Args:
+            config_path: Output path. If None, saves to
+                         <root_path>/.pysearch-workspace.toml
+
+        Returns:
+            True if saved successfully, False otherwise
+
+        Example:
+            >>> engine.save_workspace("/path/to/.pysearch-workspace.toml")
+        """
+        result = self.multi_repo_integration.save_workspace(config_path)
+        if result:
+            self.logger.info(f"Saved workspace to {config_path or 'default location'}")
+        return result
+
+    def discover_repositories(
+        self,
+        root_path: Path | str | None = None,
+        max_depth: int = 3,
+        auto_add: bool = True,
+    ) -> list[dict[str, Any]]:
+        """
+        Discover Git repositories in a directory tree.
+
+        Scans subdirectories for Git repositories, detects project types,
+        and optionally adds them to the current workspace and multi-repo engine.
+
+        Args:
+            root_path: Directory to scan (defaults to workspace root)
+            max_depth: Maximum directory depth to search
+            auto_add: Whether to automatically add discovered repos
+
+        Returns:
+            List of discovered repository info dictionaries
+
+        Example:
+            >>> repos = engine.discover_repositories("/path/to/projects", max_depth=2)
+            >>> for repo in repos:
+            ...     print(f"{repo['name']}: {repo['project_type']}")
+        """
+        # Ensure multi-repo is enabled
+        if not self.multi_repo_integration.is_multi_repo_enabled():
+            self.enable_multi_repo()
+
+        discovered = self.multi_repo_integration.discover_repositories(
+            root_path=root_path,
+            max_depth=max_depth,
+            auto_add=auto_add,
+        )
+        self.logger.info(f"Discovered {len(discovered)} repositories")
+        return discovered
+
+    def get_workspace_summary(self) -> dict[str, Any]:
+        """
+        Get a summary of the current workspace.
+
+        Returns:
+            Dictionary with workspace summary information, empty if no workspace
+
+        Example:
+            >>> summary = engine.get_workspace_summary()
+            >>> print(f"Workspace: {summary.get('name')}")
+            >>> print(f"Repositories: {summary.get('total_repositories')}")
+        """
+        return self.multi_repo_integration.get_workspace_summary()
+
     # New advanced search methods
     def fuzzy_search(
         self,
@@ -2034,6 +2174,202 @@ class PySearch:
     def get_bookmarks_in_folder(self, folder_name: str) -> list[Any]:
         """Get all bookmarks in a specific folder."""
         return self.history.get_bookmarks_in_folder(folder_name)
+
+    # ── Enhanced history: export/import/backup/restore ──
+
+    def export_history(
+        self,
+        output_path: str,
+        fmt: str = "json",
+        *,
+        start_time: float | None = None,
+        end_time: float | None = None,
+    ) -> int:
+        """
+        Export search history to a file.
+
+        Args:
+            output_path: Output file path
+            fmt: Export format ('json' or 'csv')
+            start_time: Optional start timestamp filter
+            end_time: Optional end timestamp filter
+
+        Returns:
+            Number of entries exported
+        """
+        exporter = HistoryExporter(self.cfg)
+        export_fmt = ExportFormat(fmt.lower())
+        entries = list(self.history._history)
+        self.history.load()
+        return exporter.export_history(
+            entries, output_path, export_fmt,
+            start_time=start_time, end_time=end_time,
+        )
+
+    def export_history_to_string(
+        self,
+        fmt: str = "json",
+        *,
+        start_time: float | None = None,
+        end_time: float | None = None,
+    ) -> str:
+        """Export search history to a string."""
+        exporter = HistoryExporter(self.cfg)
+        export_fmt = ExportFormat(fmt.lower())
+        self.history.load()
+        entries = list(self.history._history)
+        return exporter.export_history_to_string(
+            entries, export_fmt,
+            start_time=start_time, end_time=end_time,
+        )
+
+    def import_history(self, input_path: str, *, merge: bool = True) -> int:
+        """
+        Import search history from a JSON file.
+
+        Args:
+            input_path: Path to JSON file
+            merge: If True, merge with existing; if False, replace
+
+        Returns:
+            Number of entries after import
+        """
+        exporter = HistoryExporter(self.cfg)
+        self.history.load()
+        existing = list(self.history._history) if merge else None
+        imported = exporter.import_history(
+            input_path, merge=merge, existing_entries=existing
+        )
+        self.history._history.clear()
+        for entry in imported:
+            self.history._history.append(entry)
+        self.history.save_history()
+        return len(self.history._history)
+
+    def backup_history(self, output_path: str) -> dict[str, int]:
+        """Create a full backup of history, bookmarks, and sessions."""
+        self.history.load()
+        self.history._ensure_managers_loaded()
+        # Ensure managers save their state before backup
+        self.history.save_history()
+        if self.history._session_manager:
+            self.history._session_manager.save_sessions()
+        if self.history._bookmark_manager:
+            self.history._bookmark_manager.save_bookmarks()
+            self.history._bookmark_manager.save_folders()
+        exporter = HistoryExporter(self.cfg)
+        return exporter.backup(output_path)
+
+    def restore_history(self, input_path: str) -> dict[str, int]:
+        """
+        Restore history, bookmarks, and sessions from a backup.
+
+        Note: This replaces current data. The history object should be
+        reloaded after restore.
+        """
+        exporter = HistoryExporter(self.cfg)
+        counts = exporter.restore(input_path)
+        # Force reload on next access
+        self.history._loaded = False
+        self.history._history.clear()
+        if self.history._session_manager:
+            self.history._session_manager._loaded = False
+        if self.history._bookmark_manager:
+            self.history._bookmark_manager._loaded = False
+        return counts
+
+    def validate_backup(self, input_path: str) -> dict[str, Any]:
+        """Validate a backup file without restoring."""
+        exporter = HistoryExporter(self.cfg)
+        return exporter.validate_backup(input_path)
+
+    # ── Enhanced history: advanced filtering ──
+
+    def get_history_by_date_range(
+        self,
+        start_time: float | None = None,
+        end_time: float | None = None,
+        limit: int | None = None,
+    ) -> list[SearchHistoryEntry]:
+        """Get history entries within a date range."""
+        return self.history.get_history_by_date_range(start_time, end_time, limit)
+
+    def get_history_by_category(
+        self, category: str, limit: int | None = None
+    ) -> list[SearchHistoryEntry]:
+        """Get history entries filtered by category."""
+        try:
+            cat = SearchCategory(category.lower())
+        except ValueError:
+            return []
+        return self.history.get_history_by_category(cat, limit)
+
+    def get_history_by_language(
+        self, language: str, limit: int | None = None
+    ) -> list[SearchHistoryEntry]:
+        """Get history entries that involved a specific programming language."""
+        return self.history.get_history_by_language(language, limit)
+
+    def search_in_history(self, query: str, limit: int | None = None) -> list[SearchHistoryEntry]:
+        """Full-text search across query patterns in history."""
+        return self.history.search_history(query, limit)
+
+    def cleanup_old_history(self, days: int) -> int:
+        """Remove history entries older than specified days."""
+        return self.history.cleanup_old_history(days)
+
+    def deduplicate_history(self) -> int:
+        """Remove duplicate consecutive entries."""
+        return self.history.deduplicate_history()
+
+    def get_detailed_history_stats(self) -> dict[str, Any]:
+        """Get comprehensive search history statistics."""
+        return self.history.get_detailed_stats()
+
+    # ── Enhanced history: trends and failed patterns ──
+
+    def get_search_trends(self, days: int = 30) -> dict[str, Any]:
+        """Get search trend data over time."""
+        self.history._ensure_managers_loaded()
+        if self.history._analytics_manager:
+            return self.history._analytics_manager.get_search_trends(
+                list(self.history._history), days
+            )
+        return {}
+
+    def get_category_trends(self, days: int = 30) -> dict[str, Any]:
+        """Get category usage trends over time."""
+        self.history._ensure_managers_loaded()
+        if self.history._analytics_manager:
+            return self.history._analytics_manager.get_category_trends(
+                list(self.history._history), days
+            )
+        return {}
+
+    def get_top_failed_patterns(self, limit: int = 10) -> list[dict[str, Any]]:
+        """Get patterns that most frequently return zero results."""
+        self.history._ensure_managers_loaded()
+        if self.history._analytics_manager:
+            return self.history._analytics_manager.get_top_failed_patterns(
+                list(self.history._history), limit
+            )
+        return []
+
+    # ── Enhanced history: session comparison ──
+
+    def compare_sessions(self, session_id_1: str, session_id_2: str) -> dict[str, Any]:
+        """Compare two search sessions."""
+        self.history._ensure_managers_loaded()
+        if self.history._session_manager:
+            return self.history._session_manager.compare_sessions(session_id_1, session_id_2)
+        return {"error": "Session manager not available"}
+
+    def get_session_summary(self, session_id: str) -> dict[str, Any]:
+        """Get a detailed summary of a specific session."""
+        self.history._ensure_managers_loaded()
+        if self.history._session_manager:
+            return self.history._session_manager.get_session_summary(session_id)
+        return {"error": "Session manager not available"}
 
     def get_indexer_stats(self) -> dict[str, Any]:
         """Get indexer cache statistics."""

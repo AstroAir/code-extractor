@@ -100,3 +100,81 @@ class TestSemanticSearchEngine:
         content = "def process_data():\n    db = connect()\n    return db.query('SELECT *')"
         results = engine.search_semantic("database query", content)
         assert isinstance(results, list)
+
+    def test_search_semantic_with_file_path(self):
+        engine = SemanticSearchEngine()
+        content = "def connect_database():\n    conn = sqlite3.connect('db')\n    return conn\n"
+        results = engine.search_semantic(
+            "database connection", content, file_path=Path("db.py")
+        )
+        assert isinstance(results, list)
+
+    def test_search_semantic_empty_content(self):
+        engine = SemanticSearchEngine()
+        results = engine.search_semantic("anything", "")
+        assert results == []
+
+    def test_search_semantic_high_threshold(self):
+        engine = SemanticSearchEngine()
+        content = "x = 1\ny = 2\n"
+        results = engine.search_semantic("database connection", content, threshold=0.99)
+        assert results == []
+
+    def test_fit_corpus(self):
+        engine = SemanticSearchEngine()
+        docs = [
+            "def connect(): pass",
+            "class Database: pass",
+            "import sqlite3",
+        ]
+        engine.fit_corpus(docs)
+        assert engine.embedding_model.is_fitted is True
+
+    def test_fit_corpus_empty(self):
+        engine = SemanticSearchEngine()
+        engine.fit_corpus([])
+        assert engine.embedding_model.is_fitted is False
+
+    def test_search_semantic_after_fit(self):
+        engine = SemanticSearchEngine()
+        docs = [
+            "def connect_database():\n    conn = sqlite3.connect('db')\n    return conn",
+            "def process_data(data):\n    return [d.strip() for d in data]",
+            "class UserManager:\n    def get_user(self, id): pass",
+        ]
+        engine.fit_corpus(docs)
+        results = engine.search_semantic("database connection", docs[0], threshold=0.01)
+        assert isinstance(results, list)
+
+    def test_expand_query_semantically(self):
+        engine = SemanticSearchEngine()
+        expanded = engine.expand_query_semantically("database")
+        assert isinstance(expanded, list)
+        assert "database" in expanded
+        assert len(expanded) >= 1
+
+    def test_expand_query_snake_case(self):
+        engine = SemanticSearchEngine()
+        expanded = engine.expand_query_semantically("connect_db")
+        assert isinstance(expanded, list)
+        # Should include camelCase variant
+        assert any("connectDb" in term or "connect_db" in term for term in expanded)
+
+    def test_expand_query_adds_plural(self):
+        engine = SemanticSearchEngine()
+        expanded = engine.expand_query_semantically("query")
+        assert "querys" in expanded or "query" in expanded
+
+    def test_expand_query_removes_plural(self):
+        engine = SemanticSearchEngine()
+        expanded = engine.expand_query_semantically("queries")
+        assert "querie" in expanded or "queries" in expanded
+
+    def test_search_semantic_caches_concepts(self):
+        engine = SemanticSearchEngine()
+        content = "def foo():\n    pass\n"
+        engine.search_semantic("foo", content)
+        # Second call should use cache
+        engine.search_semantic("bar", content)
+        # Cache should have one entry
+        assert len(engine._concept_cache) == 1
