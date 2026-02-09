@@ -60,7 +60,8 @@ class MetadataIndex:
         cursor = self._connection.cursor()
 
         # Files table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS files (
                 file_path TEXT PRIMARY KEY,
                 size INTEGER,
@@ -78,10 +79,12 @@ class MetadataIndex:
                 access_count INTEGER,
                 last_accessed REAL
             )
-        """)
+        """
+        )
 
         # Entities table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS entities (
                 entity_id TEXT PRIMARY KEY,
                 name TEXT,
@@ -99,7 +102,8 @@ class MetadataIndex:
                 last_updated REAL,
                 FOREIGN KEY (file_path) REFERENCES files (file_path)
             )
-        """)
+        """
+        )
 
         # Create indexes for efficient querying
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_language ON files (language)")
@@ -270,7 +274,7 @@ class MetadataIndex:
         # Apply offset and limit for pattern-filtered results
         if has_file_patterns:
             if query.offset > 0:
-                files = files[query.offset:]
+                files = files[query.offset :]
             if query.limit is not None:
                 files = files[: query.limit]
 

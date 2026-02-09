@@ -55,9 +55,7 @@ def _extract_json(output: str) -> dict:
 
 def _create_test_files(tmp_path: Path):
     """Create test Python files for CLI testing."""
-    (tmp_path / "main.py").write_text(
-        "def main():\n" "    print('Hello World')\n" "    return 0\n"
-    )
+    (tmp_path / "main.py").write_text("def main():\n" "    print('Hello World')\n" "    return 0\n")
     (tmp_path / "utils.py").write_text(
         "def helper():\n"
         "    return True\n"
@@ -157,10 +155,14 @@ class TestFindCmd:
                 cli,
                 [
                     "find",
-                    "--path", str(tmp_path),
-                    "--include", "*.py",
-                    "--exclude", "*config*",
-                    "--format", "json",
+                    "--path",
+                    str(tmp_path),
+                    "--include",
+                    "*.py",
+                    "--exclude",
+                    "*config*",
+                    "--format",
+                    "json",
                     "def",
                 ],
             )
@@ -179,9 +181,12 @@ class TestFindCmd:
                 cli,
                 [
                     "find",
-                    "--path", str(tmp_path),
-                    "--filter-func-name", "helper",
-                    "--format", "json",
+                    "--path",
+                    str(tmp_path),
+                    "--filter-func-name",
+                    "helper",
+                    "--format",
+                    "json",
                     "def",
                 ],
             )
@@ -198,10 +203,14 @@ class TestFindCmd:
                 cli,
                 [
                     "find",
-                    "--path", str(tmp_path),
-                    "--min-lines", "1",
-                    "--max-lines", "10",
-                    "--format", "json",
+                    "--path",
+                    str(tmp_path),
+                    "--min-lines",
+                    "1",
+                    "--max-lines",
+                    "10",
+                    "--format",
+                    "json",
                     "def",
                 ],
             )
@@ -231,10 +240,13 @@ class TestFindCmd:
                 cli,
                 [
                     "find",
-                    "--path", str(tmp_path),
+                    "--path",
+                    str(tmp_path),
                     "--fuzzy",
-                    "--fuzzy-distance", "2",
-                    "--format", "json",
+                    "--fuzzy-distance",
+                    "2",
+                    "--format",
+                    "json",
                     "heper",  # misspelled "helper"
                 ],
             )
@@ -251,9 +263,12 @@ class TestFindCmd:
                 cli,
                 [
                     "find",
-                    "--path", str(tmp_path),
-                    "--ranking", "relevance",
-                    "--format", "json",
+                    "--path",
+                    str(tmp_path),
+                    "--ranking",
+                    "relevance",
+                    "--format",
+                    "json",
                     "def",
                 ],
             )
@@ -330,9 +345,12 @@ class TestFindCmd:
                 cli,
                 [
                     "find",
-                    "--log-file", log_file_path,
-                    "--log-format", "json",
-                    "--format", "json",
+                    "--log-file",
+                    log_file_path,
+                    "--log-format",
+                    "json",
+                    "--format",
+                    "json",
                     "test",
                 ],
             )
@@ -981,9 +999,7 @@ class TestDepsCmd:
             "impact_score": 0.5,
         }
 
-        result = self.runner.invoke(
-            cli, ["deps", "--impact", "src.core.api", "--format", "json"]
-        )
+        result = self.runner.invoke(cli, ["deps", "--impact", "src.core.api", "--format", "json"])
         assert result.exit_code == 0
         data = _extract_json(result.output)
         assert data["total_affected_modules"] == 3
@@ -1100,9 +1116,7 @@ class TestWatchCmd:
         mock_pysearch.return_value = mock_engine
         mock_engine.is_auto_watch_enabled.return_value = True
         mock_engine.list_watchers.return_value = ["watcher1"]
-        mock_engine.get_watch_stats.return_value = {
-            "watcher1": {"events": 10}
-        }
+        mock_engine.get_watch_stats.return_value = {"watcher1": {"events": 10}}
 
         result = self.runner.invoke(cli, ["watch", "--status"])
         assert result.exit_code == 0
@@ -1211,13 +1225,15 @@ class TestCacheCmd:
         mock_pysearch.return_value = mock_engine
         mock_engine.enable_caching.return_value = True
 
-        result = self.runner.invoke(
-            cli, ["cache", "--enable", "disk", "--cache-dir", "/tmp/cache"]
-        )
+        result = self.runner.invoke(cli, ["cache", "--enable", "disk", "--cache-dir", "/tmp/cache"])
         assert result.exit_code == 0
         assert "disk" in result.output
         mock_engine.enable_caching.assert_called_once_with(
-            backend="disk", cache_dir="/tmp/cache", max_size=1000, default_ttl=3600.0, compression=False,
+            backend="disk",
+            cache_dir="/tmp/cache",
+            max_size=1000,
+            default_ttl=3600.0,
+            compression=False,
         )
 
     @patch("pysearch.cli.main.PySearch")

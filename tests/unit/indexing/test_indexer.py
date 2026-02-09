@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.config import SearchConfig
-from pysearch.indexing.indexer import IndexRecord, Indexer
+from pysearch.indexing.indexer import Indexer, IndexRecord
 
 
 class TestIndexRecord:
@@ -125,3 +122,43 @@ class TestIndexer:
         indexer = Indexer(cfg)
         result = indexer.remove_file(tmp_path / "never_added.py")
         assert result is False
+
+    def test_clear(self, tmp_path: Path):
+        """clear should remove all in-memory index data."""
+        (tmp_path / "a.py").write_text("x = 1", encoding="utf-8")
+        cfg = SearchConfig(paths=[str(tmp_path)], include=["**/*.py"], cache_dir=tmp_path / "cache")
+        indexer = Indexer(cfg)
+        indexer.scan()
+        assert indexer.count_indexed() >= 1
+        indexer.save()
+        indexer.clear()
+        assert indexer.count_indexed() == 0
+
+    def test_cleanup_old_entries(self, tmp_path: Path):
+        """cleanup_old_entries should remove entries not accessed recently."""
+        (tmp_path / "old.py").write_text("x = 1", encoding="utf-8")
+        (tmp_path / "new.py").write_text("y = 2", encoding="utf-8")
+        cfg = SearchConfig(paths=[str(tmp_path)], include=["**/*.py"], cache_dir=tmp_path / "cache")
+        indexer = Indexer(cfg)
+        indexer.scan()
+        count_before = indexer.count_indexed()
+        assert count_before >= 2
+        # All entries are fresh, so cleanup with days_old=0 should remove all
+        # but with days_old=30 should remove none
+        removed = indexer.cleanup_old_entries(days_old=30)
+        assert removed == 0
+        assert indexer.count_indexed() == count_before
+
+    def test_cleanup_old_entries_removes_stale(self, tmp_path: Path):
+        """cleanup_old_entries should remove stale entries."""
+        (tmp_path / "stale.py").write_text("x = 1", encoding="utf-8")
+        cfg = SearchConfig(paths=[str(tmp_path)], include=["**/*.py"], cache_dir=tmp_path / "cache")
+        indexer = Indexer(cfg)
+        indexer.scan()
+        assert indexer.count_indexed() >= 1
+        # Manually set last_accessed to a very old time
+        for rec in indexer._index.values():
+            rec.last_accessed = 0.0
+        removed = indexer.cleanup_old_entries(days_old=1)
+        assert removed >= 1
+        assert indexer.count_indexed() == 0

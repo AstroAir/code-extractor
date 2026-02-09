@@ -5,8 +5,6 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.types import FileMetadata, Language, MetadataFilters
 from pysearch.utils.metadata_filters import (
     apply_metadata_filters,

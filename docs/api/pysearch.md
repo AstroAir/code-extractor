@@ -2,7 +2,7 @@
 
 The main PySearch class provides the primary interface for programmatic access to the search engine.
 
-::: pysearch.api.PySearch
+::: pysearch.core.api.PySearch
     options:
       show_root_heading: true
       show_source: false

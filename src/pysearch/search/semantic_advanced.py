@@ -463,7 +463,7 @@ class CodeSemanticAnalyzer:
             for node in ast.walk(tree):
                 concept = None
 
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                     concept = SemanticConcept(
                         name=node.name,
                         category="function",
@@ -491,7 +491,7 @@ class CodeSemanticAnalyzer:
                         },
                     )
 
-                elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                elif isinstance(node, ast.Import | ast.ImportFrom):
                     for alias in node.names:
                         concept = SemanticConcept(
                             name=alias.name,
@@ -593,7 +593,9 @@ class CodeSemanticAnalyzer:
 
         return concepts
 
-    def _get_function_context(self, node: ast.FunctionDef | ast.AsyncFunctionDef, lines: list[str]) -> str:
+    def _get_function_context(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef, lines: list[str]
+    ) -> str:
         """Get contextual information for a function."""
         context_parts = []
 
@@ -840,7 +842,10 @@ class SemanticSearchEngine:
         return total_score / total_weight if total_weight > 0 else 0.0
 
     def _calculate_contextual_score(
-        self, query: str, content: str, concepts: list[SemanticConcept],
+        self,
+        query: str,
+        content: str,
+        concepts: list[SemanticConcept],
         _lines: list[str] | None = None,
     ) -> float:
         """Calculate score based on contextual relevance."""

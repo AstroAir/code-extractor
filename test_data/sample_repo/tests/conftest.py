@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from src.models.user import User, UserRole
 from src.models.post import Post
+from src.models.user import User, UserRole
 
 
 @pytest.fixture

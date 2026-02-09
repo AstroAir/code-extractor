@@ -5,14 +5,14 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.core.history.history_core import SearchCategory, SearchHistory, SearchHistoryEntry
-from pysearch.core.types import OutputFormat, Query, SearchItem, SearchResult, SearchStats
+from pysearch.core.types import Query, SearchItem, SearchResult, SearchStats
 
 
-def _make_result(items_count: int = 3, files_matched: int = 2, elapsed_ms: float = 50.0) -> SearchResult:
+def _make_result(
+    items_count: int = 3, files_matched: int = 2, elapsed_ms: float = 50.0
+) -> SearchResult:
     return SearchResult(
         items=[],
         stats=SearchStats(
@@ -27,8 +27,11 @@ def _make_result(items_count: int = 3, files_matched: int = 2, elapsed_ms: float
 
 def _make_result_with_items(tmp_path: Path) -> SearchResult:
     item = SearchItem(
-        file=tmp_path / "a.py", start_line=1, end_line=1,
-        lines=["x"], match_spans=[(0, (0, 1))],
+        file=tmp_path / "a.py",
+        start_line=1,
+        end_line=1,
+        lines=["x"],
+        match_spans=[(0, (0, 1))],
     )
     stats = SearchStats(files_scanned=1, files_matched=1, items=1, elapsed_ms=1.0)
     return SearchResult(items=[item], stats=stats)
@@ -67,8 +70,14 @@ class TestSearchHistoryEntry:
 
     def test_defaults(self):
         entry = SearchHistoryEntry(
-            timestamp=1.0, query_pattern="x", use_regex=False,
-            use_ast=False, context=0, files_matched=0, items_count=0, elapsed_ms=0.0,
+            timestamp=1.0,
+            query_pattern="x",
+            use_regex=False,
+            use_ast=False,
+            context=0,
+            files_matched=0,
+            items_count=0,
+            elapsed_ms=0.0,
         )
         assert entry.filters is None
         assert entry.session_id is None
@@ -268,3 +277,239 @@ class TestSearchHistory:
         assert h.add_tags_to_search("rateme", {"tag1"}) is True
         tagged = h.search_history_by_tags({"tag1"})
         assert len(tagged) == 1
+
+
+class TestSearchHistoryEnhanced:
+    """Tests for enhanced SearchHistory methods."""
+
+    def test_get_detailed_stats_empty(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        stats = h.get_detailed_stats()
+        assert stats["total_searches"] == 0
+        assert stats["date_range"] is None
+
+    def test_get_detailed_stats_with_data(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        h.add_search(Query(pattern="def main"), _make_result(items_count=5, elapsed_ms=100.0))
+        h.add_search(Query(pattern="class Foo"), _make_result(items_count=3, elapsed_ms=200.0))
+
+        stats = h.get_detailed_stats()
+        assert stats["total_searches"] == 2
+        assert stats["unique_patterns"] == 2
+        assert stats["total_elapsed_ms"] == 300.0
+        assert stats["average_elapsed_ms"] == 150.0
+        assert stats["total_results"] == 8
+        assert stats["average_results"] == 4.0
+        assert stats["date_range"] is not None
+        assert "categories" in stats
+
+    def test_get_history_by_date_range(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        h.add_search(Query(pattern="old"), _make_result())
+        import time as _time
+
+        _time.sleep(0.05)
+        h.add_search(Query(pattern="new"), _make_result())
+
+        entries = list(h._history)
+        mid_time = (entries[0].timestamp + entries[1].timestamp) / 2
+
+        recent = h.get_history_by_date_range(start_time=mid_time)
+        assert len(recent) == 1
+        assert recent[0].query_pattern == "new"
+
+    def test_get_history_by_date_range_with_limit(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        for i in range(5):
+            h.add_search(Query(pattern=f"p{i}"), _make_result())
+
+        result = h.get_history_by_date_range(limit=2)
+        assert len(result) == 2
+
+    def test_get_history_by_category(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        h.add_search(Query(pattern="def foo"), _make_result())
+        h.add_search(Query(pattern="class Bar"), _make_result())
+        h.add_search(Query(pattern="something"), _make_result())
+
+        funcs = h.get_history_by_category(SearchCategory.FUNCTION)
+        assert len(funcs) >= 1
+        assert all(e.category == SearchCategory.FUNCTION for e in funcs)
+
+    def test_get_history_by_category_with_limit(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        for i in range(5):
+            h.add_search(Query(pattern=f"def func_{i}"), _make_result())
+
+        result = h.get_history_by_category(SearchCategory.FUNCTION, limit=2)
+        assert len(result) <= 2
+
+    def test_get_history_by_language(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        # Manually add entries with language info
+        h.load()
+        h._ensure_managers_loaded()
+        from pysearch.core.history.history_core import SearchHistoryEntry
+
+        h._history.append(
+            SearchHistoryEntry(
+                timestamp=time.time(),
+                query_pattern="py_search",
+                use_regex=False,
+                use_ast=False,
+                context=0,
+                files_matched=1,
+                items_count=1,
+                elapsed_ms=10.0,
+                languages={"python"},
+            )
+        )
+        h._history.append(
+            SearchHistoryEntry(
+                timestamp=time.time(),
+                query_pattern="js_search",
+                use_regex=False,
+                use_ast=False,
+                context=0,
+                files_matched=1,
+                items_count=1,
+                elapsed_ms=10.0,
+                languages={"javascript"},
+            )
+        )
+
+        py_entries = h.get_history_by_language("python")
+        assert len(py_entries) == 1
+        assert py_entries[0].query_pattern == "py_search"
+
+    def test_get_history_by_language_case_insensitive(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        h.load()
+        h._history.append(
+            SearchHistoryEntry(
+                timestamp=time.time(),
+                query_pattern="test",
+                use_regex=False,
+                use_ast=False,
+                context=0,
+                files_matched=1,
+                items_count=1,
+                elapsed_ms=10.0,
+                languages={"Python"},
+            )
+        )
+
+        result = h.get_history_by_language("python")
+        assert len(result) == 1
+
+    def test_search_history(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        h.add_search(Query(pattern="process_data"), _make_result())
+        h.add_search(Query(pattern="handle_request"), _make_result())
+        h.add_search(Query(pattern="process_info"), _make_result())
+
+        results = h.search_history("process")
+        assert len(results) == 2
+        assert all("process" in e.query_pattern for e in results)
+
+    def test_search_history_with_limit(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        for i in range(5):
+            h.add_search(Query(pattern=f"test_{i}"), _make_result())
+
+        results = h.search_history("test", limit=2)
+        assert len(results) == 2
+
+    def test_cleanup_old_history(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        h.load()
+        # Add an old entry
+        old_entry = SearchHistoryEntry(
+            timestamp=time.time() - 200 * 86400,  # 200 days ago
+            query_pattern="old",
+            use_regex=False,
+            use_ast=False,
+            context=0,
+            files_matched=0,
+            items_count=0,
+            elapsed_ms=0.0,
+        )
+        h._history.append(old_entry)
+        h.add_search(Query(pattern="recent"), _make_result())
+
+        removed = h.cleanup_old_history(days=90)
+        assert removed == 1
+        assert len(h._history) == 1
+        assert list(h._history)[0].query_pattern == "recent"
+
+    def test_cleanup_old_history_none_removed(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        h.add_search(Query(pattern="recent"), _make_result())
+
+        removed = h.cleanup_old_history(days=1)
+        assert removed == 0
+
+    def test_deduplicate_history(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        h.load()
+
+        now = time.time()
+        for i in range(3):
+            h._history.append(
+                SearchHistoryEntry(
+                    timestamp=now + i * 0.5,  # Within 2 seconds
+                    query_pattern="duplicate",
+                    use_regex=False,
+                    use_ast=False,
+                    context=0,
+                    files_matched=1,
+                    items_count=1,
+                    elapsed_ms=10.0,
+                )
+            )
+        h._history.append(
+            SearchHistoryEntry(
+                timestamp=now + 10,
+                query_pattern="unique",
+                use_regex=False,
+                use_ast=False,
+                context=0,
+                files_matched=1,
+                items_count=1,
+                elapsed_ms=10.0,
+            )
+        )
+
+        removed = h.deduplicate_history()
+        assert removed == 2
+        assert len(h._history) == 2
+
+    def test_deduplicate_no_duplicates(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        h.add_search(Query(pattern="a"), _make_result())
+        h.add_search(Query(pattern="b"), _make_result())
+
+        removed = h.deduplicate_history()
+        assert removed == 0
+
+    def test_deduplicate_single_entry(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        h = SearchHistory(cfg)
+        h.add_search(Query(pattern="solo"), _make_result())
+
+        removed = h.deduplicate_history()
+        assert removed == 0

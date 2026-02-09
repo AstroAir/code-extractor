@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 IDE integration module for pysearch.
 
@@ -14,21 +12,24 @@ Provides interfaces for IDE/editor plugins to leverage pysearch capabilities:
 Designed for integration via JSON-RPC, LSP adapters, or direct API calls.
 """
 
+from __future__ import annotations
+
 import re
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from ..utils.logging_config import get_logger
 
 if TYPE_CHECKING:
     from ..core.api import PySearch
 
-from ..core.types import Query, SearchResult
+from ..core.types import Query
 
 logger = get_logger()
 
@@ -36,6 +37,7 @@ logger = get_logger()
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------
+
 
 class HookType(str, Enum):
     """Supported IDE hook types."""
@@ -159,6 +161,7 @@ class Diagnostic:
 # IDEHooks – generic hook registry
 # ---------------------------------------------------------------------------
 
+
 class IDEHooks:
     """
     Registry for IDE-triggered hooks.
@@ -254,14 +257,14 @@ class IDEHooks:
         """Return metadata about all registered hooks."""
         with self._lock:
             return [
-                {"hook_id": hid, "type": htype.value}
-                for hid, (htype, _) in self._hooks.items()
+                {"hook_id": hid, "type": htype.value} for hid, (htype, _) in self._hooks.items()
             ]
 
 
 # ---------------------------------------------------------------------------
 # IDEIntegration – high-level IDE features backed by PySearch
 # ---------------------------------------------------------------------------
+
 
 class IDEIntegration:
     """
@@ -366,8 +369,7 @@ class IDEIntegration:
 
             for item in result.items:
                 is_def = any(
-                    kw in "\n".join(item.lines)
-                    for kw in (f"def {symbol}", f"class {symbol}")
+                    kw in "\n".join(item.lines) for kw in (f"def {symbol}", f"class {symbol}")
                 )
                 if not include_definition and is_def:
                     continue
@@ -529,7 +531,7 @@ class IDEIntegration:
             self._cache_timestamps.clear()
         else:
             for key in list(self._symbol_cache):
-                if key.startswith(f"doc:{file_path}") or key.startswith(f"ws:"):
+                if key.startswith(f"doc:{file_path}") or key.startswith("ws:"):
                     self._symbol_cache.pop(key, None)
                     self._cache_timestamps.pop(key, None)
 
@@ -566,20 +568,14 @@ class IDEIntegration:
                 if stripped.startswith("def "):
                     m = re.match(r"def\s+(\w+)", stripped)
                     if m:
-                        symbols.append(
-                            DocumentSymbol(name=m.group(1), kind="function", line=idx)
-                        )
+                        symbols.append(DocumentSymbol(name=m.group(1), kind="function", line=idx))
                 elif stripped.startswith("class "):
                     m = re.match(r"class\s+(\w+)", stripped)
                     if m:
-                        symbols.append(
-                            DocumentSymbol(name=m.group(1), kind="class", line=idx)
-                        )
+                        symbols.append(DocumentSymbol(name=m.group(1), kind="class", line=idx))
                 elif re.match(r"^[A-Z_][A-Z0-9_]*\s*=", stripped):
                     name = stripped.split("=", 1)[0].strip()
-                    symbols.append(
-                        DocumentSymbol(name=name, kind="variable", line=idx)
-                    )
+                    symbols.append(DocumentSymbol(name=name, kind="variable", line=idx))
         except Exception as exc:
             logger.error(f"Error listing symbols for {file_path}: {exc}")
 
@@ -593,6 +589,9 @@ class IDEIntegration:
     def get_workspace_symbols(self, query: str = "") -> list[DocumentSymbol]:
         """
         Search for symbols across the entire workspace.
+
+        When multi-repo is enabled, also searches across all registered
+        repositories for a truly workspace-wide symbol lookup.
 
         Args:
             query: Optional filter string for symbol names.
@@ -612,6 +611,7 @@ class IDEIntegration:
         symbols: list[DocumentSymbol] = []
         pattern = rf"(def|class)\s+(\w*{re.escape(query)}\w*)"
 
+        # Search in the primary engine's paths
         try:
             result = self.engine.search(pattern, regex=True, context=0)
             for item in result.items:
@@ -629,6 +629,34 @@ class IDEIntegration:
                         )
         except Exception as exc:
             logger.error(f"Workspace symbol search error: {exc}")
+
+        # Also search across multi-repo repositories if enabled
+        try:
+            if self.engine.is_multi_repo_enabled():
+                multi_result = self.engine.search_all_repositories(
+                    pattern=pattern, use_regex=True, context=0
+                )
+                if multi_result and multi_result.repository_results:
+                    seen = {(s.name, s.line, s.detail) for s in symbols}
+                    for _repo_name, repo_result in multi_result.repository_results.items():
+                        for item in repo_result.items:
+                            for raw_line in item.lines:
+                                m = re.search(pattern, raw_line)
+                                if m:
+                                    kind = "function" if m.group(1) == "def" else "class"
+                                    key = (m.group(2), item.start_line, str(item.file))
+                                    if key not in seen:
+                                        seen.add(key)
+                                        symbols.append(
+                                            DocumentSymbol(
+                                                name=m.group(2),
+                                                kind=kind,
+                                                line=item.start_line,
+                                                detail=str(item.file),
+                                            )
+                                        )
+        except Exception as exc:
+            logger.error(f"Multi-repo workspace symbol search error: {exc}")
 
         # Store in cache
         self._set_cached(cache_key, [s.to_dict() for s in symbols])
@@ -666,7 +694,9 @@ class IDEIntegration:
             for idx, raw_line in enumerate(lines, start=1):
                 m = marker_re.search(raw_line)
                 if m:
-                    severity = "warning" if m.group(1).upper() in ("FIXME", "HACK", "XXX") else "info"
+                    severity = (
+                        "warning" if m.group(1).upper() in ("FIXME", "HACK", "XXX") else "info"
+                    )
                     diagnostics.append(
                         Diagnostic(
                             file=file_path,
@@ -690,7 +720,7 @@ class IDEIntegration:
                         diagnostics.append(
                             Diagnostic(
                                 file=file_path,
-                                line=imp.line,
+                                line=getattr(imp, "line", 0),
                                 severity="warning",
                                 message=f"Module imports itself: '{imp.module}'",
                                 code="self_import",
@@ -708,6 +738,7 @@ class IDEIntegration:
 # ---------------------------------------------------------------------------
 # Convenience function (backward-compatible public API)
 # ---------------------------------------------------------------------------
+
 
 def ide_query(engine: PySearch, query: Query) -> dict[str, Any]:
     """

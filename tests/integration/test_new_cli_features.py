@@ -21,21 +21,25 @@ class TestCountOnlyCLI:
             test_dir = Path(tmpdir)
 
             # Create test files
-            (test_dir / "test1.py").write_text("""
+            (test_dir / "test1.py").write_text(
+                """
 def function1():
     pass
 
 def function2():
     pass
-""")
-            (test_dir / "test2.py").write_text("""
+"""
+            )
+            (test_dir / "test2.py").write_text(
+                """
 def function3():
     pass
 
 class TestClass:
     def method1(self):
         pass
-""")
+"""
+            )
 
             # Run count-only search
             result = subprocess.run(
@@ -73,13 +77,15 @@ class TestClass:
             test_dir = Path(tmpdir)
 
             # Create test file
-            (test_dir / "test.py").write_text("""
+            (test_dir / "test.py").write_text(
+                """
 def func1():
     return 1
 
 def func2():
     return 2
-""")
+"""
+            )
 
             # Run count-only search with JSON format
             result = subprocess.run(
@@ -117,7 +123,8 @@ def func2():
             test_dir = Path(tmpdir)
 
             # Create test file
-            (test_dir / "test.py").write_text("""
+            (test_dir / "test.py").write_text(
+                """
 def test_handler():
     pass
 
@@ -126,7 +133,8 @@ def request_handler():
 
 def normal_function():
     pass
-""")
+"""
+            )
 
             # Run count-only search with regex
             result = subprocess.run(
@@ -162,7 +170,8 @@ class TestMaxPerFileCLI:
             test_dir = Path(tmpdir)
 
             # Create test file with multiple matches
-            (test_dir / "test.py").write_text("""
+            (test_dir / "test.py").write_text(
+                """
 def function1():
     pass
 
@@ -174,7 +183,8 @@ def function3():
 
 def function4():
     pass
-""")
+"""
+            )
 
             # Run search without limit
             result_no_limit = subprocess.run(
@@ -232,7 +242,8 @@ def function4():
 
             # Create multiple test files
             for i in range(1, 4):
-                (test_dir / f"test{i}.py").write_text(f"""
+                (test_dir / f"test{i}.py").write_text(
+                    f"""
 def function{i}_1():
     pass
 
@@ -241,7 +252,8 @@ def function{i}_2():
 
 def function{i}_3():
     pass
-""")
+"""
+                )
 
             # Run search with per-file limit
             result = subprocess.run(
@@ -273,7 +285,7 @@ def function{i}_3():
                 items_by_file.setdefault(file_path, []).append(item)
 
             # Each file should have at most 2 matches
-            for file_path, items in items_by_file.items():
+            for _file_path, items in items_by_file.items():
                 assert len(items) <= 2
 
 
@@ -286,18 +298,24 @@ class TestBooleanLogicCLI:
             test_dir = Path(tmpdir)
 
             # Create test files
-            (test_dir / "handler.py").write_text("""
+            (test_dir / "handler.py").write_text(
+                """
 async def request_handler():
     return await process_request()
-""")
-            (test_dir / "test_handler.py").write_text("""
+"""
+            )
+            (test_dir / "test_handler.py").write_text(
+                """
 async def test_request_handler():
     return mock_response()
-""")
-            (test_dir / "util.py").write_text("""
+"""
+            )
+            (test_dir / "util.py").write_text(
+                """
 def async_helper():
     return helper_data()
-""")
+"""
+            )
 
             # Run boolean search: async AND handler NOT test
             result = subprocess.run(
@@ -340,19 +358,25 @@ def async_helper():
             test_dir = Path(tmpdir)
 
             # Create test files
-            (test_dir / "handler.py").write_text("""
+            (test_dir / "handler.py").write_text(
+                """
 def request_handler():
     return process_request()
-""")
-            (test_dir / "controller.py").write_text("""
+"""
+            )
+            (test_dir / "controller.py").write_text(
+                """
 class UserController:
     def get_user(self):
         return user_data
-""")
-            (test_dir / "util.py").write_text("""
+"""
+            )
+            (test_dir / "util.py").write_text(
+                """
 def helper_function():
     return helper_data()
-""")
+"""
+            )
 
             # Run boolean search: handler OR controller
             result = subprocess.run(
@@ -391,13 +415,15 @@ def helper_function():
             test_dir = Path(tmpdir)
 
             # Create test file
-            (test_dir / "test.py").write_text("""
+            (test_dir / "test.py").write_text(
+                """
 def main():
     return 0
 
 def test_main():
     assert main() == 0
-""")
+"""
+            )
 
             # Run boolean search with quoted terms
             result = subprocess.run(
@@ -519,7 +545,8 @@ class TestCombinedFeatures:
             test_dir = Path(tmpdir)
 
             # Create test file with multiple matches
-            (test_dir / "test.py").write_text("""
+            (test_dir / "test.py").write_text(
+                """
 async def handler1():
     pass
 
@@ -531,7 +558,8 @@ async def test_handler():
 
 def sync_handler():
     pass
-""")
+"""
+            )
 
             # Run combined search
             result = subprocess.run(
@@ -569,7 +597,8 @@ def sync_handler():
         with tempfile.TemporaryDirectory() as tmpdir:
             test_dir = Path(tmpdir)
 
-            (test_dir / "test.py").write_text("""
+            (test_dir / "test.py").write_text(
+                """
 def user_handler():
     pass
 
@@ -578,7 +607,8 @@ def admin_handler():
 
 def test_handler():
     pass
-""")
+"""
+            )
 
             # Note: --regex and --logic together might not be directly supported
             # This test checks the behavior when both are specified

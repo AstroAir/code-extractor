@@ -245,3 +245,126 @@ class SessionManager:
             self.save_sessions()
 
         return len(old_sessions)
+
+    def compare_sessions(self, session_id_1: str, session_id_2: str) -> dict[str, Any]:
+        """
+        Compare two sessions and return their differences.
+
+        Args:
+            session_id_1: First session ID
+            session_id_2: Second session ID
+
+        Returns:
+            Dictionary with comparison data
+        """
+        self.load()
+        s1 = self._sessions.get(session_id_1)
+        s2 = self._sessions.get(session_id_2)
+
+        if not s1 or not s2:
+            missing = []
+            if not s1:
+                missing.append(session_id_1)
+            if not s2:
+                missing.append(session_id_2)
+            return {"error": f"Session(s) not found: {', '.join(missing)}"}
+
+        s1_queries = set(s1.queries or [])
+        s2_queries = set(s2.queries or [])
+        s1_langs = s1.primary_languages or set()
+        s2_langs = s2.primary_languages or set()
+        s1_paths = s1.primary_paths or set()
+        s2_paths = s2.primary_paths or set()
+
+        s1_duration = (s1.end_time or time.time()) - s1.start_time
+        s2_duration = (s2.end_time or time.time()) - s2.start_time
+
+        s1_success_rate = (
+            s1.successful_searches / s1.total_searches if s1.total_searches > 0 else 0.0
+        )
+        s2_success_rate = (
+            s2.successful_searches / s2.total_searches if s2.total_searches > 0 else 0.0
+        )
+
+        return {
+            "session_1": {
+                "session_id": session_id_1,
+                "total_searches": s1.total_searches,
+                "successful_searches": s1.successful_searches,
+                "success_rate": s1_success_rate,
+                "duration_seconds": s1_duration,
+                "query_count": len(s1_queries),
+            },
+            "session_2": {
+                "session_id": session_id_2,
+                "total_searches": s2.total_searches,
+                "successful_searches": s2.successful_searches,
+                "success_rate": s2_success_rate,
+                "duration_seconds": s2_duration,
+                "query_count": len(s2_queries),
+            },
+            "common_queries": sorted(s1_queries & s2_queries),
+            "only_in_session_1": sorted(s1_queries - s2_queries),
+            "only_in_session_2": sorted(s2_queries - s1_queries),
+            "common_languages": sorted(s1_langs & s2_langs),
+            "common_paths": sorted(s1_paths & s2_paths),
+            "search_count_diff": s2.total_searches - s1.total_searches,
+            "success_rate_diff": s2_success_rate - s1_success_rate,
+            "duration_diff_seconds": s2_duration - s1_duration,
+        }
+
+    def get_session_summary(self, session_id: str) -> dict[str, Any]:
+        """
+        Get a detailed summary of a specific session.
+
+        Args:
+            session_id: Session identifier
+
+        Returns:
+            Dictionary with detailed session summary
+        """
+        self.load()
+        session = self._sessions.get(session_id)
+        if not session:
+            return {"error": f"Session not found: {session_id}"}
+
+        duration = (session.end_time or time.time()) - session.start_time
+        success_rate = (
+            session.successful_searches / session.total_searches
+            if session.total_searches > 0
+            else 0.0
+        )
+
+        # Analyze query patterns
+        queries = session.queries or []
+        unique_queries = set(queries)
+        repeated_queries = [q for q in unique_queries if queries.count(q) > 1]
+
+        from datetime import datetime
+
+        return {
+            "session_id": session.session_id,
+            "start_time": session.start_time,
+            "start_time_iso": datetime.fromtimestamp(session.start_time).isoformat(),
+            "end_time": session.end_time,
+            "end_time_iso": (
+                datetime.fromtimestamp(session.end_time).isoformat() if session.end_time else None
+            ),
+            "is_active": session.end_time is None,
+            "duration_seconds": duration,
+            "duration_minutes": duration / 60,
+            "total_searches": session.total_searches,
+            "successful_searches": session.successful_searches,
+            "failed_searches": session.total_searches - session.successful_searches,
+            "success_rate": success_rate,
+            "total_queries": len(queries),
+            "unique_queries": len(unique_queries),
+            "repeated_queries": repeated_queries,
+            "primary_languages": (
+                sorted(session.primary_languages) if session.primary_languages else []
+            ),
+            "primary_paths": sorted(session.primary_paths) if session.primary_paths else [],
+            "searches_per_minute": (
+                session.total_searches / (duration / 60) if duration > 0 else 0.0
+            ),
+        }

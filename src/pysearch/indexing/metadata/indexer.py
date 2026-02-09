@@ -369,7 +369,11 @@ class MetadataIndexer:
 
     def get_health_status(self) -> dict[str, Any]:
         """Get health status of the metadata index."""
-        status = "healthy" if self._initialized and self.metadata_index._connection else "not_initialized"
+        status = (
+            "healthy"
+            if self._initialized and self.metadata_index._connection
+            else "not_initialized"
+        )
         stats = self.get_stats()
         return {
             "status": status,

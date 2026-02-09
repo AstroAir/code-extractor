@@ -151,9 +151,7 @@ def extract_dependencies(content: str, language: Language) -> list[str]:
             namespace = match.group(1).split(".")[0]
             dependencies.add(namespace)
     elif language in [Language.C, Language.CPP]:
-        for match in re.finditer(
-            r'#include\s*[<"]([^>"]+)[>"]', content
-        ):
+        for match in re.finditer(r'#include\s*[<"]([^>"]+)[>"]', content):
             header = match.group(1).split("/")[0].replace(".h", "")
             dependencies.add(header)
     elif language == Language.RUBY:
@@ -164,9 +162,7 @@ def extract_dependencies(content: str, language: Language) -> list[str]:
         ):
             dependencies.add(match.group(1).split("/")[0])
     elif language == Language.PHP:
-        for match in re.finditer(
-            r"^\s*use\s+([\w\\]+)", content, re.MULTILINE
-        ):
+        for match in re.finditer(r"^\s*use\s+([\w\\]+)", content, re.MULTILINE):
             namespace = match.group(1).split("\\")[0]
             dependencies.add(namespace)
 

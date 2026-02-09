@@ -104,6 +104,7 @@ from .core.types import (
     SearchResult,
     SearchStats,
 )
+from .core.workspace import RepositoryConfig, WorkspaceConfig, WorkspaceManager
 from .utils.error_handling import (
     EncodingError,
     FileAccessError,
@@ -125,8 +126,8 @@ try:
     from .indexing.advanced.integration import (  # noqa: F401
         IndexSearchEngine,
         IndexSearchResult,
-        index_search,
         ensure_indexed,
+        index_search,
     )
 
     METADATA_INDEXING_AVAILABLE = True
@@ -183,6 +184,10 @@ __all__ = [
     "EntityRelationship",
     "EntityType",
     "RelationType",
+    # Workspace management
+    "WorkspaceConfig",
+    "WorkspaceManager",
+    "RepositoryConfig",
     # Utility functions
     "detect_language",
     "get_supported_languages",

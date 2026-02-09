@@ -25,8 +25,8 @@ from ...analysis.content_addressing import (
 )
 from ...analysis.language_support import language_registry
 from ...core.types import CodeEntity
-from ...utils.logging_config import get_logger
 from ...utils.helpers import read_text_safely
+from ...utils.logging_config import get_logger
 from ..advanced.base import CodebaseIndex
 
 logger = get_logger()
@@ -70,7 +70,8 @@ class CodeSnippetsIndex(CodebaseIndex):
         conn = await self._get_connection()
 
         # Enhanced code snippets table
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS code_snippets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 path TEXT NOT NULL,
@@ -90,10 +91,12 @@ class CodeSnippetsIndex(CodebaseIndex):
                 created_at REAL NOT NULL,
                 UNIQUE(path, content_hash, name, start_line, end_line)
             )
-        """)
+        """
+        )
 
         # Tags table for multi-branch support
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS snippet_tags (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 snippet_id INTEGER NOT NULL,
@@ -102,25 +105,34 @@ class CodeSnippetsIndex(CodebaseIndex):
                 UNIQUE(snippet_id, tag),
                 FOREIGN KEY (snippet_id) REFERENCES code_snippets (id)
             )
-        """)
+        """
+        )
 
         # Create indexes for performance
-        conn.execute("""
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_snippets_path_hash
             ON code_snippets(path, content_hash)
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_snippets_name_type
             ON code_snippets(name, entity_type)
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_snippets_language
             ON code_snippets(language)
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_snippet_tags_tag
             ON snippet_tags(tag)
-        """)
+        """
+        )
 
         conn.commit()
 
@@ -337,9 +349,11 @@ class CodeSnippetsIndex(CodebaseIndex):
 
         # Search in name, signature, and content
         for term in search_terms:
-            where_conditions.append("""
+            where_conditions.append(
+                """
                 (cs.name LIKE ? OR cs.signature LIKE ? OR cs.content LIKE ?)
-            """)
+            """
+            )
             params.extend([f"%{term}%", f"%{term}%", f"%{term}%"])
 
         where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
@@ -577,9 +591,11 @@ class CodeSnippetsIndex(CodebaseIndex):
 
         # Text search
         if query.strip():
-            where_conditions.append("""
+            where_conditions.append(
+                """
                 (cs.name LIKE ? OR cs.signature LIKE ? OR cs.docstring LIKE ? OR cs.content LIKE ?)
-            """)
+            """
+            )
             query_pattern = f"%{query}%"
             params.extend([query_pattern, query_pattern, query_pattern, query_pattern])
 

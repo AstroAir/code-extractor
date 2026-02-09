@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
 from pysearch.storage.vector_db import (
     EmbeddingConfig,
-    EmbeddingProvider,
     VectorDatabase,
     VectorIndexManager,
 )
@@ -40,6 +38,7 @@ class TestVectorDatabase:
 def _lancedb_available() -> bool:
     try:
         import lancedb  # noqa: F401
+
         return True
     except ImportError:
         return False

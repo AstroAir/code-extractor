@@ -14,11 +14,11 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 1. **Check Git Status**: Run `git status --short` to see all modified, added, and untracked files.
 
-2. **Run Lint Check**: Execute `pnpm lint` to identify code style issues.
-   - If lint errors exist, attempt to fix with `pnpm lint --fix`
+2. **Run Lint Check**: Execute `python -m ruff check .` and `python -m black --check .` to identify code style issues.
+   - If lint errors exist, attempt to fix with `python -m ruff check . --fix` and `python -m black .`
    - Report any remaining issues that need manual intervention
 
-3. **Run Type Check**: Execute `pnpm tsc --noEmit` to verify TypeScript types.
+3. **Run Type Check**: Execute `python -m mypy` to verify Python types (uses pyproject.toml config).
    - Report any type errors found
    - Suggest fixes for common type issues
 
@@ -113,7 +113,7 @@ Refs: #123
 
 - If lint fails and cannot auto-fix: Report specific errors and file locations
 - If type check fails: List type errors with suggested fixes
-- If commit fails: Check for commit hooks (husky) and report hook output
+- If commit fails: Check for commit hooks (pre-commit) and report hook output
 - If working directory is clean: Report "No changes to commit"
 
 ## Notes

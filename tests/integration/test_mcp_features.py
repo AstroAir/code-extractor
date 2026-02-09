@@ -36,10 +36,9 @@ from mcp.servers.mcp_server import (  # noqa: E402
     SearchOperator,
 )
 from mcp.shared.composition import SearchComposer  # noqa: E402
+from mcp.shared.progress import ProgressAwareSearchServer  # noqa: E402
 from mcp.shared.prompts import MCPPromptManager, PromptCategory  # noqa: E402
 from mcp.shared.resources import MCPResourceManager  # noqa: E402
-
-from mcp.shared.progress import ProgressAwareSearchServer  # noqa: E402
 
 
 class TestMCPFeatures:
@@ -379,9 +378,7 @@ function sqlInjection(userInput) {
         assert len(session.queries) == 0
 
         # Perform a search with session
-        await mcp_server.search_text(
-            pattern="test", paths=["./src"], session_id=session.session_id
-        )
+        await mcp_server.search_text(pattern="test", paths=["./src"], session_id=session.session_id)
 
         # Check that session was updated
         updated_session = mcp_server.search_sessions[session.session_id]
@@ -423,9 +420,7 @@ function sqlInjection(userInput) {
 
         # Test ranking performance
         start_time = time.time()
-        await mcp_server.search_with_ranking(
-            pattern="class", paths=["./src"], max_results=20
-        )
+        await mcp_server.search_with_ranking(pattern="class", paths=["./src"], max_results=20)
         ranking_time = time.time() - start_time
 
         assert ranking_time < 10.0  # Should complete within 10 seconds

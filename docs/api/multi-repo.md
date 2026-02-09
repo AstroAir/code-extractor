@@ -4,7 +4,7 @@ Multi-repository search capabilities for searching across multiple codebases sim
 
 ## MultiRepoSearchEngine
 
-::: pysearch.multi_repo.MultiRepoSearchEngine
+::: pysearch.integrations.multi_repo.MultiRepoSearchEngine
     options:
       show_root_heading: true
       show_source: false
@@ -19,7 +19,7 @@ Multi-repository search capabilities for searching across multiple codebases sim
 
 ## MultiRepoSearchResult
 
-::: pysearch.multi_repo.MultiRepoSearchResult
+::: pysearch.integrations.multi_repo.MultiRepoSearchResult
     options:
       show_root_heading: true
       show_source: false
@@ -33,7 +33,7 @@ Multi-repository search capabilities for searching across multiple codebases sim
 
 ## RepositoryInfo
 
-::: pysearch.multi_repo.RepositoryInfo
+::: pysearch.integrations.multi_repo.RepositoryInfo
     options:
       show_root_heading: true
       show_source: false

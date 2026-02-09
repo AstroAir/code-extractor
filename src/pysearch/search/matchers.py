@@ -53,7 +53,7 @@ import regex as regex_mod  # better regex engine
 try:
     from typing import TYPE_CHECKING
 
-    TYPE_CHECKING  # keep linters happy
+    _ = TYPE_CHECKING  # keep linters happy
 except Exception:  # pragma: no cover
     pass
 # Use Any as fallback to avoid Pylance/Mypy inconsistent Pattern declaration errors
@@ -275,7 +275,7 @@ def ast_node_matches_filters(node: ast.AST, filters: ASTFilters) -> bool:
                     pass
             if not any(regex_mod.search(filters.decorator, d) for d in decos):
                 return False
-    if isinstance(node, (ast.Import, ast.ImportFrom)) and filters.imported:
+    if isinstance(node, ast.Import | ast.ImportFrom) and filters.imported:
         names = []
         if isinstance(node, ast.Import):
             names = [a.name for a in node.names]

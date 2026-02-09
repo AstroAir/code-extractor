@@ -245,8 +245,7 @@ def iter_files(
             # 目录剪枝：原地修改 dirnames，阻止 os.walk 进入被排除的子树
             if prune_excluded_dirs and dirnames:
                 dirnames[:] = [
-                    d for d in dirnames
-                    if not exc.match_file(str((Path(dirpath) / d).resolve()))
+                    d for d in dirnames if not exc.match_file(str((Path(dirpath) / d).resolve()))
                 ]
 
             for name in filenames:
@@ -385,9 +384,9 @@ def get_ast_node_info(node: ast.AST) -> dict[str, object]:
     }
     # Extract name for common named nodes
     if hasattr(node, "name"):
-        info["name"] = node.name  # type: ignore[attr-defined]
+        info["name"] = node.name
     elif hasattr(node, "id"):
-        info["name"] = node.id  # type: ignore[attr-defined]
+        info["name"] = node.id
     elif isinstance(node, ast.Attribute):
         info["name"] = node.attr
     return info

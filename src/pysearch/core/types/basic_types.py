@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+
 class Language(str, Enum):
     """Supported programming languages for syntax-aware processing."""
 
@@ -72,6 +73,15 @@ class Language(str, Enum):
     MARKDOWN = "markdown"
     DOCKERFILE = "dockerfile"
     MAKEFILE = "makefile"
+    LUA = "lua"
+    PERL = "perl"
+    DART = "dart"
+    ELIXIR = "elixir"
+    HASKELL = "haskell"
+    JULIA = "julia"
+    GROOVY = "groovy"
+    OBJECTIVE_C = "objective_c"
+    ZIG = "zig"
     UNKNOWN = "unknown"
 
 

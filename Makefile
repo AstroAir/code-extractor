@@ -1,8 +1,19 @@
-# Common variables
-PYTHON := python3
+# Common variables - auto-detect uv for faster operations
+UV := $(shell command -v uv 2>/dev/null)
+ifdef UV
+  RUN := uv run
+  PYTHON := uv run python3
+  PIP_INSTALL := uv pip install
+  TASK := uv run scripts/tasks.py
+else
+  RUN :=
+  PYTHON := python3
+  PIP_INSTALL := python3 -m pip install
+  TASK := python3 scripts/tasks.py
+endif
 PKG := pysearch
 
-.PHONY: help install dev lint format type test cov htmlcov bench clean pre-commit hooks docs docs-serve docs-clean docs-check docs-deploy serve release mcp-servers check-structure validate
+.PHONY: help install dev lint format type test cov htmlcov bench clean pre-commit hooks docs docs-serve docs-clean docs-check docs-deploy serve release mcp-servers check-structure validate tasks
 
 help:
 	@echo "Targets:"
@@ -27,15 +38,20 @@ help:
 	@echo "  mcp-servers - Test MCP servers"
 	@echo "  check-structure - Validate project structure"
 	@echo "  validate    - Run all validation checks"
+	@echo "  tasks       - Show cross-platform task runner usage"
+ifdef UV
+	@echo ""
+	@echo "  [uv detected - using uv for faster operations]"
+endif
 
 install:
-	$(PYTHON) -m pip install -U pip
-	$(PYTHON) -m pip install -e .
+	$(PIP_INSTALL) -U pip
+	$(PIP_INSTALL) -e .
 
 dev:
-	$(PYTHON) -m pip install -U pip
-	$(PYTHON) -m pip install -e ".[dev]"
-	$(PYTHON) -m pip install pre-commit
+	$(PIP_INSTALL) -U pip
+	$(PIP_INSTALL) -e ".[dev]"
+	$(PIP_INSTALL) pre-commit
 
 lint:
 	$(PYTHON) -m ruff check .
@@ -44,9 +60,11 @@ lint:
 format:
 	$(PYTHON) -m black .
 	$(PYTHON) -m ruff check . --fix
+	$(PYTHON) -m ruff format .
 
 type:
 	$(PYTHON) -m mypy
+
 test:
 	$(PYTHON) -m pytest
 
@@ -143,3 +161,19 @@ check-structure:
 
 validate: lint type test mcp-servers check-structure
 	@echo "✅ All validation checks passed"
+
+tasks:
+	@echo "Cross-platform task runner (works on Windows, Linux, macOS):"
+	@echo ""
+	@echo "  With uv (recommended):"
+	@echo "    uv run scripts/tasks.py help"
+	@echo "    uv run scripts/tasks.py lint"
+	@echo "    uv run scripts/tasks.py test --coverage"
+	@echo "    uv run scripts/tasks.py docs serve"
+	@echo "    uv run scripts/tasks.py clean"
+	@echo "    uv run scripts/tasks.py validate --full"
+	@echo ""
+	@echo "  Without uv:"
+	@echo "    python scripts/tasks.py help"
+	@echo ""
+	@echo "  Current TASK = $(TASK)"

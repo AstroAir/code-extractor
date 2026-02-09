@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 from .history_analytics import AnalyticsManager
 from .history_bookmarks import BookmarkFolder, BookmarkManager
 from .history_core import SearchCategory, SearchHistory, SearchHistoryEntry
+from .history_export import ExportFormat, HistoryExporter
 from .history_sessions import SearchSession, SessionManager
 
 # Re-export everything for backward compatibility
@@ -35,6 +36,8 @@ __all__ = [
     "SessionManager",
     "SearchSession",
     "AnalyticsManager",
+    "HistoryExporter",
+    "ExportFormat",
     "extract_languages_from_results",
 ]
 

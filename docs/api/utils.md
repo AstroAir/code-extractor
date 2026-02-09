@@ -6,7 +6,7 @@ Utility functions and helpers used throughout the PySearch system.
 
 ### read_text_safely
 
-::: pysearch.utils.read_text_safely
+::: pysearch.utils.helpers.read_text_safely
     options:
       show_root_heading: true
       show_source: false
@@ -18,7 +18,7 @@ Utility functions and helpers used throughout the PySearch system.
 
 ### file_sha1
 
-::: pysearch.utils.file_sha1
+::: pysearch.utils.helpers.file_sha1
     options:
       show_root_heading: true
       show_source: false
@@ -30,7 +30,7 @@ Utility functions and helpers used throughout the PySearch system.
 
 ### create_file_metadata
 
-::: pysearch.utils.create_file_metadata
+::: pysearch.utils.helpers.create_file_metadata
     options:
       show_root_heading: true
       show_source: false
@@ -44,7 +44,7 @@ Utility functions and helpers used throughout the PySearch system.
 
 ### split_lines_keepends
 
-::: pysearch.utils.split_lines_keepends
+::: pysearch.utils.helpers.split_lines_keepends
     options:
       show_root_heading: true
       show_source: false
@@ -56,7 +56,7 @@ Utility functions and helpers used throughout the PySearch system.
 
 ### extract_context
 
-::: pysearch.utils.extract_context
+::: pysearch.utils.helpers.extract_context
     options:
       show_root_heading: true
       show_source: false
@@ -68,7 +68,7 @@ Utility functions and helpers used throughout the PySearch system.
 
 ### highlight_spans
 
-::: pysearch.utils.highlight_spans
+::: pysearch.utils.helpers.highlight_spans
     options:
       show_root_heading: true
       show_source: false
@@ -82,7 +82,7 @@ Utility functions and helpers used throughout the PySearch system.
 
 ### iter_python_ast_nodes
 
-::: pysearch.utils.iter_python_ast_nodes
+::: pysearch.utils.helpers.iter_python_ast_nodes
     options:
       show_root_heading: true
       show_source: false
@@ -96,7 +96,7 @@ Utility functions and helpers used throughout the PySearch system.
 
 ### iter_files
 
-::: pysearch.utils.iter_files
+::: pysearch.utils.helpers.iter_files
     options:
       show_root_heading: true
       show_source: false
@@ -110,7 +110,7 @@ Utility functions and helpers used throughout the PySearch system.
 
 ### FileMeta
 
-::: pysearch.utils.FileMeta
+::: pysearch.utils.helpers.FileMeta
     options:
       show_root_heading: true
       show_source: false

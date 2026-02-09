@@ -124,8 +124,8 @@ def create_size_filter(
             # Try just a number
             try:
                 return int(size_str)
-            except ValueError:
-                raise ValueError(f"Invalid size format: {size_str}")
+            except ValueError as e:
+                raise ValueError(f"Invalid size format: {size_str}") from e
 
         number, unit = match.groups()
         number = float(number)

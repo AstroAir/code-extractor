@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
 
 from pysearch.storage.qdrant_client import (
+    QDRANT_AVAILABLE,
     QdrantConfig,
     QdrantVectorStore,
 )
@@ -26,6 +25,7 @@ class TestQdrantConfig:
         assert cfg.port == 6334
 
 
+@pytest.mark.skipif(not QDRANT_AVAILABLE, reason="qdrant-client not installed")
 class TestQdrantVectorStore:
     """Tests for QdrantVectorStore class."""
 

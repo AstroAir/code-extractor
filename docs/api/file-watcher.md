@@ -4,7 +4,7 @@ Real-time file system monitoring for automatic index updates and change detectio
 
 ## WatchManager
 
-::: pysearch.file_watcher.WatchManager
+::: pysearch.utils.file_watcher.WatchManager
     options:
       show_root_heading: true
       show_source: false
@@ -19,7 +19,7 @@ Real-time file system monitoring for automatic index updates and change detectio
 
 ## FileEvent
 
-::: pysearch.file_watcher.FileEvent
+::: pysearch.utils.file_watcher.FileEvent
     options:
       show_root_heading: true
       show_source: false

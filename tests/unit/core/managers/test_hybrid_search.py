@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -77,7 +77,13 @@ class TestHybridSearchManager:
     async def test_hybrid_search_traditional_only(self):
         mgr = HybridSearchManager(SearchConfig())
         mock_items = [
-            SearchItem(file=Path("a.py"), start_line=1, end_line=1, lines=["match"], match_spans=[(0, (0, 5))]),
+            SearchItem(
+                file=Path("a.py"),
+                start_line=1,
+                end_line=1,
+                lines=["match"],
+                match_spans=[(0, (0, 5))],
+            ),
         ]
         mock_result = SearchResult(
             items=mock_items,

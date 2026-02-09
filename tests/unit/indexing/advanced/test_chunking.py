@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -13,7 +13,6 @@ from pysearch.indexing.advanced.chunking import (
     ChunkingConfig,
     ChunkingEngine,
     ChunkingStrategy,
-    ChunkingStrategyBase,
     ChunkMetadata,
     HybridChunker,
     MetadataCodeChunk,
@@ -270,9 +269,7 @@ class TestStructuralChunker:
         chunker = StructuralChunker(cfg)
         content = "import os\n\ndef foo():\n    pass\n\ndef bar():\n    pass\n"
         chunks = [
-            c async for c in chunker._basic_structural_chunk(
-                content, Language.PYTHON, "test.py"
-            )
+            c async for c in chunker._basic_structural_chunk(content, Language.PYTHON, "test.py")
         ]
         assert len(chunks) >= 1
         assert all(c.chunk_type == "structural" for c in chunks)
@@ -283,9 +280,8 @@ class TestStructuralChunker:
         chunker = StructuralChunker(cfg)
         content = "function hello() {\n  return 1;\n}\n\nclass Foo {\n}\n"
         chunks = [
-            c async for c in chunker._basic_structural_chunk(
-                content, Language.JAVASCRIPT, "test.js"
-            )
+            c
+            async for c in chunker._basic_structural_chunk(content, Language.JAVASCRIPT, "test.js")
         ]
         assert len(chunks) >= 1
 
@@ -294,20 +290,16 @@ class TestStructuralChunker:
         chunker = StructuralChunker(cfg)
         content = "public class Foo {\n  private int x;\n}\n"
         chunks = [
-            c async for c in chunker._basic_structural_chunk(
-                content, Language.JAVA, "Test.java"
-            )
+            c async for c in chunker._basic_structural_chunk(content, Language.JAVA, "Test.java")
         ]
         assert len(chunks) >= 1
 
     async def test_basic_structural_chunk_default_language(self):
         cfg = ChunkingConfig(max_chunk_size=60)
         chunker = StructuralChunker(cfg)
-        content = "fn main() {\n  println!(\"hello\");\n}\n"
+        content = 'fn main() {\n  println!("hello");\n}\n'
         chunks = [
-            c async for c in chunker._basic_structural_chunk(
-                content, Language.RUST, "main.rs"
-            )
+            c async for c in chunker._basic_structural_chunk(content, Language.RUST, "main.rs")
         ]
         assert len(chunks) >= 1
 
@@ -315,15 +307,9 @@ class TestStructuralChunker:
         cfg = ChunkingConfig(max_chunk_size=5000)
         chunker = StructuralChunker(cfg)
         content = "x = 1\ny = 2\n"
-        with patch(
-            "pysearch.indexing.advanced.chunking.language_registry"
-        ) as mock_registry:
+        with patch("pysearch.indexing.advanced.chunking.language_registry") as mock_registry:
             mock_registry.get_processor.return_value = None
-            chunks = [
-                c async for c in chunker.chunk_content(
-                    content, Language.PYTHON, "test.py"
-                )
-            ]
+            chunks = [c async for c in chunker.chunk_content(content, Language.PYTHON, "test.py")]
         assert len(chunks) >= 1
         assert chunks[0].chunk_type == "structural"
 
@@ -695,8 +681,6 @@ class TestChunkingEngine:
         engine = ChunkingEngine()
         f1 = tmp_path / "a.py"
         f1.write_text("x = 1\n", encoding="utf-8")
-        result = await engine.chunk_multiple_files(
-            [str(f1), "/nonexistent/z.py"]
-        )
+        result = await engine.chunk_multiple_files([str(f1), "/nonexistent/z.py"])
         assert isinstance(result, dict)
         assert str(f1) in result

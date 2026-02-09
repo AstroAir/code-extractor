@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.types import OutputFormat, SearchItem, SearchResult, SearchStats
 from pysearch.utils.formatter import format_result, to_json_bytes
 
@@ -15,7 +13,9 @@ class TestFormatResult:
 
     def _make_result(self) -> SearchResult:
         item = SearchItem(
-            file=Path("test.py"), start_line=1, end_line=3,
+            file=Path("test.py"),
+            start_line=1,
+            end_line=3,
             lines=["def hello():", "    pass", ""],
         )
         return SearchResult(
@@ -46,7 +46,9 @@ class TestToJsonBytes:
 
     def test_basic(self):
         item = SearchItem(
-            file=Path("test.py"), start_line=1, end_line=1,
+            file=Path("test.py"),
+            start_line=1,
+            end_line=1,
             lines=["x = 1"],
         )
         sr = SearchResult(items=[item], stats=SearchStats(files_scanned=1))

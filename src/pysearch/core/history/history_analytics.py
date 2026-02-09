@@ -287,3 +287,156 @@ class AnalyticsManager:
                 matching_entries.append(entry)
 
         return sorted(matching_entries, key=lambda e: e.timestamp, reverse=True)
+
+    def get_search_trends(
+        self, history_entries: list[SearchHistoryEntry], days: int = 30
+    ) -> dict[str, Any]:
+        """
+        Get search trend data over time.
+
+        Returns daily search counts, success rates, and average search times.
+        """
+        cutoff_time = time.time() - (days * 24 * 60 * 60)
+        recent = [e for e in history_entries if e.timestamp >= cutoff_time]
+
+        if not recent:
+            return {"daily_counts": {}, "daily_success_rates": {}, "daily_avg_times": {}}
+
+        daily_counts: dict[str, int] = defaultdict(int)
+        daily_success: dict[str, list[bool]] = defaultdict(list)
+        daily_times: dict[str, list[float]] = defaultdict(list)
+
+        for entry in recent:
+            day = datetime.fromtimestamp(entry.timestamp).strftime("%Y-%m-%d")
+            daily_counts[day] += 1
+            daily_success[day].append(entry.items_count > 0)
+            daily_times[day].append(entry.elapsed_ms)
+
+        daily_success_rates = {
+            day: sum(s) / len(s) if s else 0.0 for day, s in daily_success.items()
+        }
+        daily_avg_times = {day: sum(t) / len(t) if t else 0.0 for day, t in daily_times.items()}
+
+        # Calculate overall trend direction
+        sorted_days = sorted(daily_counts.keys())
+        if len(sorted_days) >= 2:
+            first_half = sorted_days[: len(sorted_days) // 2]
+            second_half = sorted_days[len(sorted_days) // 2 :]
+            first_avg = sum(daily_counts[d] for d in first_half) / len(first_half)
+            second_avg = sum(daily_counts[d] for d in second_half) / len(second_half)
+            if second_avg > first_avg * 1.1:
+                trend = "increasing"
+            elif second_avg < first_avg * 0.9:
+                trend = "decreasing"
+            else:
+                trend = "stable"
+        else:
+            trend = "insufficient_data"
+
+        return {
+            "daily_counts": dict(daily_counts),
+            "daily_success_rates": daily_success_rates,
+            "daily_avg_times": daily_avg_times,
+            "trend": trend,
+            "total_days_active": len(daily_counts),
+            "peak_day": max(daily_counts, key=lambda k: daily_counts[k]) if daily_counts else None,
+            "peak_count": max(daily_counts.values()) if daily_counts else 0,
+        }
+
+    def get_category_trends(
+        self, history_entries: list[SearchHistoryEntry], days: int = 30
+    ) -> dict[str, Any]:
+        """
+        Analyze how category usage changes over time.
+
+        Returns weekly category breakdowns and shift analysis.
+        """
+        cutoff_time = time.time() - (days * 24 * 60 * 60)
+        recent = [e for e in history_entries if e.timestamp >= cutoff_time]
+
+        if not recent:
+            return {"weekly_categories": {}, "category_shifts": []}
+
+        # Group by week
+        weekly_cats: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        for entry in recent:
+            dt = datetime.fromtimestamp(entry.timestamp)
+            week = dt.strftime("%Y-W%W")
+            cat = entry.category.value if hasattr(entry.category, "value") else str(entry.category)
+            weekly_cats[week][cat] += 1
+
+        # Detect category shifts
+        sorted_weeks = sorted(weekly_cats.keys())
+        shifts: list[dict[str, Any]] = []
+
+        for i in range(1, len(sorted_weeks)):
+            prev_week = sorted_weeks[i - 1]
+            curr_week = sorted_weeks[i]
+            prev_cats = weekly_cats[prev_week]
+            curr_cats = weekly_cats[curr_week]
+
+            all_cats = set(prev_cats.keys()) | set(curr_cats.keys())
+            for cat in all_cats:
+                prev_count = prev_cats.get(cat, 0)
+                curr_count = curr_cats.get(cat, 0)
+                if prev_count > 0 and curr_count > prev_count * 1.5:
+                    shifts.append(
+                        {
+                            "category": cat,
+                            "week": curr_week,
+                            "direction": "increase",
+                            "from_count": prev_count,
+                            "to_count": curr_count,
+                        }
+                    )
+                elif curr_count > 0 and prev_count > curr_count * 1.5:
+                    shifts.append(
+                        {
+                            "category": cat,
+                            "week": curr_week,
+                            "direction": "decrease",
+                            "from_count": prev_count,
+                            "to_count": curr_count,
+                        }
+                    )
+
+        return {
+            "weekly_categories": {k: dict(v) for k, v in weekly_cats.items()},
+            "category_shifts": shifts,
+            "weeks_analyzed": len(sorted_weeks),
+        }
+
+    def get_top_failed_patterns(
+        self, history_entries: list[SearchHistoryEntry], limit: int = 10
+    ) -> list[dict[str, Any]]:
+        """
+        Get patterns that most frequently return zero results.
+
+        Args:
+            history_entries: History entries to analyze
+            limit: Maximum number of patterns to return
+
+        Returns:
+            List of failed pattern info sorted by failure count
+        """
+        pattern_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "failed": 0})
+
+        for entry in history_entries:
+            stats = pattern_stats[entry.query_pattern]
+            stats["total"] += 1
+            if entry.items_count == 0:
+                stats["failed"] += 1
+
+        failed_patterns = [
+            {
+                "pattern": pattern,
+                "total_searches": stats["total"],
+                "failed_searches": stats["failed"],
+                "failure_rate": stats["failed"] / stats["total"] if stats["total"] > 0 else 0.0,
+            }
+            for pattern, stats in pattern_stats.items()
+            if stats["failed"] > 0
+        ]
+
+        failed_patterns.sort(key=lambda x: x["failed_searches"], reverse=True)  # type: ignore[arg-type,return-value]
+        return failed_patterns[:limit]

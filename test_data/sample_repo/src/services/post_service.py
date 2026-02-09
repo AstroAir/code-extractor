@@ -68,9 +68,7 @@ class PostService:
         """
         return self._posts.get(post_id)
 
-    async def update_post(
-        self, post_id: str, updates: dict[str, Any]
-    ) -> Post | None:
+    async def update_post(self, post_id: str, updates: dict[str, Any]) -> Post | None:
         """Update an existing post.
 
         Args:
@@ -119,9 +117,7 @@ class PostService:
         Returns:
             Number of posts deleted.
         """
-        to_delete = [
-            pid for pid, post in self._posts.items() if post.author_id == author_id
-        ]
+        to_delete = [pid for pid, post in self._posts.items() if post.author_id == author_id]
         for pid in to_delete:
             del self._posts[pid]
         logger.info(f"Deleted {len(to_delete)} posts for author {author_id}")

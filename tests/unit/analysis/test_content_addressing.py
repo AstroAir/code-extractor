@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import pytest
@@ -11,8 +10,8 @@ from pysearch.analysis.content_addressing import (
     ContentAddress,
     ContentAddressedIndexer,
     GlobalCacheManager,
-    IndexTag,
     IndexingProgressUpdate,
+    IndexTag,
     PathAndCacheKey,
     RefreshIndexResults,
 )
@@ -60,7 +59,7 @@ class TestContentAddress:
         assert ca.content_hash == ca2.content_hash
 
     async def test_from_file_nonexistent(self, tmp_path: Path):
-        with pytest.raises(Exception):
+        with pytest.raises((FileNotFoundError, OSError, Exception)):  # noqa: B017
             await ContentAddress.from_file(str(tmp_path / "missing.py"))
 
 

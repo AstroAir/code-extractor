@@ -37,48 +37,66 @@ class TestCacheEntry:
     def test_is_expired_not_expired(self):
         now = time.time()
         entry = CacheEntry(
-            key="k", value=_make_result(),
-            created_at=now, last_accessed=now, ttl=3600,
+            key="k",
+            value=_make_result(),
+            created_at=now,
+            last_accessed=now,
+            ttl=3600,
         )
         assert entry.is_expired is False
 
     def test_is_expired_expired(self):
         old_time = time.time() - 7200
         entry = CacheEntry(
-            key="k", value=_make_result(),
-            created_at=old_time, last_accessed=old_time, ttl=3600,
+            key="k",
+            value=_make_result(),
+            created_at=old_time,
+            last_accessed=old_time,
+            ttl=3600,
         )
         assert entry.is_expired is True
 
     def test_is_expired_zero_ttl(self):
         old_time = time.time() - 999999
         entry = CacheEntry(
-            key="k", value=_make_result(),
-            created_at=old_time, last_accessed=old_time, ttl=0,
+            key="k",
+            value=_make_result(),
+            created_at=old_time,
+            last_accessed=old_time,
+            ttl=0,
         )
         assert entry.is_expired is False
 
     def test_is_expired_negative_ttl(self):
         old_time = time.time() - 999999
         entry = CacheEntry(
-            key="k", value=_make_result(),
-            created_at=old_time, last_accessed=old_time, ttl=-1,
+            key="k",
+            value=_make_result(),
+            created_at=old_time,
+            last_accessed=old_time,
+            ttl=-1,
         )
         assert entry.is_expired is False
 
     def test_age_seconds(self):
         now = time.time()
         entry = CacheEntry(
-            key="k", value=_make_result(),
-            created_at=now - 100, last_accessed=now, ttl=3600,
+            key="k",
+            value=_make_result(),
+            created_at=now - 100,
+            last_accessed=now,
+            ttl=3600,
         )
         assert entry.age_seconds >= 99
 
     def test_touch(self):
         now = time.time()
         entry = CacheEntry(
-            key="k", value=_make_result(),
-            created_at=now - 10, last_accessed=now - 10, ttl=3600,
+            key="k",
+            value=_make_result(),
+            created_at=now - 10,
+            last_accessed=now - 10,
+            ttl=3600,
         )
         assert entry.access_count == 0
         old_accessed = entry.last_accessed
@@ -93,16 +111,22 @@ class TestCacheEntry:
 
     def test_file_dependencies_mutable(self):
         entry = CacheEntry(
-            key="k", value=_make_result(),
-            created_at=0.0, last_accessed=0.0, ttl=0.0,
+            key="k",
+            value=_make_result(),
+            created_at=0.0,
+            last_accessed=0.0,
+            ttl=0.0,
             file_dependencies={"a.py", "b.py"},
         )
         assert entry.file_dependencies == {"a.py", "b.py"}
 
     def test_metadata(self):
         entry = CacheEntry(
-            key="k", value=_make_result(),
-            created_at=0.0, last_accessed=0.0, ttl=0.0,
+            key="k",
+            value=_make_result(),
+            created_at=0.0,
+            last_accessed=0.0,
+            ttl=0.0,
             metadata={"source": "test"},
         )
         assert entry.metadata == {"source": "test"}

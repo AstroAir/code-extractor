@@ -22,8 +22,8 @@ from ...analysis.content_addressing import (
     RefreshIndexResults,
 )
 from ...analysis.language_detection import detect_language
-from ...utils.logging_config import get_logger
 from ...utils.helpers import read_text_safely
+from ...utils.logging_config import get_logger
 from ..advanced.base import CodebaseIndex
 
 logger = get_logger()
@@ -66,7 +66,8 @@ class FullTextIndex(CodebaseIndex):
         conn = await self._get_connection()
 
         # FTS5 virtual table for content search
-        conn.execute("""
+        conn.execute(
+            """
             CREATE VIRTUAL TABLE IF NOT EXISTS fts_content USING fts5(
                 path,
                 content,
@@ -74,10 +75,12 @@ class FullTextIndex(CodebaseIndex):
                 file_type,
                 tokenize='trigram'
             )
-        """)
+        """
+        )
 
         # Metadata table for additional information
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS fts_metadata (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 path TEXT NOT NULL,
@@ -88,10 +91,12 @@ class FullTextIndex(CodebaseIndex):
                 created_at REAL NOT NULL,
                 UNIQUE(path, content_hash)
             )
-        """)
+        """
+        )
 
         # Tags table for multi-branch support
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS fts_tags (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 metadata_id INTEGER NOT NULL,
@@ -100,17 +105,22 @@ class FullTextIndex(CodebaseIndex):
                 UNIQUE(metadata_id, tag),
                 FOREIGN KEY (metadata_id) REFERENCES fts_metadata (id)
             )
-        """)
+        """
+        )
 
         # Create indexes
-        conn.execute("""
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_fts_metadata_path_hash
             ON fts_metadata(path, content_hash)
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_fts_tags_tag
             ON fts_tags(tag)
-        """)
+        """
+        )
 
         conn.commit()
 

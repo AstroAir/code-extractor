@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
+from pysearch.core.types import Language
 from pysearch.core.types.basic_types import (
     ASTFilters,
     BooleanOperator,
@@ -20,7 +19,6 @@ from pysearch.core.types.basic_types import (
     SearchResult,
     SearchStats,
 )
-from pysearch.core.types import Language
 
 
 class TestOutputFormat:
@@ -136,7 +134,9 @@ class TestSearchStats:
         assert s.indexed_files == 0
 
     def test_custom_values(self):
-        s = SearchStats(files_scanned=100, files_matched=5, items=10, elapsed_ms=42.5, indexed_files=90)
+        s = SearchStats(
+            files_scanned=100, files_matched=5, items=10, elapsed_ms=42.5, indexed_files=90
+        )
         assert s.files_scanned == 100
         assert s.elapsed_ms == 42.5
 

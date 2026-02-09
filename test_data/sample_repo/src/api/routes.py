@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.config import API_PREFIX, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+from src.config import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from src.models.user import UserRole
 from src.services.auth import AuthService, require_auth, require_role
 from src.services.post_service import PostService
@@ -59,9 +59,7 @@ async def get_current_user(**kwargs: Any) -> dict[str, Any]:
     return {"user": user.to_dict(), "status": 200}
 
 
-async def create_user(
-    username: str, email: str, password: str
-) -> dict[str, Any]:
+async def create_user(username: str, email: str, password: str) -> dict[str, Any]:
     """Register a new user account.
 
     Args:

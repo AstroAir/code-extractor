@@ -6,7 +6,7 @@ The formatter module handles output rendering in different formats with syntax h
 
 ### format_result
 
-::: pysearch.formatter.format_result
+::: pysearch.utils.formatter.format_result
     options:
       show_root_heading: true
       show_source: false
@@ -18,7 +18,7 @@ The formatter module handles output rendering in different formats with syntax h
 
 ### to_json_bytes
 
-::: pysearch.formatter.to_json_bytes
+::: pysearch.utils.formatter.to_json_bytes
     options:
       show_root_heading: true
       show_source: false
@@ -30,7 +30,7 @@ The formatter module handles output rendering in different formats with syntax h
 
 ### format_text
 
-::: pysearch.formatter.format_text
+::: pysearch.utils.formatter.format_text
     options:
       show_root_heading: true
       show_source: false
@@ -42,7 +42,7 @@ The formatter module handles output rendering in different formats with syntax h
 
 ### render_highlight_console
 
-::: pysearch.formatter.render_highlight_console
+::: pysearch.utils.formatter.render_highlight_console
     options:
       show_root_heading: true
       show_source: false

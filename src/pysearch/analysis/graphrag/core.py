@@ -84,6 +84,19 @@ class EntityExtractor:
             Language.TYPESCRIPT: self._extract_javascript_entities,
             Language.JAVA: self._extract_java_entities,
             Language.CSHARP: self._extract_csharp_entities,
+            Language.GO: self._extract_go_entities,
+            Language.RUST: self._extract_rust_entities,
+            Language.C: self._extract_c_cpp_entities,
+            Language.CPP: self._extract_c_cpp_entities,
+            Language.PHP: self._extract_php_entities,
+            Language.RUBY: self._extract_ruby_entities,
+            Language.KOTLIN: self._extract_kotlin_entities,
+            Language.SWIFT: self._extract_swift_entities,
+            Language.SCALA: self._extract_scala_entities,
+            Language.DART: self._extract_dart_entities,
+            Language.LUA: self._extract_lua_entities,
+            Language.PERL: self._extract_perl_entities,
+            Language.ELIXIR: self._extract_elixir_entities,
         }
 
     async def extract_from_file(self, file_path: Path) -> list[CodeEntity]:
@@ -502,6 +515,617 @@ class EntityExtractor:
                 properties={"inheritance": match.group(2).strip() if match.group(2) else None},
             )
             entities.append(entity)
+
+        return entities
+
+    async def _extract_go_entities(
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
+        """Extract entities from Go using regex patterns."""
+        entities = []
+
+        # Function declarations
+        func_pattern = re.compile(r"^\s*func\s+(\w+)\s*\(", re.MULTILINE)
+        for match in func_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"func_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.FUNCTION,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        # Method declarations (receiver)
+        method_pattern = re.compile(r"^\s*func\s+\([^)]+\)\s+(\w+)\s*\(", re.MULTILINE)
+        for match in method_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"method_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.METHOD,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        # Type declarations (struct/interface)
+        type_pattern = re.compile(r"^\s*type\s+(\w+)\s+(struct|interface)\s*\{", re.MULTILINE)
+        for match in type_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            etype = EntityType.CLASS if match.group(2) == "struct" else EntityType.INTERFACE
+            entities.append(
+                CodeEntity(
+                    id=f"type_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=etype,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        return entities
+
+    async def _extract_rust_entities(
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
+        """Extract entities from Rust using regex patterns."""
+        entities = []
+
+        # Function items
+        fn_pattern = re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)", re.MULTILINE)
+        for match in fn_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"fn_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.FUNCTION,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        # Struct/Enum/Trait
+        for keyword, etype in [
+            ("struct", EntityType.STRUCT),
+            ("enum", EntityType.ENUM),
+            ("trait", EntityType.INTERFACE),
+        ]:
+            pat = re.compile(rf"^\s*(?:pub\s+)?{keyword}\s+(\w+)", re.MULTILINE)
+            for match in pat.finditer(content):
+                line_num = content[: match.start()].count("\n") + 1
+                entities.append(
+                    CodeEntity(
+                        id=f"{keyword}_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                        name=match.group(1),
+                        entity_type=etype,
+                        file_path=file_path,
+                        start_line=line_num,
+                        end_line=line_num,
+                        signature=match.group(0).strip(),
+                        language=language,
+                    )
+                )
+
+        # Impl blocks
+        impl_pattern = re.compile(r"^\s*impl(?:<[^>]+>)?\s+(\w+)", re.MULTILINE)
+        for match in impl_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"impl_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.CLASS,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        return entities
+
+    async def _extract_c_cpp_entities(
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
+        """Extract entities from C/C++ using regex patterns."""
+        entities = []
+
+        # Function definitions (simplified)
+        func_pattern = re.compile(
+            r"^\s*(?:static\s+|extern\s+|inline\s+|virtual\s+)*"
+            r"(?:(?:unsigned|signed|const|volatile)\s+)*"
+            r"\w[\w:*&<> ]*\s+(\w+)\s*\([^)]*\)\s*(?:const\s*)?(?:override\s*)?(?:=\s*\w+\s*)?[{;]",
+            re.MULTILINE,
+        )
+        for match in func_pattern.finditer(content):
+            name = match.group(1)
+            if name not in {"if", "while", "for", "switch", "return", "sizeof"}:
+                line_num = content[: match.start()].count("\n") + 1
+                entities.append(
+                    CodeEntity(
+                        id=f"func_{name}_{line_num}_{uuid4().hex[:8]}",
+                        name=name,
+                        entity_type=EntityType.FUNCTION,
+                        file_path=file_path,
+                        start_line=line_num,
+                        end_line=line_num,
+                        signature=match.group(0).strip().rstrip("{;"),
+                        language=language,
+                    )
+                )
+
+        # Class/struct declarations
+        class_pattern = re.compile(
+            r"^\s*(?:class|struct)\s+(\w+)\s*(?::\s*(?:public|private|protected)\s+\w+)?\s*\{",
+            re.MULTILINE,
+        )
+        for match in class_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"class_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.CLASS,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        return entities
+
+    async def _extract_php_entities(
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
+        """Extract entities from PHP using regex patterns."""
+        entities = []
+
+        # Functions
+        func_pattern = re.compile(
+            r"^\s*(?:public|private|protected|static|\s)*function\s+(\w+)\s*\(",
+            re.MULTILINE,
+        )
+        for match in func_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"func_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.FUNCTION,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        # Classes
+        class_pattern = re.compile(r"^\s*(?:abstract\s+|final\s+)?class\s+(\w+)", re.MULTILINE)
+        for match in class_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"class_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.CLASS,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        # Interfaces
+        iface_pattern = re.compile(r"^\s*interface\s+(\w+)", re.MULTILINE)
+        for match in iface_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"iface_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.INTERFACE,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        return entities
+
+    async def _extract_ruby_entities(
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
+        """Extract entities from Ruby using regex patterns."""
+        entities = []
+
+        # Methods
+        method_pattern = re.compile(r"^\s*def\s+(\w+[?!=]?)", re.MULTILINE)
+        for match in method_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"method_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.METHOD,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        # Classes
+        class_pattern = re.compile(r"^\s*class\s+(\w+)", re.MULTILINE)
+        for match in class_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"class_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.CLASS,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        # Modules
+        module_pattern = re.compile(r"^\s*module\s+(\w+)", re.MULTILINE)
+        for match in module_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"module_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.MODULE,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        return entities
+
+    async def _extract_kotlin_entities(
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
+        """Extract entities from Kotlin using regex patterns."""
+        entities = []
+
+        func_pattern = re.compile(
+            r"^\s*(?:(?:public|private|protected|internal|override|open|abstract|suspend)\s+)*fun\s+(\w+)",
+            re.MULTILINE,
+        )
+        for match in func_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"fun_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.FUNCTION,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        class_pattern = re.compile(
+            r"^\s*(?:(?:public|private|protected|internal|open|abstract|data|sealed|enum|annotation)\s+)*class\s+(\w+)",
+            re.MULTILINE,
+        )
+        for match in class_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"class_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.CLASS,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        iface_pattern = re.compile(
+            r"^\s*(?:(?:public|private|protected|internal)\s+)*interface\s+(\w+)",
+            re.MULTILINE,
+        )
+        for match in iface_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"iface_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.INTERFACE,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        return entities
+
+    async def _extract_swift_entities(
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
+        """Extract entities from Swift using regex patterns."""
+        entities = []
+
+        func_pattern = re.compile(
+            r"^\s*(?:(?:public|private|internal|open|fileprivate|static|class|override|mutating)\s+)*func\s+(\w+)",
+            re.MULTILINE,
+        )
+        for match in func_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"func_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.FUNCTION,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        for keyword, etype in [
+            ("class", EntityType.CLASS),
+            ("struct", EntityType.STRUCT),
+            ("protocol", EntityType.INTERFACE),
+        ]:
+            pat = re.compile(
+                rf"^\s*(?:(?:public|private|internal|open|fileprivate|final)\s+)*{keyword}\s+(\w+)",
+                re.MULTILINE,
+            )
+            for match in pat.finditer(content):
+                line_num = content[: match.start()].count("\n") + 1
+                entities.append(
+                    CodeEntity(
+                        id=f"{keyword}_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                        name=match.group(1),
+                        entity_type=etype,
+                        file_path=file_path,
+                        start_line=line_num,
+                        end_line=line_num,
+                        signature=match.group(0).strip(),
+                        language=language,
+                    )
+                )
+
+        return entities
+
+    async def _extract_scala_entities(
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
+        """Extract entities from Scala using regex patterns."""
+        entities = []
+
+        func_pattern = re.compile(
+            r"^\s*(?:(?:override|private|protected)\s+)*def\s+(\w+)", re.MULTILINE
+        )
+        for match in func_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"def_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.FUNCTION,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        for keyword, etype in [
+            ("class", EntityType.CLASS),
+            ("object", EntityType.MODULE),
+            ("trait", EntityType.INTERFACE),
+        ]:
+            pat = re.compile(
+                rf"^\s*(?:(?:abstract|sealed|final|case|implicit)\s+)*{keyword}\s+(\w+)",
+                re.MULTILINE,
+            )
+            for match in pat.finditer(content):
+                line_num = content[: match.start()].count("\n") + 1
+                entities.append(
+                    CodeEntity(
+                        id=f"{keyword}_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                        name=match.group(1),
+                        entity_type=etype,
+                        file_path=file_path,
+                        start_line=line_num,
+                        end_line=line_num,
+                        signature=match.group(0).strip(),
+                        language=language,
+                    )
+                )
+
+        return entities
+
+    async def _extract_dart_entities(
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
+        """Extract entities from Dart using regex patterns."""
+        entities = []
+
+        class_pattern = re.compile(r"^\s*(?:abstract\s+)?class\s+(\w+)", re.MULTILINE)
+        for match in class_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"class_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.CLASS,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        func_pattern = re.compile(
+            r"^\s*(?:(?:static|async|Future|void|int|double|String|bool|dynamic|var)\s+)+(\w+)\s*\(",
+            re.MULTILINE,
+        )
+        for match in func_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"func_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.FUNCTION,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        return entities
+
+    async def _extract_lua_entities(
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
+        """Extract entities from Lua using regex patterns."""
+        entities = []
+
+        func_pattern = re.compile(r"^\s*(?:local\s+)?function\s+([\w.]+)\s*\(", re.MULTILINE)
+        for match in func_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"func_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.FUNCTION,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        return entities
+
+    async def _extract_perl_entities(
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
+        """Extract entities from Perl using regex patterns."""
+        entities = []
+
+        sub_pattern = re.compile(r"^\s*sub\s+(\w+)", re.MULTILINE)
+        for match in sub_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"sub_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.FUNCTION,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        package_pattern = re.compile(r"^\s*package\s+(\w+(?:::\w+)*)", re.MULTILINE)
+        for match in package_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"package_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.MODULE,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        return entities
+
+    async def _extract_elixir_entities(
+        self, content: str, file_path: Path, language: Language
+    ) -> list[CodeEntity]:
+        """Extract entities from Elixir using regex patterns."""
+        entities = []
+
+        module_pattern = re.compile(r"^\s*defmodule\s+([\w.]+)", re.MULTILINE)
+        for match in module_pattern.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            entities.append(
+                CodeEntity(
+                    id=f"module_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                    name=match.group(1),
+                    entity_type=EntityType.MODULE,
+                    file_path=file_path,
+                    start_line=line_num,
+                    end_line=line_num,
+                    signature=match.group(0).strip(),
+                    language=language,
+                )
+            )
+
+        for keyword in ("def", "defp"):
+            pat = re.compile(rf"^\s*{keyword}\s+(\w+)", re.MULTILINE)
+            for match in pat.finditer(content):
+                line_num = content[: match.start()].count("\n") + 1
+                entities.append(
+                    CodeEntity(
+                        id=f"{keyword}_{match.group(1)}_{line_num}_{uuid4().hex[:8]}",
+                        name=match.group(1),
+                        entity_type=EntityType.FUNCTION,
+                        file_path=file_path,
+                        start_line=line_num,
+                        end_line=line_num,
+                        signature=match.group(0).strip(),
+                        language=language,
+                    )
+                )
 
         return entities
 

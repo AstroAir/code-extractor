@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from pysearch.core.config import SearchConfig
-from pysearch.core.types import Query, SearchItem, SearchResult, SearchStats
+from pysearch.core.types import Query, SearchResult, SearchStats
 from pysearch.integrations.multi_repo import (
     MultiRepoSearchEngine,
     MultiRepoSearchResult,
@@ -17,10 +17,10 @@ from pysearch.integrations.multi_repo import (
     SearchCoordinator,
 )
 
-
 # ---------------------------------------------------------------------------
 # RepositoryInfo
 # ---------------------------------------------------------------------------
+
 
 class TestRepositoryInfo:
     """Tests for RepositoryInfo dataclass."""
@@ -65,6 +65,7 @@ class TestRepositoryInfo:
 # MultiRepoSearchResult
 # ---------------------------------------------------------------------------
 
+
 class TestMultiRepoSearchResult:
     """Tests for MultiRepoSearchResult dataclass."""
 
@@ -106,6 +107,7 @@ class TestMultiRepoSearchResult:
 # ---------------------------------------------------------------------------
 # RepositoryManager
 # ---------------------------------------------------------------------------
+
 
 class TestRepositoryManager:
     """Tests for RepositoryManager class."""
@@ -216,6 +218,7 @@ class TestRepositoryManager:
 # SearchCoordinator
 # ---------------------------------------------------------------------------
 
+
 class TestSearchCoordinator:
     """Tests for SearchCoordinator class."""
 
@@ -237,10 +240,7 @@ class TestSearchCoordinator:
         assert agg.stats.items == 0
 
     def test_aggregate_results_limits(self):
-        items = [
-            MagicMock(file=Path(f"f{i}.py"), start_line=i)
-            for i in range(10)
-        ]
+        items = [MagicMock(file=Path(f"f{i}.py"), start_line=i) for i in range(10)]
         r = SearchResult(
             items=items,
             stats=SearchStats(files_scanned=10, files_matched=10, items=10, elapsed_ms=5.0),
@@ -253,6 +253,7 @@ class TestSearchCoordinator:
 # ---------------------------------------------------------------------------
 # MultiRepoSearchEngine
 # ---------------------------------------------------------------------------
+
 
 class TestMultiRepoSearchEngine:
     """Tests for MultiRepoSearchEngine class."""

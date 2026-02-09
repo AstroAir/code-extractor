@@ -134,7 +134,7 @@ class IndexingIntegrationManager:
             return {}
 
         try:
-            return self._indexer.get_stats()  # type: ignore[no-any-return]
+            return self._indexer.get_stats()
         except Exception:
             return {}
 
@@ -200,7 +200,7 @@ class IndexingIntegrationManager:
             return {}
 
         try:
-            return self._indexer.get_size_info()  # type: ignore[no-any-return]
+            return self._indexer.get_size_info()
         except Exception:
             return {}
 
@@ -240,6 +240,6 @@ class IndexingIntegrationManager:
             return {"status": "not_initialized"}
 
         try:
-            return self._indexer.get_health_status()  # type: ignore[no-any-return]
+            return self._indexer.get_health_status()
         except Exception:
             return {"status": "error"}

@@ -22,7 +22,6 @@ from pysearch.integrations.multi_repo import (
     RepositoryManager,
 )
 
-
 # ---------------------------------------------------------------------------
 # RepositoryManager integration tests
 # ---------------------------------------------------------------------------
@@ -107,12 +106,8 @@ class TestRepositoryManagerHealthSummary:
         warning_path = tmp_path / "warning"
         warning_path.mkdir()
 
-        rm.add_repository(
-            "healthy", healthy_path, config=SearchConfig(paths=[str(healthy_path)])
-        )
-        rm.add_repository(
-            "warning", warning_path, config=SearchConfig(paths=[str(warning_path)])
-        )
+        rm.add_repository("healthy", healthy_path, config=SearchConfig(paths=[str(healthy_path)]))
+        rm.add_repository("warning", warning_path, config=SearchConfig(paths=[str(warning_path)]))
 
         summary = rm.get_health_summary()
         assert summary["total"] >= 2
@@ -220,12 +215,8 @@ class TestMultiRepoSearchEngineIntegration:
         p1 = self._create_repo(tmp_path, "r1", "def func1(): pass\n")
         p2 = self._create_repo(tmp_path, "r2", "def func2(): pass\n")
 
-        eng.add_repository(
-            "r1", p1, config=SearchConfig(paths=[str(p1)], include=["**/*.py"])
-        )
-        eng.add_repository(
-            "r2", p2, config=SearchConfig(paths=[str(p2)], include=["**/*.py"])
-        )
+        eng.add_repository("r1", p1, config=SearchConfig(paths=[str(p1)], include=["**/*.py"]))
+        eng.add_repository("r2", p2, config=SearchConfig(paths=[str(p2)], include=["**/*.py"]))
 
         for i in range(5):
             eng.search_all(f"func{i % 2 + 1}", use_regex=False, max_results=10)
@@ -239,9 +230,7 @@ class TestMultiRepoSearchEngineIntegration:
         eng = MultiRepoSearchEngine()
 
         p1 = self._create_repo(tmp_path, "enabled", "enabled_code\n")
-        eng.add_repository(
-            "enabled", p1, config=SearchConfig(paths=[str(p1)], include=["**/*.py"])
-        )
+        eng.add_repository("enabled", p1, config=SearchConfig(paths=[str(p1)], include=["**/*.py"]))
 
         repo_info = eng.repository_manager.get_repository("enabled")
         if repo_info:

@@ -15,9 +15,11 @@ storage backends, ensuring data persistence and efficient retrieval.
 from .qdrant_client import (
     QdrantConfig,
     QdrantVectorStore,
-    VectorSearchResult as QdrantSearchResult,
     cosine_similarity,
     normalize_vector,
+)
+from .qdrant_client import (
+    VectorSearchResult as QdrantSearchResult,
 )
 from .vector_db import (
     ChromaProvider,

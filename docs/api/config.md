@@ -4,7 +4,7 @@ The configuration system provides comprehensive control over search behavior, pe
 
 ## SearchConfig
 
-::: pysearch.config.SearchConfig
+::: pysearch.core.config.SearchConfig
     options:
       show_root_heading: true
       show_source: false
@@ -19,7 +19,7 @@ The configuration system provides comprehensive control over search behavior, pe
 
 ## RankStrategy
 
-::: pysearch.config.RankStrategy
+::: pysearch.core.config.RankStrategy
     options:
       show_root_heading: true
       show_source: false

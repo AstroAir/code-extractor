@@ -29,7 +29,10 @@ def _make_tag() -> IndexTag:
 
 
 def _make_refresh_results(
-    compute=None, delete=None, add_tag=None, remove_tag=None,
+    compute=None,
+    delete=None,
+    add_tag=None,
+    remove_tag=None,
 ) -> RefreshIndexResults:
     return RefreshIndexResults(
         compute=compute or [],
@@ -178,12 +181,15 @@ class TestFullTextIndexUpdate:
         item = PathAndCacheKey(path="/test/file.py", cache_key="abc123")
         results = _make_refresh_results(compute=[item])
 
-        with patch(
-            "pysearch.indexing.indexes.full_text_index.read_text_safely",
-            return_value="def hello():\n    pass\n",
-        ), patch(
-            "pysearch.indexing.indexes.full_text_index.detect_language",
-        ) as mock_detect:
+        with (
+            patch(
+                "pysearch.indexing.indexes.full_text_index.read_text_safely",
+                return_value="def hello():\n    pass\n",
+            ),
+            patch(
+                "pysearch.indexing.indexes.full_text_index.detect_language",
+            ) as mock_detect,
+        ):
             mock_detect.return_value = MagicMock(value="python")
 
             updates = []
@@ -264,9 +270,7 @@ class TestFullTextIndexUpdate:
 
         mark_complete.assert_called_once_with([item], "remove_tag")
         conn = await idx._get_connection()
-        cursor = conn.execute(
-            "SELECT COUNT(*) FROM fts_tags WHERE tag = ?", (tag.to_string(),)
-        )
+        cursor = conn.execute("SELECT COUNT(*) FROM fts_tags WHERE tag = ?", (tag.to_string(),))
         assert cursor.fetchone()[0] == 0
 
     @pytest.mark.asyncio
@@ -344,8 +348,13 @@ class TestFullTextIndexRetrieve:
         if results:
             r = results[0]
             expected_keys = {
-                "path", "content", "language", "file_type",
-                "file_size", "line_count", "rank",
+                "path",
+                "content",
+                "language",
+                "file_type",
+                "file_size",
+                "line_count",
+                "rank",
             }
             assert set(r.keys()) == expected_keys
 

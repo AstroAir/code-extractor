@@ -141,7 +141,7 @@ class GraphRAGIntegrationManager:
             return {}
 
         try:
-            return self._graphrag_engine.get_stats()  # type: ignore[no-any-return]
+            return self._graphrag_engine.get_stats()
         except Exception:
             return {}
 
@@ -151,7 +151,7 @@ class GraphRAGIntegrationManager:
             return {}
 
         try:
-            return self._vector_store.get_stats()  # type: ignore[no-any-return]
+            return self._vector_store.get_stats()
         except Exception:
             return {}
 
@@ -187,7 +187,7 @@ class GraphRAGIntegrationManager:
             return []
 
         try:
-            return await self._graphrag_engine.find_similar_entities(entity_id, limit)  # type: ignore[no-any-return]
+            return await self._graphrag_engine.find_similar_entities(entity_id, limit)
         except Exception as e:
             if self._logger:
                 self._logger.error(f"Failed to find similar entities: {e}")
@@ -199,7 +199,7 @@ class GraphRAGIntegrationManager:
             return {}
 
         try:
-            return await self._graphrag_engine.get_entity_context(entity_id, max_hops)  # type: ignore[no-any-return]
+            return await self._graphrag_engine.get_entity_context(entity_id, max_hops)
         except Exception as e:
             if self._logger:
                 self._logger.error(f"Failed to get entity context: {e}")
@@ -237,7 +237,7 @@ class GraphRAGIntegrationManager:
             return ""
 
         try:
-            return await self._graphrag_engine.export_graph(format)  # type: ignore[no-any-return]
+            return await self._graphrag_engine.export_graph(format)
         except Exception as e:
             if self._logger:
                 self._logger.error(f"Failed to export graph: {e}")
@@ -291,7 +291,7 @@ class GraphRAGIntegrationManager:
             return {eid: [] for eid in entity_ids}
 
         try:
-            return await self._graphrag_engine.batch_find_similar(entity_ids, limit)  # type: ignore[no-any-return]
+            return await self._graphrag_engine.batch_find_similar(entity_ids, limit)
         except Exception as e:
             if self._logger:
                 self._logger.error(f"Failed to batch find similar entities: {e}")
@@ -303,6 +303,6 @@ class GraphRAGIntegrationManager:
             return {}
 
         try:
-            return await self._graphrag_engine.get_stats_async()  # type: ignore[no-any-return]
+            return await self._graphrag_engine.get_stats_async()
         except Exception:
             return {}

@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
 
 from pysearch.core.config import SearchConfig
 from pysearch.core.types import Language
 from pysearch.indexing.advanced.integration import (
+    IndexingOrchestrator,
     IndexSearchEngine,
     IndexSearchResult,
-    IndexingOrchestrator,
     SearchResultEnhancer,
     ensure_indexed,
     index_search,
@@ -44,8 +41,12 @@ class TestIndexSearchResult:
 
     def test_defaults(self):
         r = IndexSearchResult(
-            path="x.py", content="", start_line=1, end_line=1,
-            language=Language.UNKNOWN, score=0.0,
+            path="x.py",
+            content="",
+            start_line=1,
+            end_line=1,
+            language=Language.UNKNOWN,
+            score=0.0,
         )
         assert r.score == 0.0
         assert r.entity_name is None

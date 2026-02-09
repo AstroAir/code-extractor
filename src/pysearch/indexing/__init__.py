@@ -26,6 +26,7 @@ __all__ = [
     "IndexQuery",
 ]
 
+
 # Advanced indexing classes (lazy import to avoid circular imports)
 def __getattr__(name: str):  # type: ignore[no-untyped-def]
     """Lazy import for advanced indexing classes."""

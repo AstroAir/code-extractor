@@ -5,8 +5,6 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.core.history.history_sessions import SearchSession, SessionManager
 from pysearch.core.types import Query, SearchItem, SearchResult, SearchStats
@@ -22,7 +20,10 @@ def _make_result(items_count: int = 3) -> SearchResult:
     return SearchResult(
         items=items,
         stats=SearchStats(
-            files_scanned=10, files_matched=2, items=items_count, elapsed_ms=50.0,
+            files_scanned=10,
+            files_matched=2,
+            items=items_count,
+            elapsed_ms=50.0,
         ),
     )
 
@@ -200,3 +201,133 @@ class TestSessionManager:
         sessions = mgr2.get_sessions()
         assert len(sessions) >= 1
         assert any(s.total_searches == 3 for s in sessions)
+
+
+class TestSessionManagerCompare:
+    """Tests for compare_sessions and get_session_summary."""
+
+    def test_compare_sessions(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        mgr = SessionManager(cfg)
+        mgr._loaded = True
+
+        s1 = SearchSession(
+            session_id="s1",
+            start_time=1000.0,
+            end_time=2000.0,
+            queries=["foo", "bar"],
+            total_searches=5,
+            successful_searches=4,
+            primary_languages={"python"},
+            primary_paths={"/src"},
+        )
+        s2 = SearchSession(
+            session_id="s2",
+            start_time=3000.0,
+            end_time=4000.0,
+            queries=["bar", "baz"],
+            total_searches=3,
+            successful_searches=2,
+            primary_languages={"python", "javascript"},
+            primary_paths={"/src", "/lib"},
+        )
+        mgr._sessions["s1"] = s1
+        mgr._sessions["s2"] = s2
+
+        result = mgr.compare_sessions("s1", "s2")
+
+        assert "session_1" in result
+        assert "session_2" in result
+        assert result["session_1"]["total_searches"] == 5
+        assert result["session_2"]["total_searches"] == 3
+        assert "bar" in result["common_queries"]
+        assert "foo" in result["only_in_session_1"]
+        assert "baz" in result["only_in_session_2"]
+        assert "python" in result["common_languages"]
+        assert result["search_count_diff"] == -2
+
+    def test_compare_sessions_not_found(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        mgr = SessionManager(cfg)
+        mgr._loaded = True
+
+        result = mgr.compare_sessions("nonexistent1", "nonexistent2")
+        assert "error" in result
+
+    def test_compare_sessions_one_not_found(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        mgr = SessionManager(cfg)
+        mgr._loaded = True
+        mgr._sessions["s1"] = SearchSession(session_id="s1", start_time=1000.0)
+
+        result = mgr.compare_sessions("s1", "nonexistent")
+        assert "error" in result
+
+    def test_get_session_summary(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        mgr = SessionManager(cfg)
+        mgr._loaded = True
+
+        session = SearchSession(
+            session_id="test_session",
+            start_time=1000.0,
+            end_time=2000.0,
+            queries=["foo", "bar", "foo"],
+            total_searches=10,
+            successful_searches=8,
+            primary_languages={"python", "javascript"},
+            primary_paths={"/src"},
+        )
+        mgr._sessions["test_session"] = session
+
+        summary = mgr.get_session_summary("test_session")
+
+        assert summary["session_id"] == "test_session"
+        assert summary["total_searches"] == 10
+        assert summary["successful_searches"] == 8
+        assert summary["failed_searches"] == 2
+        assert summary["success_rate"] == 0.8
+        assert summary["is_active"] is False
+        assert summary["duration_seconds"] == 1000.0
+        assert "foo" in summary["repeated_queries"]
+        assert "python" in summary["primary_languages"]
+
+    def test_get_session_summary_active(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        mgr = SessionManager(cfg)
+        mgr._loaded = True
+
+        session = SearchSession(
+            session_id="active",
+            start_time=time.time() - 60,
+            total_searches=2,
+            successful_searches=1,
+        )
+        mgr._sessions["active"] = session
+
+        summary = mgr.get_session_summary("active")
+
+        assert summary["is_active"] is True
+        assert summary["end_time_iso"] is None
+
+    def test_get_session_summary_not_found(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        mgr = SessionManager(cfg)
+        mgr._loaded = True
+
+        result = mgr.get_session_summary("nonexistent")
+        assert "error" in result
+
+    def test_get_session_summary_no_searches(self, tmp_path: Path):
+        cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
+        mgr = SessionManager(cfg)
+        mgr._loaded = True
+
+        session = SearchSession(session_id="empty", start_time=1000.0, end_time=1001.0)
+        mgr._sessions["empty"] = session
+
+        summary = mgr.get_session_summary("empty")
+
+        assert summary["total_searches"] == 0
+        assert summary["success_rate"] == 0.0
+        assert summary["unique_queries"] == 0

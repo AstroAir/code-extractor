@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: F821
 """
 Tests for PySearch MCP Server
 
@@ -16,7 +17,10 @@ pytest.skip(
     allow_module_level=True,
 )
 
-from mcp.servers.pysearch_mcp_server import PySearchEngine, ConfigResponse, SearchResponse  # noqa: E402
+from mcp.servers.pysearch_mcp_server import (  # noqa: E402
+    ConfigResponse,
+    SearchResponse,
+)
 
 
 class TestPySearchMCPServer:

@@ -6,9 +6,10 @@ schema changes in order.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 
 
 @dataclass
@@ -38,7 +39,9 @@ class MigrationRunner:
         self._migrations: list[Migration] = []
         self._applied: set[str] = set()
 
-    def register(self, version: str, name: str, up: Callable[[], None], down: Callable[[], None]) -> None:
+    def register(
+        self, version: str, name: str, up: Callable[[], None], down: Callable[[], None]
+    ) -> None:
         """Register a new migration.
 
         Args:

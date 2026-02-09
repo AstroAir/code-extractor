@@ -29,23 +29,25 @@ from .dependency_analysis import (
     DependencyMetrics,
     ImportNode,
 )
-from .language_detection import (
-    detect_language,
-    get_language_extensions,
-    get_supported_languages,
-    is_text_file,
-)
 from .graphrag import (
     EntityExtractor,
     GraphRAGEngine,
     KnowledgeGraphBuilder,
     RelationshipMapper,
 )
+from .language_detection import (
+    detect_language,
+    get_language_extensions,
+    get_supported_languages,
+    is_text_file,
+)
 from .language_support import (
     CodeChunk,
     LanguageConfig,
     LanguageProcessor,
     LanguageRegistry,
+    RegexLanguageConfig,
+    RegexProcessor,
     TreeSitterProcessor,
     language_registry,
 )
@@ -74,6 +76,8 @@ __all__ = [
     # Language support
     "LanguageProcessor",
     "TreeSitterProcessor",
+    "RegexProcessor",
+    "RegexLanguageConfig",
     "LanguageRegistry",
     "LanguageConfig",
     "CodeChunk",

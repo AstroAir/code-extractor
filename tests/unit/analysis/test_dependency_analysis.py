@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from pysearch.analysis.dependency_analysis import (
     CircularDependencyDetector,
     DependencyAnalyzer,
@@ -267,6 +265,19 @@ class TestDependencyAnalyzer:
             Language.JAVA,
             Language.CSHARP,
             Language.GO,
+            Language.RUST,
+            Language.PHP,
+            Language.RUBY,
+            Language.KOTLIN,
+            Language.SWIFT,
+            Language.SCALA,
+            Language.C,
+            Language.CPP,
+            Language.DART,
+            Language.LUA,
+            Language.PERL,
+            Language.ELIXIR,
+            Language.HASKELL,
         }
         assert set(analyzer.language_parsers.keys()) == expected
 
@@ -282,8 +293,7 @@ class TestDependencyAnalyzer:
     def test_analyze_javascript_file(self, tmp_path: Path):
         f = tmp_path / "example.js"
         f.write_text(
-            "import React from 'react';\n"
-            "const fs = require('fs');\n",
+            "import React from 'react';\n" "const fs = require('fs');\n",
             encoding="utf-8",
         )
         analyzer = DependencyAnalyzer()
@@ -293,8 +303,7 @@ class TestDependencyAnalyzer:
     def test_analyze_java_file(self, tmp_path: Path):
         f = tmp_path / "Example.java"
         f.write_text(
-            "import java.util.List;\n"
-            "import static java.lang.Math.PI;\n",
+            "import java.util.List;\n" "import static java.lang.Math.PI;\n",
             encoding="utf-8",
         )
         analyzer = DependencyAnalyzer()

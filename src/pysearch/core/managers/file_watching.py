@@ -55,9 +55,7 @@ class FileWatchingManager:
         """Set the indexer instance for auto-updates."""
         self._indexer = indexer
 
-    def set_cache_invalidation_callback(
-        self, callback: Callable[[list[Any]], None]
-    ) -> None:
+    def set_cache_invalidation_callback(self, callback: Callable[[list[Any]], None]) -> None:
         """Set the callback to invoke when files change, for cache invalidation.
 
         Args:
@@ -161,7 +159,7 @@ class FileWatchingManager:
             return {}
 
         try:
-            return self.watch_manager.get_all_stats()  # type: ignore[no-any-return]
+            return self.watch_manager.get_all_stats()
         except Exception:
             return {}
 
@@ -191,7 +189,7 @@ class FileWatchingManager:
 
         try:
             if self.watch_manager:
-                return self.watch_manager.add_watcher(  # type: ignore[no-any-return]
+                return self.watch_manager.add_watcher(
                     name=name,
                     path=path,
                     config=self.config,
@@ -216,7 +214,7 @@ class FileWatchingManager:
             return False
 
         try:
-            return self.watch_manager.remove_watcher(name)  # type: ignore[no-any-return]
+            return self.watch_manager.remove_watcher(name)
         except Exception:
             return False
 
@@ -231,7 +229,7 @@ class FileWatchingManager:
             return []
 
         try:
-            return self.watch_manager.list_watchers()  # type: ignore[no-any-return]
+            return self.watch_manager.list_watchers()
         except Exception:
             return []
 
@@ -265,7 +263,7 @@ class FileWatchingManager:
             return {}
 
         try:
-            return self.watch_manager.get_watcher_status(name)  # type: ignore[no-any-return]
+            return self.watch_manager.get_watcher_status(name)
         except Exception:
             return {}
 
@@ -301,6 +299,104 @@ class FileWatchingManager:
             return True
         except Exception:
             return False
+
+    def enable_workspace_watch(
+        self,
+        workspace_config: Any,
+        debounce_delay: float = 0.5,
+        batch_size: int = 50,
+        max_batch_delay: float = 5.0,
+    ) -> dict[str, bool]:
+        """
+        Enable file watching for all repositories in a workspace.
+
+        Creates a watcher for each enabled repository in the workspace,
+        using its configured include/exclude patterns.
+
+        Args:
+            workspace_config: WorkspaceConfig instance
+            debounce_delay: Delay before processing changes
+            batch_size: Max changes to batch together
+            max_batch_delay: Max delay before processing a batch
+
+        Returns:
+            Dictionary mapping repository names to watch success status
+        """
+        self._ensure_watch_manager()
+        if not self.watch_manager:
+            return {}
+
+        from pathlib import Path as _Path
+
+        results: dict[str, bool] = {}
+
+        for repo_cfg in workspace_config.get_enabled_repositories():
+            repo_path = _Path(repo_cfg.path)
+            if not repo_path.is_absolute():
+                repo_path = _Path(workspace_config.root_path) / repo_path
+
+            if not repo_path.exists():
+                results[repo_cfg.name] = False
+                continue
+
+            # Build per-repo config for watching
+            include = repo_cfg.include or workspace_config.include
+            exclude = repo_cfg.exclude or workspace_config.exclude
+
+            from ..config import SearchConfig as _SC
+
+            watch_cfg = _SC(
+                paths=[str(repo_path)],
+                include=include,
+                exclude=exclude,
+                context=workspace_config.context,
+                parallel=workspace_config.parallel,
+                workers=workspace_config.workers,
+                follow_symlinks=workspace_config.follow_symlinks,
+            )
+
+            watcher_name = f"ws_{repo_cfg.name}"
+            try:
+                success = self.watch_manager.add_watcher(
+                    name=watcher_name,
+                    path=str(repo_path),
+                    config=watch_cfg,
+                    indexer=self._indexer,
+                    debounce_delay=debounce_delay,
+                    batch_size=batch_size,
+                    max_batch_delay=max_batch_delay,
+                    cache_invalidation_callback=self._cache_invalidation_callback,
+                )
+                results[repo_cfg.name] = bool(success)
+            except Exception:
+                results[repo_cfg.name] = False
+
+        # Start all newly added watchers
+        if any(results.values()):
+            try:
+                self.watch_manager.start_all()
+                self._auto_watch_enabled = True
+            except Exception:
+                pass
+
+        return results
+
+    def disable_workspace_watch(self, workspace_config: Any) -> None:
+        """
+        Disable file watching for all workspace repositories.
+
+        Args:
+            workspace_config: WorkspaceConfig instance
+        """
+        if not self.watch_manager:
+            return
+
+        for repo_cfg in workspace_config.repositories:
+            watcher_name = f"ws_{repo_cfg.name}"
+            try:
+                self.watch_manager.remove_watcher(watcher_name)
+            except Exception:
+                pass
 
     def get_watch_performance_metrics(self) -> dict[str, Any]:
         """

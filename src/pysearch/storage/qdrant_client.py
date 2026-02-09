@@ -61,7 +61,7 @@ try:
     QDRANT_AVAILABLE = True
 except ImportError:  # pragma: no cover - fallback when qdrant not installed
     QDRANT_AVAILABLE = False
-    np = None  # type: ignore
+    np = None
 
     class _FallbackResponseHandlingException(Exception):
         pass
@@ -70,8 +70,8 @@ except ImportError:  # pragma: no cover - fallback when qdrant not installed
         pass
 
     # Assign fallback classes to the expected names
-    ResponseHandlingException = _FallbackResponseHandlingException  # type: ignore
-    UnexpectedResponse = _FallbackUnexpectedResponse  # type: ignore
+    ResponseHandlingException = _FallbackResponseHandlingException
+    UnexpectedResponse = _FallbackUnexpectedResponse
 
     # Lightweight stubs to satisfy type checkers; runtime prevented before use
     class QdrantClient:  # type: ignore
@@ -128,7 +128,7 @@ except ImportError:  # pragma: no cover - fallback when qdrant not installed
             def __init__(self, scalar: Any = None) -> None:
                 self.scalar = scalar
 
-    models = _StubModels()  # type: ignore
+    models = _StubModels()
 
 if TYPE_CHECKING:  # Hints only; actual runtime handled above
     from qdrant_client import AsyncQdrantClient as _RealAsyncQdrantClient  # noqa: F401
@@ -227,9 +227,9 @@ class QdrantVectorStore:
 
         except Exception as e:  # pragma: no cover - initialization error path
             logger.error(f"Failed to initialize Qdrant client: {e}")
-            raise SearchError(f"Qdrant initialization failed: {e}")
+            raise SearchError(f"Qdrant initialization failed: {e}") from e
 
-    async def __aenter__(self) -> "QdrantVectorStore":
+    async def __aenter__(self) -> QdrantVectorStore:
         """Async context manager entry."""
         await self.initialize()
         return self
@@ -283,7 +283,9 @@ class QdrantVectorStore:
             if self._async_client is not None:
                 collections = await self._async_client.get_collections()
             else:
-                collections = await self._retry_operation(lambda: effective_client.get_collections())
+                collections = await self._retry_operation(
+                    lambda: effective_client.get_collections()
+                )
 
             existing_names = {col.name for col in collections.collections}
 
@@ -311,7 +313,9 @@ class QdrantVectorStore:
                             )
                         )
                     except (AttributeError, TypeError):
-                        logger.debug("Scalar quantization not supported in this qdrant-client version")
+                        logger.debug(
+                            "Scalar quantization not supported in this qdrant-client version"
+                        )
 
                 if self._async_client is not None:
                     await self._async_client.create_collection(
@@ -333,7 +337,7 @@ class QdrantVectorStore:
 
         except Exception as e:  # pragma: no cover
             logger.error(f"Failed to create collection {collection_name}: {e}")
-            raise SearchError(f"Collection creation failed: {e}")
+            raise SearchError(f"Collection creation failed: {e}") from e
 
     async def add_vectors(
         self,
@@ -366,7 +370,9 @@ class QdrantVectorStore:
                 assert models is not None
                 points = [
                     models.PointStruct(id=point_id, vector=vector, payload=payload)
-                    for point_id, vector, payload in zip(batch_ids, batch_vectors, batch_metadata, strict=False)
+                    for point_id, vector, payload in zip(
+                        batch_ids, batch_vectors, batch_metadata, strict=False
+                    )
                 ]
 
                 # Capture points in lambda default arg to avoid closure issue
@@ -377,7 +383,7 @@ class QdrantVectorStore:
                     )
                 else:
                     await self._retry_operation(
-                        lambda _pts=points: effective_client.upsert(
+                        lambda _pts=points: effective_client.upsert(  # type: ignore[misc]
                             collection_name=collection_name,
                             points=_pts,
                         )
@@ -391,11 +397,9 @@ class QdrantVectorStore:
 
         except Exception as e:  # pragma: no cover
             logger.error(f"Failed to add vectors to {collection_name}: {e}")
-            raise SearchError(f"Vector addition failed: {e}")
+            raise SearchError(f"Vector addition failed: {e}") from e
 
-    def _build_search_filter(
-        self, filter_conditions: dict[str, Any]
-    ) -> Any:
+    def _build_search_filter(self, filter_conditions: dict[str, Any]) -> Any:
         """Build a Qdrant filter from a dict of conditions."""
         assert models is not None
         conditions: list[Any] = []
@@ -471,7 +475,7 @@ class QdrantVectorStore:
 
         except Exception as e:  # pragma: no cover
             logger.error(f"Failed to search vectors in {collection}: {e}")
-            raise SearchError(f"Vector search failed: {e}")
+            raise SearchError(f"Vector search failed: {e}") from e
 
     async def batch_search(
         self,
@@ -551,7 +555,7 @@ class QdrantVectorStore:
 
         except Exception as e:  # pragma: no cover
             logger.error(f"Failed to batch search in {collection}: {e}")
-            raise SearchError(f"Batch vector search failed: {e}")
+            raise SearchError(f"Batch vector search failed: {e}") from e
 
     async def delete_vectors(self, collection_name: str, vector_ids: list[str]) -> None:
         """Delete vectors from a collection."""
@@ -577,7 +581,7 @@ class QdrantVectorStore:
 
         except Exception as e:  # pragma: no cover
             logger.error(f"Failed to delete vectors from {collection_name}: {e}")
-            raise SearchError(f"Vector deletion failed: {e}")
+            raise SearchError(f"Vector deletion failed: {e}") from e
 
     async def update_vector_metadata(
         self,
@@ -607,7 +611,7 @@ class QdrantVectorStore:
 
         except Exception as e:  # pragma: no cover
             logger.error(f"Failed to update metadata for vector {vector_id}: {e}")
-            raise SearchError(f"Metadata update failed: {e}")
+            raise SearchError(f"Metadata update failed: {e}") from e
 
     async def get_collection_info(self, collection_name: str) -> dict[str, Any]:
         """Get information about a collection."""
@@ -617,7 +621,9 @@ class QdrantVectorStore:
             if self._async_client is not None:
                 info = await self._async_client.get_collection(collection_name)
             else:
-                info = await self._retry_operation(lambda: effective_client.get_collection(collection_name))
+                info = await self._retry_operation(
+                    lambda: effective_client.get_collection(collection_name)
+                )
 
             return {
                 "name": collection_name,
@@ -633,7 +639,7 @@ class QdrantVectorStore:
 
         except Exception as e:  # pragma: no cover
             logger.error(f"Failed to get collection info for {collection_name}: {e}")
-            raise SearchError(f"Collection info retrieval failed: {e}")
+            raise SearchError(f"Collection info retrieval failed: {e}") from e
 
     async def list_collections(self) -> list[str]:
         """List all collections in the Qdrant instance."""
@@ -643,12 +649,14 @@ class QdrantVectorStore:
             if self._async_client is not None:
                 collections = await self._async_client.get_collections()
             else:
-                collections = await self._retry_operation(lambda: effective_client.get_collections())
+                collections = await self._retry_operation(
+                    lambda: effective_client.get_collections()
+                )
             return [col.name for col in collections.collections]
 
         except Exception as e:  # pragma: no cover
             logger.error(f"Failed to list collections: {e}")
-            raise SearchError(f"Collection listing failed: {e}")
+            raise SearchError(f"Collection listing failed: {e}") from e
 
     async def delete_collection(self, collection_name: str) -> None:
         """Delete a collection from Qdrant."""
@@ -666,7 +674,7 @@ class QdrantVectorStore:
 
         except Exception as e:  # pragma: no cover
             logger.error(f"Failed to delete collection {collection_name}: {e}")
-            raise SearchError(f"Collection deletion failed: {e}")
+            raise SearchError(f"Collection deletion failed: {e}") from e
 
     async def close(self) -> None:
         """Close the Qdrant client connection."""
@@ -682,11 +690,7 @@ class QdrantVectorStore:
 
     def is_available(self) -> bool:
         """Check if Qdrant is available and client is initialized."""
-        return bool(
-            QDRANT_AVAILABLE
-            and self._initialized
-            and (self.client or self._async_client)
-        )
+        return bool(QDRANT_AVAILABLE and self._initialized and (self.client or self._async_client))
 
 
 def normalize_vector(vector: list[float]) -> list[float]:
@@ -701,7 +705,7 @@ def normalize_vector(vector: list[float]) -> list[float]:
     norm = np.linalg.norm(np_vector)
     if norm == 0:
         return vector
-    return (np_vector / norm).tolist()  # type: ignore[no-any-return]
+    return (np_vector / norm).tolist()
 
 
 def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:

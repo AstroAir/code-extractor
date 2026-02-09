@@ -90,7 +90,7 @@ class TestErrorCollector:
         collector.add_error(SearchError("err1"), file_path=Path("a.py"))
         collector.add_error(SearchError("err2"), file_path=Path("b.py"))
         summary = collector.get_summary()
-        assert isinstance(summary, (str, dict))
+        assert isinstance(summary, str | dict)
 
 
 class TestSearchError:

@@ -37,6 +37,12 @@ theme:
     - toc.follow
     - toc.integrate
 
+validation:
+  links:
+    not_found: info
+    anchors: info
+    unrecognized_links: info
+
 nav:
   - Home: index.md
   - Getting Started:
@@ -146,3 +152,4 @@ plugins:
   - git-committers:
       repository: AstroAir/pysearch
       branch: main
+      enabled: !ENV [MKDOCS_GIT_COMMITTERS_APIKEY, false]

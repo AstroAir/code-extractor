@@ -24,9 +24,7 @@ class TestCacheManager:
         assert mgr.default_ttl == 3600
 
     def test_init_disk(self, tmp_path: Path):
-        mgr = CacheManager(
-            backend="disk", cache_dir=tmp_path, max_size=100, auto_cleanup=False
-        )
+        mgr = CacheManager(backend="disk", cache_dir=tmp_path, max_size=100, auto_cleanup=False)
         assert mgr.backend is not None
 
     def test_init_invalid_backend(self):

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.models.user import User, UserProfile, UserRole
+from src.models.user import User, UserRole
 from src.services.post_service import PostService
 from src.utils.cache import cached
 from src.utils.logger import get_logger
@@ -69,9 +69,7 @@ class UserService:
         """
         return self._users.get(username)
 
-    async def update_profile(
-        self, username: str, profile_data: dict[str, Any]
-    ) -> User | None:
+    async def update_profile(self, username: str, profile_data: dict[str, Any]) -> User | None:
         """Update a user's profile information.
 
         Args:

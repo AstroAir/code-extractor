@@ -52,8 +52,8 @@ from typing import Any
 from ..core.config import SearchConfig
 from ..core.types import Language
 from ..utils.error_handling import ErrorCollector
-from ..utils.logging_config import get_logger
 from ..utils.helpers import file_meta, read_text_safely
+from ..utils.logging_config import get_logger
 
 logger = get_logger()
 
@@ -182,7 +182,8 @@ class GlobalCacheManager:
             raise RuntimeError("Database connection not established before creating tables")
 
         # Global cache table - stores content by hash
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS global_cache (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 content_hash TEXT NOT NULL,
@@ -193,10 +194,12 @@ class GlobalCacheManager:
                 access_count INTEGER DEFAULT 0,
                 UNIQUE(content_hash, artifact_id)
             )
-        """)
+        """
+        )
 
         # Tag associations table - tracks which tags use which content
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS cache_tags (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 content_hash TEXT NOT NULL,
@@ -207,21 +210,28 @@ class GlobalCacheManager:
                 FOREIGN KEY (content_hash, artifact_id)
                     REFERENCES global_cache (content_hash, artifact_id)
             )
-        """)
+        """
+        )
 
         # Create indexes for performance
-        conn.execute("""
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_global_cache_hash_artifact
             ON global_cache(content_hash, artifact_id)
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_cache_tags_hash_artifact
             ON cache_tags(content_hash, artifact_id)
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_cache_tags_tag
             ON cache_tags(tag)
-        """)
+        """
+        )
 
         conn.commit()
 
@@ -379,13 +389,15 @@ class GlobalCacheManager:
                 conn = await self._get_connection()
 
                 # Find orphaned content
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT gc.content_hash, gc.artifact_id
                     FROM global_cache gc
                     LEFT JOIN cache_tags ct ON gc.content_hash = ct.content_hash
                         AND gc.artifact_id = ct.artifact_id
                     WHERE ct.content_hash IS NULL
-                """)
+                """
+                )
 
                 orphaned = cursor.fetchall()
 
@@ -441,7 +453,8 @@ class ContentAddressedIndexer:
             raise RuntimeError("Database connection not established before creating tables")
 
         # Tag catalog - tracks what's indexed for each tag
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS tag_catalog (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 directory TEXT NOT NULL,
@@ -452,17 +465,22 @@ class ContentAddressedIndexer:
                 last_updated REAL NOT NULL,
                 UNIQUE(directory, branch, artifact_id, path)
             )
-        """)
+        """
+        )
 
         # Create indexes
-        conn.execute("""
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_tag_catalog_tag
             ON tag_catalog(directory, branch, artifact_id)
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_tag_catalog_hash
             ON tag_catalog(content_hash)
-        """)
+        """
+        )
 
         conn.commit()
 

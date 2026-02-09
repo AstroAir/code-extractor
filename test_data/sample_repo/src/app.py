@@ -6,12 +6,9 @@ and configures middleware for the web service.
 
 from __future__ import annotations
 
-import asyncio
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
-from src.api.middleware import LoggingMiddleware, RateLimitMiddleware
-from src.api.routes import router
 from src.config import Settings, get_settings
 from src.db.connection import DatabasePool
 

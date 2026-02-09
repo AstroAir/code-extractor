@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from pysearch.search.semantic import (
     CONCEPT_PATTERNS,
     concept_to_patterns,
@@ -28,7 +26,7 @@ class TestConceptPatterns:
         assert "async" in CONCEPT_PATTERNS
 
     def test_patterns_are_lists(self):
-        for key, patterns in CONCEPT_PATTERNS.items():
+        for _key, patterns in CONCEPT_PATTERNS.items():
             assert isinstance(patterns, list)
             assert len(patterns) > 0
 

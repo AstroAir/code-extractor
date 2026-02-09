@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.config import RankStrategy, SearchConfig
 from pysearch.core.types import Language, OutputFormat
 

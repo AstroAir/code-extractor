@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.core.managers.dependency_integration import DependencyIntegrationManager
 
@@ -89,7 +87,8 @@ class TestDependencyIntegrationManager:
         mock_graph = _make_mock_graph()
         mock_analyzer.analyze_directory.return_value = mock_graph
         mock_analyzer.find_impact_analysis.return_value = {
-            "direct_dependents": ["b"], "total_affected": 2,
+            "direct_dependents": ["b"],
+            "total_affected": 2,
         }
         mgr.dependency_analyzer = mock_analyzer
         result = mgr.find_dependency_impact("a")
@@ -108,9 +107,7 @@ class TestDependencyIntegrationManager:
         mock_analyzer = MagicMock()
         mock_graph = _make_mock_graph()
         mock_analyzer.analyze_directory.return_value = mock_graph
-        mock_analyzer.suggest_refactoring_opportunities.return_value = [
-            {"type": "split"}
-        ]
+        mock_analyzer.suggest_refactoring_opportunities.return_value = [{"type": "split"}]
         mgr.dependency_analyzer = mock_analyzer
         result = mgr.suggest_refactoring_opportunities()
         assert len(result) == 1

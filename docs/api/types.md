@@ -6,7 +6,7 @@ Core data types and structures used throughout the PySearch system.
 
 ### Query
 
-::: pysearch.types.Query
+::: pysearch.core.types.basic_types.Query
     options:
       show_root_heading: true
       show_source: false
@@ -20,7 +20,7 @@ Core data types and structures used throughout the PySearch system.
 
 ### SearchResult
 
-::: pysearch.types.SearchResult
+::: pysearch.core.types.basic_types.SearchResult
     options:
       show_root_heading: true
       show_source: false
@@ -34,7 +34,7 @@ Core data types and structures used throughout the PySearch system.
 
 ### SearchItem
 
-::: pysearch.types.SearchItem
+::: pysearch.core.types.basic_types.SearchItem
     options:
       show_root_heading: true
       show_source: false
@@ -48,7 +48,7 @@ Core data types and structures used throughout the PySearch system.
 
 ### SearchStats
 
-::: pysearch.types.SearchStats
+::: pysearch.core.types.basic_types.SearchStats
     options:
       show_root_heading: true
       show_source: false
@@ -64,7 +64,7 @@ Core data types and structures used throughout the PySearch system.
 
 ### OutputFormat
 
-::: pysearch.types.OutputFormat
+::: pysearch.core.types.basic_types.OutputFormat
     options:
       show_root_heading: true
       show_source: false
@@ -72,7 +72,7 @@ Core data types and structures used throughout the PySearch system.
 
 ### Language
 
-::: pysearch.types.Language
+::: pysearch.core.types.basic_types.Language
     options:
       show_root_heading: true
       show_source: false
@@ -82,7 +82,7 @@ Core data types and structures used throughout the PySearch system.
 
 ### ASTFilters
 
-::: pysearch.types.ASTFilters
+::: pysearch.core.types.basic_types.ASTFilters
     options:
       show_root_heading: true
       show_source: false
@@ -96,7 +96,7 @@ Core data types and structures used throughout the PySearch system.
 
 ### MetadataFilters
 
-::: pysearch.types.MetadataFilters
+::: pysearch.core.types.basic_types.MetadataFilters
     options:
       show_root_heading: true
       show_source: false
@@ -112,7 +112,7 @@ Core data types and structures used throughout the PySearch system.
 
 ### FileMetadata
 
-::: pysearch.types.FileMetadata
+::: pysearch.core.types.basic_types.FileMetadata
     options:
       show_root_heading: true
       show_source: false

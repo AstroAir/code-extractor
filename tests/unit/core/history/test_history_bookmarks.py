@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.core.history.history_bookmarks import BookmarkFolder, BookmarkManager
-from pysearch.core.types import OutputFormat, Query, SearchResult, SearchStats
+from pysearch.core.types import Query, SearchResult, SearchStats
 
 
 def _make_result() -> SearchResult:
     return SearchResult(
         items=[],
-        stats=SearchStats(files_scanned=5, files_matched=2, items=3, elapsed_ms=100.0, indexed_files=50),
+        stats=SearchStats(
+            files_scanned=5, files_matched=2, items=3, elapsed_ms=100.0, indexed_files=50
+        ),
     )
 
 

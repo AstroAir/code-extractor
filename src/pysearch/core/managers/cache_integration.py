@@ -32,9 +32,9 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ...utils.helpers import read_text_safely
 from ..config import SearchConfig
 from ..types import Query, SearchResult
-from ...utils.helpers import read_text_safely
 
 
 class CacheIntegrationManager:
@@ -124,7 +124,7 @@ class CacheIntegrationManager:
 
         try:
             cache_key = self._generate_cache_key(query)
-            return self.cache_manager.get(cache_key)  # type: ignore[no-any-return]
+            return self.cache_manager.get(cache_key)
         except Exception:
             return None
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from pysearch.indexing.cache.dependencies import DependencyTracker
 
 

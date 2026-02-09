@@ -6,7 +6,7 @@ The scorer module provides result ranking and scoring functionality to prioritiz
 
 ### score_item
 
-::: pysearch.scorer.score_item
+::: pysearch.search.scorer.score_item
     options:
       show_root_heading: true
       show_source: false
@@ -18,7 +18,7 @@ The scorer module provides result ranking and scoring functionality to prioritiz
 
 ### sort_items
 
-::: pysearch.scorer.sort_items
+::: pysearch.search.scorer.sort_items
     options:
       show_root_heading: true
       show_source: false
@@ -30,7 +30,7 @@ The scorer module provides result ranking and scoring functionality to prioritiz
 
 ### deduplicate_overlapping_results
 
-::: pysearch.scorer.deduplicate_overlapping_results
+::: pysearch.search.scorer.deduplicate_overlapping_results
     options:
       show_root_heading: true
       show_source: false
@@ -42,7 +42,7 @@ The scorer module provides result ranking and scoring functionality to prioritiz
 
 ### cluster_results_by_similarity
 
-::: pysearch.scorer.cluster_results_by_similarity
+::: pysearch.search.scorer.cluster_results_by_similarity
     options:
       show_root_heading: true
       show_source: false
@@ -56,7 +56,7 @@ The scorer module provides result ranking and scoring functionality to prioritiz
 
 ### RankingStrategy
 
-::: pysearch.scorer.RankingStrategy
+::: pysearch.search.scorer.RankingStrategy
     options:
       show_root_heading: true
       show_source: false

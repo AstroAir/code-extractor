@@ -205,7 +205,11 @@ class TestASTSearch:
         result = py_engine.run(q)
         assert result.items, "AST search should find *Service classes"
         lines_text = _all_lines(result)
-        assert "AuthService" in lines_text or "UserService" in lines_text or "PostService" in lines_text
+        assert (
+            "AuthService" in lines_text
+            or "UserService" in lines_text
+            or "PostService" in lines_text
+        )
 
     def test_ast_find_decorated_functions(self, py_engine: PySearch) -> None:
         """Find functions with a specific decorator."""
@@ -357,7 +361,9 @@ class TestDependencyAnalysis:
         assert metrics.total_modules >= 5
         assert metrics.total_dependencies >= 3
 
-    def test_cross_module_imports_detected(self, analyzer: DependencyAnalyzer, repo_path: Path) -> None:
+    def test_cross_module_imports_detected(
+        self, analyzer: DependencyAnalyzer, repo_path: Path
+    ) -> None:
         """Verify that cross-module imports (e.g. services -> models) are detected."""
         graph = analyzer.analyze_directory(repo_path / "src")
         # There should be edges connecting different packages
@@ -401,7 +407,9 @@ class TestIDEIntegration:
 
     def test_find_references_with_definition(self, ide_integration: IDEIntegration) -> None:
         """Find references including the definition itself."""
-        refs = ide_integration.find_references("src/models/base.py", 1, "BaseModel", include_definition=True)
+        refs = ide_integration.find_references(
+            "src/models/base.py", 1, "BaseModel", include_definition=True
+        )
         has_def = any(r.is_definition for r in refs)
         assert has_def, "Should include the definition location"
 
@@ -447,9 +455,9 @@ class TestGraphRAG:
 
         entity_names = {e.name for e in entities}
         # Should find the User class, UserRole enum, UserProfile class
-        assert "User" in entity_names or "UserRole" in entity_names, (
-            f"Expected to find User or UserRole in entities, got: {entity_names}"
-        )
+        assert (
+            "User" in entity_names or "UserRole" in entity_names
+        ), f"Expected to find User or UserRole in entities, got: {entity_names}"
 
     @pytest.mark.asyncio
     async def test_relationship_mapping(self, repo_path: Path) -> None:
@@ -483,7 +491,9 @@ class TestGraphRAG:
             for entity in entities:
                 kg.add_entity(entity)
 
-        assert len(kg.entities) >= 3, f"Expected at least 3 entities in knowledge graph, got {len(kg.entities)}"
+        assert (
+            len(kg.entities) >= 3
+        ), f"Expected at least 3 entities in knowledge graph, got {len(kg.entities)}"
 
 
 # ===========================================================================
@@ -611,11 +621,16 @@ class TestFuzzySearch:
 
         text = "class UserService:\n    def create_user(self):\n        pass"
         matches = fuzzy_match(
-            text, "UserServce", max_distance=2, min_similarity=0.7,
+            text,
+            "UserServce",
+            max_distance=2,
+            min_similarity=0.7,
             algorithm=FuzzyAlgorithm.LEVENSHTEIN,
         )
         matched_words = [m.matched_text for m in matches]
-        assert "UserService" in matched_words, f"Expected 'UserService' in matches, got {matched_words}"
+        assert (
+            "UserService" in matched_words
+        ), f"Expected 'UserService' in matches, got {matched_words}"
 
     def test_fuzzy_match_jaro_winkler(self) -> None:
         """Jaro-Winkler should handle common prefix similarity."""
@@ -623,7 +638,10 @@ class TestFuzzySearch:
 
         text = "def validate_email(email):\n    pass"
         matches = fuzzy_match(
-            text, "validate", max_distance=3, min_similarity=0.6,
+            text,
+            "validate",
+            max_distance=3,
+            min_similarity=0.6,
             algorithm=FuzzyAlgorithm.JARO_WINKLER,
         )
         matched_words = [m.matched_text for m in matches]
@@ -635,9 +653,12 @@ class TestFuzzySearch:
 
         text = "class DatabasePool:\n    async def connect(self):\n        pass"
         matches = fuzzy_search_advanced(
-            text, "DatabsePool",
+            text,
+            "DatabsePool",
             algorithms=[FuzzyAlgorithm.LEVENSHTEIN, FuzzyAlgorithm.JARO_WINKLER],
-            max_distance=2, min_similarity=0.7, combine_results=True,
+            max_distance=2,
+            min_similarity=0.7,
+            combine_results=True,
         )
         matched_words = [m.matched_text for m in matches]
         assert "DatabasePool" in matched_words
@@ -658,7 +679,10 @@ class TestFuzzySearch:
 
         code = (repo_path / "src" / "services" / "auth.py").read_text(encoding="utf-8")
         matches = fuzzy_match(
-            code, "AuthServce", max_distance=2, min_similarity=0.7,
+            code,
+            "AuthServce",
+            max_distance=2,
+            min_similarity=0.7,
             algorithm=FuzzyAlgorithm.LEVENSHTEIN,
         )
         matched_words = [m.matched_text for m in matches]
@@ -839,21 +863,27 @@ class TestIDEIntegrationExtended:
 
         symbol_names = {s.name for s in symbols}
         # Should find classes and functions
-        assert "User" in symbol_names or "UserRole" in symbol_names, (
-            f"Expected User or UserRole in symbols, got: {symbol_names}"
-        )
+        assert (
+            "User" in symbol_names or "UserRole" in symbol_names
+        ), f"Expected User or UserRole in symbols, got: {symbol_names}"
 
         kinds = {s.kind for s in symbols}
         assert "class" in kinds, "Expected 'class' kind in document symbols"
 
-    def test_document_symbols_with_functions(self, ide_integration: IDEIntegration, repo_path: Path) -> None:
+    def test_document_symbols_with_functions(
+        self, ide_integration: IDEIntegration, repo_path: Path
+    ) -> None:
         """Document symbols should include function definitions."""
         file_path = str(repo_path / "src" / "utils" / "helpers.py")
         symbols = ide_integration.get_document_symbols(file_path)
         func_symbols = [s for s in symbols if s.kind == "function"]
-        assert len(func_symbols) >= 3, f"Expected at least 3 functions in helpers.py, got {len(func_symbols)}"
+        assert (
+            len(func_symbols) >= 3
+        ), f"Expected at least 3 functions in helpers.py, got {len(func_symbols)}"
 
-    def test_document_symbols_constants(self, ide_integration: IDEIntegration, repo_path: Path) -> None:
+    def test_document_symbols_constants(
+        self, ide_integration: IDEIntegration, repo_path: Path
+    ) -> None:
         """Document symbols should detect UPPER_CASE constants."""
         file_path = str(repo_path / "src" / "config.py")
         symbols = ide_integration.get_document_symbols(file_path)
@@ -872,14 +902,16 @@ class TestIDEIntegrationExtended:
         symbols = ide_integration.get_workspace_symbols("a")
         assert symbols == []
 
-    def test_diagnostics_finds_todos(self, ide_integration: IDEIntegration, repo_path: Path) -> None:
+    def test_diagnostics_finds_todos(
+        self, ide_integration: IDEIntegration, repo_path: Path
+    ) -> None:
         """Diagnostics should detect TODO/FIXME markers."""
         file_path = str(repo_path / "src" / "app.py")
         diagnostics = ide_integration.get_diagnostics(file_path)
         codes = [d.code for d in diagnostics]
-        assert "TODO" in codes or "FIXME" in codes, (
-            f"Expected TODO or FIXME diagnostics in app.py, got codes: {codes}"
-        )
+        assert (
+            "TODO" in codes or "FIXME" in codes
+        ), f"Expected TODO or FIXME diagnostics in app.py, got codes: {codes}"
 
     def test_diagnostics_severity(self, ide_integration: IDEIntegration, repo_path: Path) -> None:
         """FIXME should have 'warning' severity, TODO should have 'info'."""
@@ -978,7 +1010,10 @@ class TestAdvancedDependencyAnalysis:
 
     def test_circular_dependency_detection(self, repo_path: Path) -> None:
         """Detect circular dependencies (user_service <-> post_service)."""
-        from pysearch.analysis.dependency_analysis import CircularDependencyDetector, DependencyAnalyzer
+        from pysearch.analysis.dependency_analysis import (
+            CircularDependencyDetector,
+            DependencyAnalyzer,
+        )
 
         analyzer = DependencyAnalyzer()
         graph = analyzer.analyze_directory(repo_path / "src")
@@ -1284,5 +1319,5 @@ class TestLanguageDetectionExtended:
         from pysearch import get_supported_languages
 
         langs = get_supported_languages()
-        assert isinstance(langs, (list, set))
+        assert isinstance(langs, list | set)
         assert len(langs) >= 10

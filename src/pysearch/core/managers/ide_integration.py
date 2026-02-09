@@ -79,9 +79,7 @@ class IDEIntegrationManager:
                     )
                 )
             )
-            self._ide_hooks.register_search_handler(
-                lambda query: engine.run(query)
-            )
+            self._ide_hooks.register_search_handler(lambda query: engine.run(query))
             self._ide_hooks.register_completion_handler(
                 lambda file_path, line, column, prefix="": (
                     self._ide_integration.provide_completion(file_path, line, column, prefix)
@@ -121,9 +119,7 @@ class IDEIntegrationManager:
         """Check if IDE integration is enabled."""
         return self._enabled
 
-    def jump_to_definition(
-        self, file_path: str, line: int, symbol: str
-    ) -> dict[str, Any] | None:
+    def jump_to_definition(self, file_path: str, line: int, symbol: str) -> dict[str, Any] | None:
         """
         Find the definition of a symbol.
 

@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock
-
-import pytest
+from unittest.mock import MagicMock
 
 from pysearch.integrations.ide_hooks import (
     CompletionItem,
@@ -21,10 +18,10 @@ from pysearch.integrations.ide_hooks import (
     ide_query,
 )
 
-
 # ---------------------------------------------------------------------------
 # HookType
 # ---------------------------------------------------------------------------
+
 
 class TestHookType:
     """Tests for HookType enum."""
@@ -50,6 +47,7 @@ class TestHookType:
 # DefinitionLocation
 # ---------------------------------------------------------------------------
 
+
 class TestDefinitionLocation:
     """Tests for DefinitionLocation dataclass."""
 
@@ -69,7 +67,9 @@ class TestDefinitionLocation:
 
     def test_to_dict(self):
         loc = DefinitionLocation(
-            file="test.py", line=10, symbol_name="main",
+            file="test.py",
+            line=10,
+            symbol_name="main",
             symbol_type="function",
         )
         d = loc.to_dict()
@@ -89,6 +89,7 @@ class TestDefinitionLocation:
 # ---------------------------------------------------------------------------
 # ReferenceLocation
 # ---------------------------------------------------------------------------
+
 
 class TestReferenceLocation:
     """Tests for ReferenceLocation dataclass."""
@@ -113,7 +114,11 @@ class TestReferenceLocation:
 
     def test_to_dict_includes_all_fields(self):
         ref = ReferenceLocation(
-            file="b.py", line=10, column=5, context="y = 2", is_definition=True,
+            file="b.py",
+            line=10,
+            column=5,
+            context="y = 2",
+            is_definition=True,
         )
         d = ref.to_dict()
         assert d["is_definition"] is True
@@ -123,6 +128,7 @@ class TestReferenceLocation:
 # ---------------------------------------------------------------------------
 # CompletionItem
 # ---------------------------------------------------------------------------
+
 
 class TestCompletionItem:
     """Tests for CompletionItem dataclass."""
@@ -154,6 +160,7 @@ class TestCompletionItem:
 # ---------------------------------------------------------------------------
 # HoverInfo
 # ---------------------------------------------------------------------------
+
 
 class TestHoverInfo:
     """Tests for HoverInfo dataclass."""
@@ -188,13 +195,16 @@ class TestHoverInfo:
 # DocumentSymbol
 # ---------------------------------------------------------------------------
 
+
 class TestDocumentSymbol:
     """Tests for DocumentSymbol dataclass."""
 
     def test_creation(self):
         sym = DocumentSymbol(
-            name="main", kind="function",
-            line=1, end_line=10,
+            name="main",
+            kind="function",
+            line=1,
+            end_line=10,
         )
         assert sym.name == "main"
         assert sym.kind == "function"
@@ -217,8 +227,12 @@ class TestDocumentSymbol:
     def test_to_dict_with_children(self):
         child = DocumentSymbol(name="inner", kind="function", line=3)
         parent = DocumentSymbol(
-            name="Cls", kind="class", line=1, end_line=10,
-            detail="A class", children=[child],
+            name="Cls",
+            kind="class",
+            line=1,
+            end_line=10,
+            detail="A class",
+            children=[child],
         )
         d = parent.to_dict()
         assert d["end_line"] == 10
@@ -231,13 +245,16 @@ class TestDocumentSymbol:
 # Diagnostic
 # ---------------------------------------------------------------------------
 
+
 class TestDiagnostic:
     """Tests for Diagnostic dataclass."""
 
     def test_creation(self):
         diag = Diagnostic(
-            file="test.py", line=5,
-            message="unused variable", severity="warning",
+            file="test.py",
+            line=5,
+            message="unused variable",
+            severity="warning",
         )
         assert diag.message == "unused variable"
         assert diag.severity == "warning"
@@ -264,6 +281,7 @@ class TestDiagnostic:
 # ---------------------------------------------------------------------------
 # IDEHooks
 # ---------------------------------------------------------------------------
+
 
 class TestIDEHooks:
     """Tests for IDEHooks class (hook registry)."""
@@ -352,6 +370,7 @@ class TestIDEHooks:
 # ---------------------------------------------------------------------------
 # IDEIntegration
 # ---------------------------------------------------------------------------
+
 
 def _mock_engine_with_search_results(items=None):
     """Create a mock PySearch engine returning specified search items."""
@@ -490,13 +509,7 @@ class TestIDEIntegration:
     def test_get_document_symbols(self, tmp_path):
         p = tmp_path / "sample.py"
         p.write_text(
-            "def foo():\n"
-            "    pass\n"
-            "\n"
-            "class Bar:\n"
-            "    pass\n"
-            "\n"
-            "MAX_SIZE = 100\n",
+            "def foo():\n" "    pass\n" "\n" "class Bar:\n" "    pass\n" "\n" "MAX_SIZE = 100\n",
             encoding="utf-8",
         )
         integration = IDEIntegration(MagicMock())
@@ -533,9 +546,7 @@ class TestIDEIntegration:
     def test_get_diagnostics_markers(self, tmp_path):
         p = tmp_path / "todo.py"
         p.write_text(
-            "x = 1  # TODO fix this\n"
-            "y = 2  # FIXME urgent\n"
-            "z = 3  # HACK workaround\n",
+            "x = 1  # TODO fix this\n" "y = 2  # FIXME urgent\n" "z = 3  # HACK workaround\n",
             encoding="utf-8",
         )
         integration = IDEIntegration(MagicMock())
@@ -568,6 +579,7 @@ class TestIDEIntegration:
 # ide_query
 # ---------------------------------------------------------------------------
 
+
 class TestIdeQuery:
     """Tests for the ide_query convenience function."""
 
@@ -583,9 +595,7 @@ class TestIdeQuery:
 
         mock_result = MagicMock()
         mock_result.items = [mock_item]
-        mock_result.stats = SearchStats(
-            files_scanned=1, files_matched=1, items=1, elapsed_ms=0.5
-        )
+        mock_result.stats = SearchStats(files_scanned=1, files_matched=1, items=1, elapsed_ms=0.5)
 
         engine = MagicMock()
         engine.run.return_value = mock_result
@@ -606,9 +616,7 @@ class TestIdeQuery:
 
         mock_result = MagicMock()
         mock_result.items = []
-        mock_result.stats = SearchStats(
-            files_scanned=0, files_matched=0, items=0, elapsed_ms=0.0
-        )
+        mock_result.stats = SearchStats(files_scanned=0, files_matched=0, items=0, elapsed_ms=0.0)
 
         engine = MagicMock()
         engine.run.return_value = mock_result

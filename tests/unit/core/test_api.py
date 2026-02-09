@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from pysearch.core.api import PySearch
 from pysearch.core.config import SearchConfig
-from pysearch.core.types import OutputFormat, Query, SearchItem, SearchResult, SearchStats
+from pysearch.core.types import OutputFormat, Query, SearchResult, SearchStats
 
 
 class TestPySearchInit:

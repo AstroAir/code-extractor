@@ -21,8 +21,8 @@ from ...analysis.content_addressing import (
 )
 from ...storage.qdrant_client import cosine_similarity
 from ...storage.vector_db import EmbeddingConfig, VectorIndexManager
-from ...utils.logging_config import get_logger
 from ...utils.helpers import read_text_safely
+from ...utils.logging_config import get_logger
 from ..advanced.base import CodebaseIndex
 from ..advanced.chunking import ChunkingConfig, ChunkingEngine, ChunkingStrategy
 
