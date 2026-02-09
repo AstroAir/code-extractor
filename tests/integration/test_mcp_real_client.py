@@ -36,7 +36,6 @@ from __future__ import annotations
 # internal pip-mcp references remain valid after sys.modules["mcp"]
 # switches to the local package.
 # ---------------------------------------------------------------------------
-
 import importlib
 import importlib.util
 import json
@@ -59,8 +58,7 @@ _project_root_str = str(_PROJECT_ROOT)
 sys.path = [
     p
     for p in sys.path
-    if p not in ("", ".", _project_root_str)
-    and str(Path(p).resolve()) != _project_root_str
+    if p not in ("", ".", _project_root_str) and str(Path(p).resolve()) != _project_root_str
 ]
 
 # Step 3 — import fastmcp Client (pulls in pip mcp.types internally).
@@ -191,50 +189,50 @@ def temp_test_dir():
 
         # main.py
         (root / "main.py").write_text(
-            'def main():\n'
+            "def main():\n"
             '    """Entry point for the application."""\n'
             '    print("Hello World")\n'
-            '    return 0\n'
-            '\n'
-            'class Application:\n'
+            "    return 0\n"
+            "\n"
+            "class Application:\n"
             '    """Main application class."""\n'
-            '    def run(self):\n'
-            '        return main()\n',
+            "    def run(self):\n"
+            "        return main()\n",
             encoding="utf-8",
         )
 
         # utils.py
         (root / "utils.py").write_text(
-            'import hashlib\n'
-            'import secrets\n'
-            '\n'
-            'def hash_password(password: str) -> str:\n'
+            "import hashlib\n"
+            "import secrets\n"
+            "\n"
+            "def hash_password(password: str) -> str:\n"
             '    """Hash a password securely."""\n'
-            '    salt = secrets.token_bytes(32)\n'
-            '    return hashlib.sha256(salt + password.encode()).hexdigest()\n'
-            '\n'
-            'def verify_password(password: str, hashed: str) -> bool:\n'
+            "    salt = secrets.token_bytes(32)\n"
+            "    return hashlib.sha256(salt + password.encode()).hexdigest()\n"
+            "\n"
+            "def verify_password(password: str, hashed: str) -> bool:\n"
             '    """Verify a password against its hash."""\n'
-            '    return True  # simplified\n'
-            '\n'
-            'class AuthenticationError(Exception):\n'
+            "    return True  # simplified\n"
+            "\n"
+            "class AuthenticationError(Exception):\n"
             '    """Raised when authentication fails."""\n'
-            '    pass\n',
+            "    pass\n",
             encoding="utf-8",
         )
 
         # config.py
         (root / "config.py").write_text(
-            '# Configuration module\n'
+            "# Configuration module\n"
             'DATABASE_URL = "sqlite:///test.db"\n'
-            'DEBUG = True\n'
+            "DEBUG = True\n"
             'SECRET_KEY = "test-secret"\n'
-            '\n'
-            'CONFIG = {\n'
+            "\n"
+            "CONFIG = {\n"
             '    "debug": True,\n'
             '    "version": "1.0.0",\n'
             '    "features": ["search", "index", "cache"],\n'
-            '}\n',
+            "}\n",
             encoding="utf-8",
         )
 
@@ -695,15 +693,11 @@ class TestMCPSessionTools:
         """get_session_info should return details for an existing session."""
         async with Client(mcp_server) as client:
             # Create session first
-            create_result = await client.call_tool(
-                "create_session", {"user_id": "info_user"}
-            )
+            create_result = await client.call_tool("create_session", {"user_id": "info_user"})
             session_id = _parse_tool_result(create_result)["session_id"]
 
             # Get session info
-            info_result = await client.call_tool(
-                "get_session_info", {"session_id": session_id}
-            )
+            info_result = await client.call_tool("get_session_info", {"session_id": session_id})
             data = _parse_tool_result(info_result)
             assert isinstance(data, dict)
             assert data["session_id"] == session_id
@@ -715,9 +709,7 @@ class TestMCPSessionTools:
         """Searches with session_id should be tracked in the session."""
         async with Client(mcp_server) as client:
             # Create session
-            create_result = await client.call_tool(
-                "create_session", {"user_id": "tracker"}
-            )
+            create_result = await client.call_tool("create_session", {"user_id": "tracker"})
             session_id = _parse_tool_result(create_result)["session_id"]
 
             # Perform search with session
@@ -732,9 +724,7 @@ class TestMCPSessionTools:
             )
 
             # Verify session recorded the search
-            info_result = await client.call_tool(
-                "get_session_info", {"session_id": session_id}
-            )
+            info_result = await client.call_tool("get_session_info", {"session_id": session_id})
             data = _parse_tool_result(info_result)
             assert data["total_searches"] >= 1
 
@@ -838,7 +828,7 @@ class TestMCPErrorHandling:
     async def test_invalid_regex_raises_error(self, mcp_server, temp_test_dir):
         """search_regex with an invalid pattern should raise an error."""
         async with Client(mcp_server) as client:
-            with pytest.raises(Exception):
+            with pytest.raises((ValueError, RuntimeError, Exception)):  # noqa: B017
                 await client.call_tool(
                     "search_regex",
                     {"pattern": "[unclosed", "paths": [temp_test_dir]},
@@ -847,7 +837,7 @@ class TestMCPErrorHandling:
     async def test_empty_multi_pattern_raises_error(self, mcp_server):
         """search_multi_pattern with empty patterns list should raise an error."""
         async with Client(mcp_server) as client:
-            with pytest.raises(Exception):
+            with pytest.raises((ValueError, RuntimeError, Exception)):  # noqa: B017
                 await client.call_tool(
                     "search_multi_pattern",
                     {"patterns": [], "operator": "OR"},
@@ -856,7 +846,7 @@ class TestMCPErrorHandling:
     async def test_analyze_nonexistent_file(self, mcp_server):
         """analyze_file with a non-existent path should raise an error."""
         async with Client(mcp_server) as client:
-            with pytest.raises(Exception):
+            with pytest.raises((FileNotFoundError, ValueError, Exception)):  # noqa: B017
                 await client.call_tool(
                     "analyze_file",
                     {"file_path": "/nonexistent/path/to/file.py"},
@@ -865,7 +855,7 @@ class TestMCPErrorHandling:
     async def test_get_session_info_invalid_id(self, mcp_server):
         """get_session_info with a non-existent session should raise an error."""
         async with Client(mcp_server) as client:
-            with pytest.raises(Exception):
+            with pytest.raises((KeyError, ValueError, Exception)):  # noqa: B017
                 await client.call_tool(
                     "get_session_info",
                     {"session_id": "nonexistent_session_999"},
@@ -1024,17 +1014,13 @@ class TestMCPEndToEnd:
             assert analyze_data["functions_count"] >= 1
 
             # 6. Check search history
-            history_result = await client.call_tool(
-                "get_search_history", {"limit": 10}
-            )
+            history_result = await client.call_tool("get_search_history", {"limit": 10})
             history = _parse_tool_result(history_result)
             assert isinstance(history, list)
             assert len(history) >= 2  # At least our 2 searches
 
             # 7. Check session info
-            session_info = await client.call_tool(
-                "get_session_info", {"session_id": session_id}
-            )
+            session_info = await client.call_tool("get_session_info", {"session_id": session_id})
             session_info_data = _parse_tool_result(session_info)
             assert session_info_data["total_searches"] >= 2
 
@@ -1467,9 +1453,7 @@ class TestRealRepoFileAnalysis:
         """analyze_file on auth.py should return correct metrics."""
         target = str(SAMPLE_REPO_SRC / "services" / "auth.py")
         async with Client(mcp_server) as client:
-            result = await client.call_tool(
-                "analyze_file", {"file_path": target}
-            )
+            result = await client.call_tool("analyze_file", {"file_path": target})
             data = _parse_tool_result(result)
             assert data["language"] == "python"
             assert data["total_lines"] > 100
@@ -1483,9 +1467,7 @@ class TestRealRepoFileAnalysis:
         """analyze_file on user.py should reflect model complexity."""
         target = str(SAMPLE_REPO_SRC / "models" / "user.py")
         async with Client(mcp_server) as client:
-            result = await client.call_tool(
-                "analyze_file", {"file_path": target}
-            )
+            result = await client.call_tool("analyze_file", {"file_path": target})
             data = _parse_tool_result(result)
             assert data["language"] == "python"
             assert data["total_lines"] > 80
@@ -1498,9 +1480,7 @@ class TestRealRepoFileAnalysis:
         """analyze_file on helpers.py should count utility functions."""
         target = str(SAMPLE_REPO_SRC / "utils" / "helpers.py")
         async with Client(mcp_server) as client:
-            result = await client.call_tool(
-                "analyze_file", {"file_path": target}
-            )
+            result = await client.call_tool("analyze_file", {"file_path": target})
             data = _parse_tool_result(result)
             assert data["language"] == "python"
             # slugify, truncate, chunk_list, flatten, retry, deep_merge, format_bytes
@@ -1510,9 +1490,7 @@ class TestRealRepoFileAnalysis:
         """analyze_file on connection.py should reflect DB pool structure."""
         target = str(SAMPLE_REPO_SRC / "db" / "connection.py")
         async with Client(mcp_server) as client:
-            result = await client.call_tool(
-                "analyze_file", {"file_path": target}
-            )
+            result = await client.call_tool("analyze_file", {"file_path": target})
             data = _parse_tool_result(result)
             assert data["language"] == "python"
             # DatabasePool, ConnectionInfo
@@ -1524,9 +1502,7 @@ class TestRealRepoFileAnalysis:
         """analyze_file on config.py should find Settings and constants."""
         target = str(SAMPLE_REPO_SRC / "config.py")
         async with Client(mcp_server) as client:
-            result = await client.call_tool(
-                "analyze_file", {"file_path": target}
-            )
+            result = await client.call_tool("analyze_file", {"file_path": target})
             data = _parse_tool_result(result)
             assert data["language"] == "python"
             # Settings, Environment
@@ -1538,9 +1514,7 @@ class TestRealRepoFileAnalysis:
         """analyze_file on routes.py should find all endpoint functions."""
         target = str(SAMPLE_REPO_SRC / "api" / "routes.py")
         async with Client(mcp_server) as client:
-            result = await client.call_tool(
-                "analyze_file", {"file_path": target}
-            )
+            result = await client.call_tool("analyze_file", {"file_path": target})
             data = _parse_tool_result(result)
             assert data["language"] == "python"
             # Routes may use async functions and decorators that affect
@@ -1627,9 +1601,7 @@ class TestRealRepoMultiRepoTools:
         async with Client(mcp_server) as client:
             try:
                 # Enable multi-repo
-                enable_result = await client.call_tool(
-                    "multi_repo_enable", {"max_workers": 2}
-                )
+                enable_result = await client.call_tool("multi_repo_enable", {"max_workers": 2})
                 enable_data = _parse_tool_result(enable_result)
                 assert enable_data["enabled"] is True
 
@@ -1665,9 +1637,7 @@ class TestRealRepoMultiRepoTools:
                 assert search_data["total_matches"] >= 1
 
                 # Remove and cleanup
-                await client.call_tool(
-                    "multi_repo_remove", {"name": "sample_app"}
-                )
+                await client.call_tool("multi_repo_remove", {"name": "sample_app"})
             except Exception:
                 pytest.skip("Multi-repo tools not fully available")
 
@@ -1765,16 +1735,12 @@ class TestRealRepoEndToEnd:
             assert multi_data["total_matches"] >= 1
 
             # 8. Check search history — should have 4+ searches
-            history_result = await client.call_tool(
-                "get_search_history", {"limit": 20}
-            )
+            history_result = await client.call_tool("get_search_history", {"limit": 20})
             history = _parse_tool_result(history_result)
             assert len(history) >= 4
 
             # 9. Session should track all searches
-            session_info = await client.call_tool(
-                "get_session_info", {"session_id": sid}
-            )
+            session_info = await client.call_tool("get_session_info", {"session_id": sid})
             info_data = _parse_tool_result(session_info)
             assert info_data["total_searches"] >= 4
 
@@ -1785,17 +1751,28 @@ class TestRealRepoEndToEnd:
 
             # 11. Read resources to verify state is coherent
             config_content = await client.read_resource("pysearch://config/current")
-            config_text = config_content[0].text if hasattr(config_content[0], "text") else str(config_content[0])
+            config_text = (
+                config_content[0].text
+                if hasattr(config_content[0], "text")
+                else str(config_content[0])
+            )
             config_json = json.loads(config_text)
             config_paths = config_json.get("paths", [])
+
             # Normalize for cross-platform comparison
-            norm = lambda s: s.replace("\\", "/").rstrip("/").lower()
-            assert any(norm(_REPO) == norm(p) for p in config_paths), (
-                f"{_REPO} not found in config paths {config_paths}"
-            )
+            def norm(s: str) -> str:
+                return s.replace("\\", "/").rstrip("/").lower()
+
+            assert any(
+                norm(_REPO) == norm(p) for p in config_paths
+            ), f"{_REPO} not found in config paths {config_paths}"
 
             stats_content = await client.read_resource("pysearch://stats/overview")
-            stats_text = stats_content[0].text if hasattr(stats_content[0], "text") else str(stats_content[0])
+            stats_text = (
+                stats_content[0].text
+                if hasattr(stats_content[0], "text")
+                else str(stats_content[0])
+            )
             stats_json = json.loads(stats_text)
             assert stats_json["total_searches"] >= 4
 
@@ -1912,9 +1889,7 @@ class TestRealRepoEndToEnd:
                 "utils/helpers.py",
             ]:
                 target = str(SAMPLE_REPO_SRC / module)
-                result = await client.call_tool(
-                    "analyze_file", {"file_path": target}
-                )
+                result = await client.call_tool("analyze_file", {"file_path": target})
                 data = _parse_tool_result(result)
                 assert data["language"] == "python"
                 assert data["total_lines"] > 50

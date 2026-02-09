@@ -110,7 +110,7 @@ class MultiRepoIntegrationManager:
             return False
 
         try:
-            return self.multi_repo_engine.add_repository(name, path, **kwargs)  # type: ignore[no-any-return]
+            return self.multi_repo_engine.add_repository(name, path, **kwargs)
         except Exception:
             return False
 
@@ -129,7 +129,7 @@ class MultiRepoIntegrationManager:
             return False
 
         try:
-            return self.multi_repo_engine.configure_repository(name, **config_updates)  # type: ignore[no-any-return]
+            return self.multi_repo_engine.configure_repository(name, **config_updates)
         except Exception:
             return False
 
@@ -147,7 +147,7 @@ class MultiRepoIntegrationManager:
             return False
 
         try:
-            return self.multi_repo_engine.remove_repository(name)  # type: ignore[no-any-return]
+            return self.multi_repo_engine.remove_repository(name)
         except Exception:
             return False
 
@@ -162,7 +162,7 @@ class MultiRepoIntegrationManager:
             return []
 
         try:
-            return self.multi_repo_engine.list_repositories()  # type: ignore[no-any-return]
+            return self.multi_repo_engine.list_repositories()
         except Exception:
             return []
 
@@ -199,7 +199,7 @@ class MultiRepoIntegrationManager:
             return {}
 
         try:
-            return self.multi_repo_engine.get_search_statistics()  # type: ignore[no-any-return]
+            return self.multi_repo_engine.get_search_statistics()
         except Exception:
             return {}
 
@@ -234,7 +234,7 @@ class MultiRepoIntegrationManager:
             return {}
 
         try:
-            return self.multi_repo_engine.get_health_status()  # type: ignore[no-any-return]
+            return self.multi_repo_engine.get_health_status()
         except Exception:
             return {}
 
@@ -384,9 +384,7 @@ class MultiRepoIntegrationManager:
             # Create workspace if none exists
             if self._workspace_config is None:
                 scan_root = str(Path(root_path).resolve()) if root_path else "."
-                self._workspace_config = mgr.create_workspace(
-                    "auto-discovered", scan_root
-                )
+                self._workspace_config = mgr.create_workspace("auto-discovered", scan_root)
 
             discovered = mgr.discover_repositories(
                 self._workspace_config,

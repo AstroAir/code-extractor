@@ -729,7 +729,9 @@ class DependencyAnalyzer:
         for line_num, line in enumerate(lines, 1):
             line = line.strip()
 
-            import_match = re.match(r"import\s+(?:(?:struct|class|enum|protocol|func)\s+)?(\w+(?:\.\w+)*)", line)
+            import_match = re.match(
+                r"import\s+(?:(?:struct|class|enum|protocol|func)\s+)?(\w+(?:\.\w+)*)", line
+            )
             if import_match:
                 module = import_match.group(1)
                 import_node = ImportNode(
@@ -767,7 +769,11 @@ class DependencyAnalyzer:
         """Parse C/C++ #include directives."""
         imports = []
         lines = content.split("\n")
-        lang = Language.CPP if file_path.suffix.lower() in {".cpp", ".cxx", ".cc", ".hpp", ".hxx", ".hh"} else Language.C
+        lang = (
+            Language.CPP
+            if file_path.suffix.lower() in {".cpp", ".cxx", ".cc", ".hpp", ".hxx", ".hh"}
+            else Language.C
+        )
 
         for line_num, line in enumerate(lines, 1):
             line = line.strip()
@@ -814,7 +820,9 @@ class DependencyAnalyzer:
         for line_num, line in enumerate(lines, 1):
             line = line.strip()
 
-            req_match = re.match(r'(?:local\s+\w+\s*=\s*)?require\s*[\(]?\s*[\'"]([^\'"]+)[\'"]', line)
+            req_match = re.match(
+                r'(?:local\s+\w+\s*=\s*)?require\s*[\(]?\s*[\'"]([^\'"]+)[\'"]', line
+            )
             if req_match:
                 module = req_match.group(1)
                 import_node = ImportNode(

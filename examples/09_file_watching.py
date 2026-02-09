@@ -184,7 +184,7 @@ def demo_watch_stats(engine: PySearch) -> None:
     perf = engine.get_watch_performance_metrics()
     print("\n  Performance metrics:")
     for key, value in perf.items():
-        if isinstance(value, (int, float, str, bool)):
+        if isinstance(value, int | float | str | bool):
             print(f"    {key}: {value}")
 
     engine.disable_auto_watch()

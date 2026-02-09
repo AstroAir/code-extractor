@@ -142,8 +142,8 @@ class HybridSearchManager:
                 # Apply metadata filters if specified
                 metadata_filters = kwargs.get("metadata_filters")
                 if metadata_filters:
-                    from ...utils.metadata_filters import apply_metadata_filters
                     from ...utils.helpers import create_file_metadata
+                    from ...utils.metadata_filters import apply_metadata_filters
 
                     file_metadata = create_file_metadata(path)
                     if file_metadata and not apply_metadata_filters(

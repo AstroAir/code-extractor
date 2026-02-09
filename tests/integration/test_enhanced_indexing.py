@@ -446,7 +446,8 @@ class TestIntegration:
         """Create sample codebase for testing."""
         # Python file
         python_file = tmp_path / "main.py"
-        python_file.write_text('''
+        python_file.write_text(
+            '''
 import json
 from typing import List
 
@@ -472,11 +473,13 @@ class DataManager:
             return True
         except Exception:
             return False
-''')
+'''
+        )
 
         # JavaScript file
         js_file = tmp_path / "utils.js"
-        js_file.write_text("""
+        js_file.write_text(
+            """
 function calculateSum(numbers) {
     /**
      * Calculate sum of an array of numbers.
@@ -504,7 +507,8 @@ class EventHandler {
 }
 
 export { calculateSum, EventHandler };
-""")
+"""
+        )
 
         return tmp_path
 
@@ -588,7 +592,9 @@ class Class_{i}:
     def method_{i}(self):
         """Method {i} documentation."""
         return self.value * 10
-''' * (i % 5 + 1)  # Varying file sizes
+''' * (
+                i % 5 + 1
+            )  # Varying file sizes
 
             file_path.write_text(content)
 

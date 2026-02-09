@@ -18,18 +18,30 @@ from pysearch.indexing.metadata.models import (
 
 def _make_file_metadata(path: str = "test.py", **kwargs) -> FileMetadata:
     defaults = dict(
-        file_path=path, size=1024, mtime=time.time(), language="python",
-        line_count=50, entity_count=3, complexity_score=5.0,
+        file_path=path,
+        size=1024,
+        mtime=time.time(),
+        language="python",
+        line_count=50,
+        entity_count=3,
+        complexity_score=5.0,
     )
     defaults.update(kwargs)
     return FileMetadata(**defaults)
 
 
-def _make_entity_metadata(entity_id: str = "e1", file_path: str = "test.py", **kwargs) -> EntityMetadata:
+def _make_entity_metadata(
+    entity_id: str = "e1", file_path: str = "test.py", **kwargs
+) -> EntityMetadata:
     defaults = dict(
-        entity_id=entity_id, name="main", entity_type="function",
-        file_path=file_path, start_line=1, end_line=10,
-        signature="def main():", language="python",
+        entity_id=entity_id,
+        name="main",
+        entity_type="function",
+        file_path=file_path,
+        start_line=1,
+        end_line=10,
+        signature="def main():",
+        language="python",
     )
     defaults.update(kwargs)
     return EntityMetadata(**defaults)
@@ -234,7 +246,9 @@ class TestMetadataIndex:
         idx = MetadataIndex(tmp_path / "metadata.db")
         await idx.initialize()
         await idx.add_entity_metadata(_make_entity_metadata("e1", complexity_score=2.0))
-        await idx.add_entity_metadata(_make_entity_metadata("e2", complexity_score=20.0, name="complex"))
+        await idx.add_entity_metadata(
+            _make_entity_metadata("e2", complexity_score=20.0, name="complex")
+        )
         entities = await idx.query_entities(IndexQuery(min_complexity=10.0))
         assert len(entities) == 1
         assert entities[0].entity_id == "e2"

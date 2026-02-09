@@ -38,6 +38,7 @@ def register_session_tools(
             Session info including session_id, creation time, and initial state
         """
         from ...shared.session_manager import SessionPriority
+
         try:
             prio = SessionPriority(priority)
         except ValueError:

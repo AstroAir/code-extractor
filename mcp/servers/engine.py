@@ -37,7 +37,7 @@ try:
 except ImportError:
     SEMANTIC_AVAILABLE = False
 
-    def expand_semantic_query(concept: str) -> list[str]:  # type: ignore[misc]
+    def expand_semantic_query(concept: str) -> list[str]:
         """Fallback: return concept as-is when semantic module unavailable."""
         return [concept]
 
@@ -99,10 +99,30 @@ class PySearchEngine:
         """Initialize with sensible default configuration."""
         self.current_config = SearchConfig(
             paths=["."],
-            include=["**/*.py", "**/*.js", "**/*.ts", "**/*.java", "**/*.cpp", "**/*.c",
-                     "**/*.go", "**/*.rs", "**/*.rb", "**/*.php", "**/*.swift", "**/*.kt"],
-            exclude=["**/node_modules/**", "**/.git/**", "**/venv/**", "**/__pycache__/**",
-                     "**/dist/**", "**/build/**", "**/.tox/**", "**/.mypy_cache/**"],
+            include=[
+                "**/*.py",
+                "**/*.js",
+                "**/*.ts",
+                "**/*.java",
+                "**/*.cpp",
+                "**/*.c",
+                "**/*.go",
+                "**/*.rs",
+                "**/*.rb",
+                "**/*.php",
+                "**/*.swift",
+                "**/*.kt",
+            ],
+            exclude=[
+                "**/node_modules/**",
+                "**/.git/**",
+                "**/venv/**",
+                "**/__pycache__/**",
+                "**/dist/**",
+                "**/build/**",
+                "**/.tox/**",
+                "**/.mypy_cache/**",
+            ],
             context=3,
             parallel=True,
             workers=4,
@@ -155,14 +175,16 @@ class PySearchEngine:
         """Format a SearchResult into a structured SearchResponse."""
         items = []
         for item in result.items:
-            items.append({
-                "file": str(item.file),
-                "start_line": item.start_line,
-                "end_line": item.end_line,
-                "lines": item.lines,
-                "match_spans": item.match_spans,
-                "score": getattr(item, "score", None),
-            })
+            items.append(
+                {
+                    "file": str(item.file),
+                    "start_line": item.start_line,
+                    "end_line": item.end_line,
+                    "lines": item.lines,
+                    "match_spans": item.match_spans,
+                    "score": getattr(item, "score", None),
+                }
+            )
 
         return SearchResponse(
             items=items,
@@ -198,20 +220,22 @@ class PySearchEngine:
         result_count = result.stats.items
 
         # 1. Internal history
-        self.search_history.append({
-            "timestamp": datetime.now().isoformat(),
-            "query": {
-                "pattern": query.pattern,
-                "use_regex": query.use_regex,
-                "use_ast": query.use_ast,
-                "use_semantic": query.use_semantic,
-            },
-            "result_count": result_count,
-            "execution_time_ms": execution_time_ms,
-            "matched_files": result.stats.files_matched,
-            "session_id": session_id,
-            "search_type": search_type,
-        })
+        self.search_history.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "query": {
+                    "pattern": query.pattern,
+                    "use_regex": query.use_regex,
+                    "use_ast": query.use_ast,
+                    "use_semantic": query.use_semantic,
+                },
+                "result_count": result_count,
+                "execution_time_ms": execution_time_ms,
+                "matched_files": result.stats.files_matched,
+                "session_id": session_id,
+                "search_type": search_type,
+            }
+        )
         if len(self.search_history) > 100:
             self.search_history = self.search_history[-100:]
 
@@ -427,7 +451,9 @@ class PySearchEngine:
 
         op_id = f"multi_{int(time.time() * 1000)}"
         total_steps = len(patterns) + 2
-        self.progress_tracker.start_operation(op_id, total_steps=total_steps, description="Multi-pattern search")
+        self.progress_tracker.start_operation(
+            op_id, total_steps=total_steps, description="Multi-pattern search"
+        )
         try:
             if operator.upper() == "OR":
                 self.progress_tracker.update_progress(op_id, 1, "Combining OR patterns")
@@ -440,7 +466,9 @@ class PySearchEngine:
 
                 self.progress_tracker.update_progress(op_id, 2, "Executing combined search")
                 result = engine.run(query)
-                self._add_to_history(query, result, session_id=session_id, search_type="multi_pattern")
+                self._add_to_history(
+                    query, result, session_id=session_id, search_type="multi_pattern"
+                )
                 self.progress_tracker.complete_operation(op_id, success=True)
                 return self._format_result(result, query)
 
@@ -466,7 +494,9 @@ class PySearchEngine:
                 if not file_sets or last_query is None:
                     raise ValueError("No patterns processed")
 
-                self.progress_tracker.update_progress(op_id, total_steps - 1, "Intersecting results")
+                self.progress_tracker.update_progress(
+                    op_id, total_steps - 1, "Intersecting results"
+                )
                 common_files = file_sets[0]
                 for fs in file_sets[1:]:
                     common_files &= fs
@@ -512,8 +542,12 @@ class PySearchEngine:
 
         new_config = SearchConfig(
             paths=paths if paths is not None else self.current_config.paths,
-            include=include_patterns if include_patterns is not None else self.current_config.include,
-            exclude=exclude_patterns if exclude_patterns is not None else self.current_config.exclude,
+            include=(
+                include_patterns if include_patterns is not None else self.current_config.include
+            ),
+            exclude=(
+                exclude_patterns if exclude_patterns is not None else self.current_config.exclude
+            ),
             context=context if context is not None else self.current_config.context,
             parallel=parallel if parallel is not None else self.current_config.parallel,
             workers=workers if workers is not None else self.current_config.workers,
@@ -600,10 +634,7 @@ class PySearchEngine:
             max_suggestions=max_suggestions,
             algorithm=algorithm,
         )
-        return [
-            {"identifier": s, "similarity": round(score, 4)}
-            for s, score in suggestions
-        ]
+        return [{"identifier": s, "similarity": round(score, 4)} for s, score in suggestions]
 
     def word_level_fuzzy_search(
         self,
@@ -652,10 +683,18 @@ class PySearchEngine:
         # Detect language
         suffix = path.suffix.lower()
         lang_map = {
-            ".py": "python", ".js": "javascript", ".ts": "typescript",
-            ".java": "java", ".cpp": "cpp", ".c": "c", ".go": "go",
-            ".rs": "rust", ".rb": "ruby", ".php": "php",
-            ".swift": "swift", ".kt": "kotlin",
+            ".py": "python",
+            ".js": "javascript",
+            ".ts": "typescript",
+            ".java": "java",
+            ".cpp": "cpp",
+            ".c": "c",
+            ".go": "go",
+            ".rs": "rust",
+            ".rb": "ruby",
+            ".php": "php",
+            ".swift": "swift",
+            ".kt": "kotlin",
         }
         language = lang_map.get(suffix, "unknown")
 

@@ -33,12 +33,16 @@ pytestmark = [
     pytest.mark.benchmark,
 ]
 
-from pysearch import PySearch, SearchConfig
-from pysearch.core.types import ASTFilters, Query, SearchItem
-from pysearch.indexing.indexer import Indexer
-from pysearch.search.matchers import find_ast_blocks, find_text_regex_matches, search_in_file
-from pysearch.search.scorer import score_item, sort_items
-from pysearch.utils.helpers import iter_files, read_text_safely
+from pysearch import PySearch, SearchConfig  # noqa: E402
+from pysearch.core.types import ASTFilters, Query, SearchItem  # noqa: E402
+from pysearch.indexing.indexer import Indexer  # noqa: E402
+from pysearch.search.matchers import (  # noqa: E402
+    find_ast_blocks,
+    find_text_regex_matches,
+    search_in_file,
+)
+from pysearch.search.scorer import score_item, sort_items  # noqa: E402
+from pysearch.utils.helpers import iter_files, read_text_safely  # noqa: E402
 
 T = TypeVar("T")
 
@@ -59,9 +63,7 @@ def _write(p: Path, content: str) -> None:
 
 def _rand_text(lines: int = 50, width: int = 80) -> str:
     alphabet = string.ascii_letters + string.digits + " _-()[]{}.,;:/'\""
-    return "\n".join(
-        "".join(random.choice(alphabet) for _ in range(width)) for _ in range(lines)
-    )
+    return "\n".join("".join(random.choice(alphabet) for _ in range(width)) for _ in range(lines))
 
 
 _PYTHON_TEMPLATE = """\
@@ -145,9 +147,7 @@ def test_benchmark_regex_cache(benchmark: _Benchmark, tmp_path: Path) -> None:
         content = "\n".join(f"line {j} foo{j % 100}" for j in range(200))
         _write(tmp_path / "pkg" / f"f{i}.py", content)
 
-    texts = [
-        (tmp_path / "pkg" / f"f{i}.py").read_text(encoding="utf-8") for i in range(n_files)
-    ]
+    texts = [(tmp_path / "pkg" / f"f{i}.py").read_text(encoding="utf-8") for i in range(n_files)]
 
     def run() -> int:
         total = 0

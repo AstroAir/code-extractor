@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.config import SearchConfig
-from pysearch.indexing.indexer import IndexRecord, Indexer
+from pysearch.indexing.indexer import Indexer, IndexRecord
 
 
 class TestIndexRecord:

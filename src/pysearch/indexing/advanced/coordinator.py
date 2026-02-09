@@ -162,10 +162,13 @@ class IndexCoordinator:
                     def mark_complete_wrapper(
                         items: list[PathAndCacheKey],
                         result_type: str,
+                        _indexer: Any = indexer,
+                        _index_tag: Any = index_tag,
+                        _index: Any = index,
                     ) -> None:
                         # Schedule async operations to run in the background
                         async def _async_mark_complete() -> None:
-                            await indexer.mark_complete(items, result_type, index_tag)
+                            await _indexer.mark_complete(items, result_type, _index_tag)
 
                             # Update global cache
                             for item in items:
@@ -173,13 +176,13 @@ class IndexCoordinator:
                                     # Store computed content in global cache for cross-branch reuse
                                     await self.global_cache.store_cached_content(
                                         content_hash=item.cache_key,
-                                        artifact_id=index.artifact_id,
+                                        artifact_id=_index.artifact_id,
                                         content={"path": item.path, "cache_key": item.cache_key},
-                                        tags=[index_tag],
+                                        tags=[_index_tag],
                                     )
                                 elif result_type == "delete":
                                     await self.global_cache.remove_tag(
-                                        item.cache_key, index.artifact_id, index_tag
+                                        item.cache_key, _index.artifact_id, _index_tag
                                     )
 
                         # Create task but don't await it (fire and forget)
@@ -242,9 +245,7 @@ class IndexCoordinator:
         finally:
             await self.lock.release()
 
-    async def build_content_addresses(
-        self, file_paths: list[str]
-    ) -> dict[str, ContentAddress]:
+    async def build_content_addresses(self, file_paths: list[str]) -> dict[str, ContentAddress]:
         """
         Build content addresses for a list of files using ContentAddress.from_file().
 

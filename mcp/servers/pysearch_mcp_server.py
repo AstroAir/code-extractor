@@ -58,8 +58,6 @@ except ImportError:
     FASTMCP_AVAILABLE = False
 
 # Engine and data structures (re-exported for backward compatibility)
-from .engine import ConfigResponse, PySearchEngine, SearchResponse
-
 # Shared MCP utilities
 from ..shared.validation import (
     PerformanceValidationError,
@@ -69,10 +67,11 @@ from ..shared.validation import (
     get_sanitized_values,
     validate_tool_input,
 )
+from .engine import PySearchEngine
+from .resources import register_resources
 
 # Tool and resource registration
 from .tools import register_all_tools
-from .resources import register_resources
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -137,7 +136,7 @@ def create_mcp_server() -> FastMCP | None:
         - pysearch://stats/overview: Server statistics with session and progress data
         - pysearch://sessions/analytics: Session management analytics
         - pysearch://languages/supported: Supported languages
-        """
+        """,
     )
 
     # -- Validation helper --------------------------------------------------
@@ -154,7 +153,8 @@ def create_mcp_server() -> FastMCP | None:
         if not rate_result.is_valid:
             raise ToolError(
                 f"Rate limit exceeded: {rate_result.errors[0].message}"
-                if rate_result.errors else "Rate limit exceeded"
+                if rate_result.errors
+                else "Rate limit exceeded"
             )
 
         # Use regex-specific validation when applicable

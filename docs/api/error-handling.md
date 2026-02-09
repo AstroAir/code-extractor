@@ -6,7 +6,7 @@ Comprehensive error handling and reporting system for robust search operations.
 
 ### SearchError
 
-::: pysearch.error_handling.SearchError
+::: pysearch.utils.error_handling.SearchError
     options:
       show_root_heading: true
       show_source: false
@@ -21,7 +21,7 @@ Comprehensive error handling and reporting system for robust search operations.
 
 ### FileAccessError
 
-::: pysearch.error_handling.FileAccessError
+::: pysearch.utils.error_handling.FileAccessError
     options:
       show_root_heading: true
       show_source: false
@@ -36,7 +36,7 @@ Comprehensive error handling and reporting system for robust search operations.
 
 ### ConfigurationError
 
-::: pysearch.error_handling.ConfigurationError
+::: pysearch.utils.error_handling.ConfigurationError
     options:
       show_root_heading: true
       show_source: false
@@ -53,7 +53,7 @@ Comprehensive error handling and reporting system for robust search operations.
 
 ### ErrorInfo
 
-::: pysearch.error_handling.ErrorInfo
+::: pysearch.utils.error_handling.ErrorInfo
     options:
       show_root_heading: true
       show_source: false
@@ -67,7 +67,7 @@ Comprehensive error handling and reporting system for robust search operations.
 
 ### ErrorSeverity
 
-::: pysearch.error_handling.ErrorSeverity
+::: pysearch.utils.error_handling.ErrorSeverity
     options:
       show_root_heading: true
       show_source: false
@@ -75,7 +75,7 @@ Comprehensive error handling and reporting system for robust search operations.
 
 ### ErrorCategory
 
-::: pysearch.error_handling.ErrorCategory
+::: pysearch.utils.error_handling.ErrorCategory
     options:
       show_root_heading: true
       show_source: false
@@ -85,7 +85,7 @@ Comprehensive error handling and reporting system for robust search operations.
 
 ### ErrorCollector
 
-::: pysearch.error_handling.ErrorCollector
+::: pysearch.utils.error_handling.ErrorCollector
     options:
       show_root_heading: true
       show_source: false
@@ -102,7 +102,7 @@ Comprehensive error handling and reporting system for robust search operations.
 
 ### handle_file_error
 
-::: pysearch.error_handling.handle_file_error
+::: pysearch.utils.error_handling.handle_file_error
     options:
       show_root_heading: true
       show_source: false
@@ -114,7 +114,7 @@ Comprehensive error handling and reporting system for robust search operations.
 
 ### create_error_report
 
-::: pysearch.error_handling.create_error_report
+::: pysearch.utils.error_handling.create_error_report
     options:
       show_root_heading: true
       show_source: false
@@ -166,7 +166,7 @@ print(f"Critical errors: {len(report.critical_errors)}")
 ### File Error Handling
 
 ```python
-from pysearch.error_handling import handle_file_error
+from pysearch.utils.error_handling import handle_file_error
 from pathlib import Path
 
 def safe_file_operation(file_path):
@@ -184,7 +184,7 @@ def safe_file_operation(file_path):
 ### Custom Error Handling
 
 ```python
-from pysearch.error_handling import ErrorInfo, ErrorCategory, ErrorSeverity
+from pysearch.utils.error_handling import ErrorInfo, ErrorCategory, ErrorSeverity
 
 def custom_error_handler(exception, context=None):
     """Custom error handler with context information."""
@@ -282,7 +282,7 @@ def search_with_fallback(engine, pattern):
 
 ```python
 import time
-from pysearch.error_handling import PySearchError
+from pysearch.utils.error_handling import PySearchError
 
 def search_with_retry(engine, pattern, max_retries=3):
     """Search with exponential backoff retry."""
@@ -304,7 +304,7 @@ def search_with_retry(engine, pattern, max_retries=3):
 ### Detailed Error Reports
 
 ```python
-from pysearch.error_handling import create_error_report
+from pysearch.utils.error_handling import create_error_report
 
 def generate_search_report(errors):
     """Generate comprehensive error report."""
@@ -330,7 +330,7 @@ def generate_search_report(errors):
 
 ```python
 import logging
-from pysearch.error_handling import ErrorCollector
+from pysearch.utils.error_handling import ErrorCollector
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

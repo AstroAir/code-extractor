@@ -43,11 +43,21 @@ def register_advanced_search_tools(
         Returns:
             Search results with approximate matches
         """
-        _validate(pattern=pattern, paths=paths, context=context,
-                  similarity_threshold=similarity_threshold, max_results=max_results)
+        _validate(
+            pattern=pattern,
+            paths=paths,
+            context=context,
+            similarity_threshold=similarity_threshold,
+            max_results=max_results,
+        )
         try:
             resp = engine.search_fuzzy(
-                pattern, similarity_threshold, max_results, paths, context, session_id=session_id,
+                pattern,
+                similarity_threshold,
+                max_results,
+                paths,
+                context,
+                session_id=session_id,
             )
             return asdict(resp)
         except Exception as e:
@@ -81,7 +91,12 @@ def register_advanced_search_tools(
         _validate(paths=paths, context=context)
         try:
             resp = engine.search_multi_pattern(
-                patterns, operator, use_regex, paths, context, session_id=session_id,
+                patterns,
+                operator,
+                use_regex,
+                paths,
+                context,
+                session_id=session_id,
             )
             return asdict(resp)
         except Exception as e:

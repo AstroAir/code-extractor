@@ -10,13 +10,34 @@ from pathlib import Path
 from typing import Any
 
 # Standard LogRecord attributes to exclude when extracting extra fields
-_LOGRECORD_BUILTIN_ATTRS: frozenset[str] = frozenset({
-    "name", "msg", "args", "levelname", "levelno", "pathname",
-    "filename", "module", "lineno", "funcName", "created", "msecs",
-    "relativeCreated", "thread", "threadName", "processName", "process",
-    "getMessage", "exc_info", "exc_text", "stack_info", "asctime",
-    "message", "taskName",
-})
+_LOGRECORD_BUILTIN_ATTRS: frozenset[str] = frozenset(
+    {
+        "name",
+        "msg",
+        "args",
+        "levelname",
+        "levelno",
+        "pathname",
+        "filename",
+        "module",
+        "lineno",
+        "funcName",
+        "created",
+        "msecs",
+        "relativeCreated",
+        "thread",
+        "threadName",
+        "processName",
+        "process",
+        "getMessage",
+        "exc_info",
+        "exc_text",
+        "stack_info",
+        "asctime",
+        "message",
+        "taskName",
+    }
+)
 
 
 class LogLevel(str, Enum):

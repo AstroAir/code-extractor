@@ -7,9 +7,10 @@ and automatic reconnection support.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -50,11 +51,13 @@ class DatabasePool:
                 return
             # Simulate creating connections
             for i in range(min(3, self._max_connections)):
-                self._connections.append({
-                    "id": i,
-                    "url": self._url,
-                    "active": True,
-                })
+                self._connections.append(
+                    {
+                        "id": i,
+                        "url": self._url,
+                        "active": True,
+                    }
+                )
             self._is_connected = True
 
     async def disconnect(self) -> None:
@@ -87,7 +90,9 @@ class DatabasePool:
             async with self._lock:
                 self._connections.append(conn)
 
-    async def execute(self, query: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    async def execute(
+        self, query: str, params: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """Execute a database query.
 
         Args:

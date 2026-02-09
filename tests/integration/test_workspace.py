@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.core.workspace import (
     RepositoryConfig,
@@ -134,13 +132,17 @@ class TestWorkspacePersistenceIntegration:
 
         # Add repos
         r1 = RepositoryConfig(
-            name="core", path=str(tmp_path / "core"),
-            priority="high", project_type="python",
+            name="core",
+            path=str(tmp_path / "core"),
+            priority="high",
+            project_type="python",
             include=["**/*.py"],
         )
         r2 = RepositoryConfig(
-            name="web", path=str(tmp_path / "web"),
-            priority="normal", project_type="node",
+            name="web",
+            path=str(tmp_path / "web"),
+            priority="normal",
+            project_type="node",
         )
         ws.add_repository(r1)
         ws.add_repository(r2)
@@ -255,10 +257,14 @@ class TestMultiRepoIntegrationWithWorkspace:
 
         mgr = WorkspaceManager()
         ws = mgr.create_workspace("test", str(tmp_path))
-        ws.add_repository(RepositoryConfig(
-            name="r1", path=str(repo1), priority="high",
-            include=["**/*.py"],
-        ))
+        ws.add_repository(
+            RepositoryConfig(
+                name="r1",
+                path=str(repo1),
+                priority="high",
+                include=["**/*.py"],
+            )
+        )
 
         config_path = tmp_path / ".pysearch-workspace.toml"
         mgr.save_workspace(ws, config_path)

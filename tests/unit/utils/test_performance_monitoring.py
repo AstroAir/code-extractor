@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import time
-
 import pytest
 
 from pysearch.utils.performance_monitoring import (
-    MetricType,
     MetricsCollector,
+    MetricType,
     PerformanceMetric,
     PerformanceMonitor,
     PerformanceProfiler,
@@ -79,5 +77,6 @@ class TestPerformanceMonitor:
 
     def test_init(self, tmp_path):
         from unittest.mock import MagicMock
+
         monitor = PerformanceMonitor(config=MagicMock(), cache_dir=tmp_path)
         assert monitor is not None

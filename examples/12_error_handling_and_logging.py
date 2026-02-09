@@ -149,7 +149,7 @@ def demo_error_summary(engine: PySearch) -> None:
     summary = bad_engine.get_error_summary()
     print("  Error summary:")
     for key, value in summary.items():
-        if isinstance(value, (int, float, str, bool)):
+        if isinstance(value, int | float | str | bool):
             print(f"    {key}: {value}")
 
     # Get detailed report

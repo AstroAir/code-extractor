@@ -117,7 +117,7 @@ class BasicChunker:
         current_chunk: list[str] = []
         start_line = 1
 
-        for i, line in enumerate(lines, 1):
+        for _i, line in enumerate(lines, 1):
             current_chunk.append(line)
 
             # Check if we've hit the size limit

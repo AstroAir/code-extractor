@@ -230,9 +230,7 @@ class Indexer:
 
             # Trim hot cache if it exceeded max size
             if len(self._hot_cache) > self._hot_cache_max_size:
-                sorted_hot = sorted(
-                    self._hot_cache.items(), key=lambda x: x[1].last_accessed
-                )
+                sorted_hot = sorted(self._hot_cache.items(), key=lambda x: x[1].last_accessed)
                 for k, _ in sorted_hot[: len(self._hot_cache) - self._hot_cache_max_size]:
                     del self._hot_cache[k]
 

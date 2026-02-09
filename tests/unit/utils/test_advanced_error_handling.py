@@ -96,8 +96,10 @@ class TestCircuitBreaker:
     @pytest.mark.asyncio
     async def test_call_failure(self):
         cb = CircuitBreaker(failure_threshold=2, recovery_timeout=30)
+
         def failing():
             raise ValueError("fail")
+
         with pytest.raises(ValueError):
             await cb.call(failing)
         with pytest.raises(ValueError):
@@ -109,12 +111,14 @@ class TestRecoveryManager:
 
     def test_init(self):
         from unittest.mock import MagicMock
+
         mgr = RecoveryManager(config=MagicMock())
         assert mgr is not None
 
     @pytest.mark.asyncio
     async def test_attempt_recovery(self):
         from unittest.mock import MagicMock
+
         mgr = RecoveryManager(config=MagicMock())
         err = IndexingError(
             error_id="e1",

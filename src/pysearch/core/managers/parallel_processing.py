@@ -30,6 +30,7 @@ import os
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Any
 
 from ..config import SearchConfig
 from ..types import Query, SearchItem

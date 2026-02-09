@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from pysearch.analysis.graphrag.core import (
     EntityExtractor,
     RelationshipMapper,
@@ -29,9 +27,7 @@ class TestEntityExtractor:
 
     async def test_extract_from_python_file(self, tmp_path: Path):
         py_file = tmp_path / "test.py"
-        py_file.write_text(
-            "def hello():\n    pass\n\nclass World:\n    pass\n", encoding="utf-8"
-        )
+        py_file.write_text("def hello():\n    pass\n\nclass World:\n    pass\n", encoding="utf-8")
         extractor = EntityExtractor()
         entities = await extractor.extract_from_file(py_file)
         assert isinstance(entities, list)
@@ -48,9 +44,7 @@ class TestEntityExtractor:
 
     async def test_extract_functions(self, tmp_path: Path):
         py_file = tmp_path / "funcs.py"
-        py_file.write_text(
-            "def foo():\n    pass\n\ndef bar():\n    pass\n", encoding="utf-8"
-        )
+        py_file.write_text("def foo():\n    pass\n\ndef bar():\n    pass\n", encoding="utf-8")
         extractor = EntityExtractor()
         entities = await extractor.extract_from_file(py_file)
         funcs = [e for e in entities if e.entity_type == EntityType.FUNCTION]
@@ -69,9 +63,7 @@ class TestEntityExtractor:
 
     async def test_extract_imports(self, tmp_path: Path):
         py_file = tmp_path / "imports.py"
-        py_file.write_text(
-            "import os\nfrom pathlib import Path\n", encoding="utf-8"
-        )
+        py_file.write_text("import os\nfrom pathlib import Path\n", encoding="utf-8")
         extractor = EntityExtractor()
         entities = await extractor.extract_from_file(py_file)
         imports = [e for e in entities if e.entity_type == EntityType.IMPORT]
@@ -87,9 +79,7 @@ class TestEntityExtractor:
 
     async def test_extract_async_function(self, tmp_path: Path):
         py_file = tmp_path / "async_func.py"
-        py_file.write_text(
-            "async def fetch():\n    return True\n", encoding="utf-8"
-        )
+        py_file.write_text("async def fetch():\n    return True\n", encoding="utf-8")
         extractor = EntityExtractor()
         entities = await extractor.extract_from_file(py_file)
         funcs = [e for e in entities if e.entity_type == EntityType.FUNCTION]
@@ -146,10 +136,7 @@ class TestEntityExtractor:
     async def test_extract_java_file(self, tmp_path: Path):
         java_file = tmp_path / "App.java"
         java_file.write_text(
-            "public class App {\n"
-            "    public void run() {\n"
-            "    }\n"
-            "}\n",
+            "public class App {\n" "    public void run() {\n" "    }\n" "}\n",
             encoding="utf-8",
         )
         extractor = EntityExtractor()
@@ -159,9 +146,7 @@ class TestEntityExtractor:
 
     async def test_extract_csharp_file(self, tmp_path: Path):
         cs_file = tmp_path / "Program.cs"
-        cs_file.write_text(
-            "public class Program {\n}\n", encoding="utf-8"
-        )
+        cs_file.write_text("public class Program {\n}\n", encoding="utf-8")
         extractor = EntityExtractor()
         entities = await extractor.extract_from_file(cs_file)
         classes = [e for e in entities if e.entity_type == EntityType.CLASS]

@@ -40,8 +40,8 @@ from ...utils.error_handling import (
     ErrorCollector,
     ErrorSeverity,
 )
-from ...utils.logging_config import get_logger
 from ...utils.helpers import file_meta, iter_files, read_text_safely
+from ...utils.logging_config import get_logger
 from ...utils.performance_monitoring import MetricsCollector, PerformanceProfiler
 from .coordinator import IndexCoordinator
 
@@ -207,13 +207,13 @@ class IndexingEngine:
                         )
 
                 yield IndexingProgressUpdate(
-                    progress=0.2, description=f"Found {file_count} files to process", status="indexing"
+                    progress=0.2,
+                    description=f"Found {file_count} files to process",
+                    status="indexing",
                 )
 
                 # Update profiler with file count
-                await self._profiler.update_profile_stats(
-                    profile_id, files_processed=file_count
-                )
+                await self._profiler.update_profile_stats(profile_id, files_processed=file_count)
 
                 # Create tag for this indexing operation
                 tag = IndexTag(
@@ -375,7 +375,7 @@ class IndexingEngine:
     async def _get_cache_stats(self) -> dict[str, Any]:
         """Get global cache statistics."""
         try:
-            stats = await self.coordinator.global_cache.get_stats()
+            stats = await self.coordinator.global_cache.get_stats()  # type: ignore[attr-defined]
             return stats
         except Exception:
             # Fallback if global cache doesn't support stats yet

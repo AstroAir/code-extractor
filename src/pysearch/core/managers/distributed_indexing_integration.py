@@ -120,12 +120,14 @@ class DistributedIndexingManager:
                 branch=branch,
                 repo_name=repo_name,
             ):
-                updates.append({
-                    "progress": update.progress,
-                    "description": update.description,
-                    "status": update.status,
-                    "debug_info": getattr(update, "debug_info", ""),
-                })
+                updates.append(
+                    {
+                        "progress": update.progress,
+                        "description": update.description,
+                        "status": update.status,
+                        "debug_info": getattr(update, "debug_info", ""),
+                    }
+                )
             return updates
         except Exception:
             return []

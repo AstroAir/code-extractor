@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -271,9 +270,7 @@ class TestGraphRAGEngine:
         assert "calculate_total" in entity_names
 
     async def test_build_knowledge_graph(self, tmp_path: Path):
-        (tmp_path / "sample.py").write_text(
-            "def greet():\n    pass\n", encoding="utf-8"
-        )
+        (tmp_path / "sample.py").write_text("def greet():\n    pass\n", encoding="utf-8")
         cfg = SearchConfig(paths=[str(tmp_path)])
         engine = GraphRAGEngine(cfg)
         kg = await engine.build_knowledge_graph(force_rebuild=True)

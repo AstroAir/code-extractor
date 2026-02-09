@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.core.types import SearchItem
 from pysearch.search.scorer import (
@@ -19,10 +17,17 @@ from pysearch.search.scorer import (
 )
 
 
-def _item(file: str = "test.py", start: int = 1, end: int = 1,
-          lines: list[str] | None = None, spans: list | None = None) -> SearchItem:
+def _item(
+    file: str = "test.py",
+    start: int = 1,
+    end: int = 1,
+    lines: list[str] | None = None,
+    spans: list | None = None,
+) -> SearchItem:
     return SearchItem(
-        file=Path(file), start_line=start, end_line=end,
+        file=Path(file),
+        start_line=start,
+        end_line=end,
         lines=lines or ["x = 1"],
         match_spans=spans or [],
     )
@@ -62,7 +67,9 @@ class TestScoreItem:
 
     def test_basic_scoring(self):
         item = SearchItem(
-            file=Path("test.py"), start_line=1, end_line=3,
+            file=Path("test.py"),
+            start_line=1,
+            end_line=3,
             lines=["def test():", "    pass", ""],
             match_spans=[(0, (0, 3))],
         )
@@ -72,7 +79,9 @@ class TestScoreItem:
 
     def test_no_matches_zero_base(self):
         item = SearchItem(
-            file=Path("test.py"), start_line=1, end_line=1,
+            file=Path("test.py"),
+            start_line=1,
+            end_line=1,
             lines=["x = 1"],
             match_spans=[],
         )
@@ -82,7 +91,9 @@ class TestScoreItem:
 
     def test_exact_match_bonus(self):
         item = SearchItem(
-            file=Path("test.py"), start_line=1, end_line=1,
+            file=Path("test.py"),
+            start_line=1,
+            end_line=1,
             lines=["def main():"],
             match_spans=[(0, (0, 3))],
         )
@@ -93,12 +104,16 @@ class TestScoreItem:
 
     def test_multiple_matches_higher_score(self):
         item1 = SearchItem(
-            file=Path("test.py"), start_line=1, end_line=1,
+            file=Path("test.py"),
+            start_line=1,
+            end_line=1,
             lines=["test test test"],
             match_spans=[(0, (0, 4)), (0, (5, 9)), (0, (10, 14))],
         )
         item2 = SearchItem(
-            file=Path("test.py"), start_line=1, end_line=1,
+            file=Path("test.py"),
+            start_line=1,
+            end_line=1,
             lines=["test only"],
             match_spans=[(0, (0, 4))],
         )

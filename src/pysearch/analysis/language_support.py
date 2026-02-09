@@ -79,21 +79,21 @@ except ImportError:
     TREE_SITTER_TS_AVAILABLE = False
 
 try:
-    import tree_sitter_c_sharp
+    import tree_sitter_c_sharp  # type: ignore[import-not-found]
 
     TREE_SITTER_CSHARP_AVAILABLE = True
 except ImportError:
     TREE_SITTER_CSHARP_AVAILABLE = False
 
 try:
-    import tree_sitter_php
+    import tree_sitter_php  # type: ignore[import-not-found]
 
     TREE_SITTER_PHP_AVAILABLE = True
 except ImportError:
     TREE_SITTER_PHP_AVAILABLE = False
 
 try:
-    import tree_sitter_ruby
+    import tree_sitter_ruby  # type: ignore[import-not-found]
 
     TREE_SITTER_RUBY_AVAILABLE = True
 except ImportError:
@@ -872,15 +872,17 @@ class TreeSitterProcessor(LanguageProcessor):
                                 name_node = sub_child
                                 break
 
-                entity_name = name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                entity_name = (
+                    name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                )
                 entity_type = (
                     EntityType.FUNCTION
                     if capture_name == "function"
-                    else EntityType.CLASS
-                    if capture_name == "class"
-                    else EntityType.IMPORT
-                    if capture_name == "import"
-                    else EntityType.VARIABLE
+                    else (
+                        EntityType.CLASS
+                        if capture_name == "class"
+                        else EntityType.IMPORT if capture_name == "import" else EntityType.VARIABLE
+                    )
                 )
 
                 entities.append(
@@ -932,7 +934,9 @@ class TreeSitterProcessor(LanguageProcessor):
                                 name_node = sub
                                 break
 
-                entity_name = name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                entity_name = (
+                    name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                )
                 entity_type_map = {
                     "class": EntityType.CLASS,
                     "method": EntityType.METHOD,
@@ -999,7 +1003,9 @@ class TreeSitterProcessor(LanguageProcessor):
                                     name_node = sub
                                     break
 
-                entity_name = name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                entity_name = (
+                    name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                )
                 entity_type_map = {
                     "function": EntityType.FUNCTION,
                     "struct": EntityType.STRUCT,
@@ -1061,7 +1067,9 @@ class TreeSitterProcessor(LanguageProcessor):
                                     name_node = sub
                                     break
 
-                entity_name = name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                entity_name = (
+                    name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                )
                 entity_type_map = {
                     "function": EntityType.FUNCTION,
                     "method": EntityType.METHOD,
@@ -1120,7 +1128,9 @@ class TreeSitterProcessor(LanguageProcessor):
                         name_node = child
                         break
 
-                entity_name = name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                entity_name = (
+                    name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                )
                 entity_type_map = {
                     "function": EntityType.FUNCTION,
                     "struct": EntityType.STRUCT,
@@ -1174,7 +1184,9 @@ class TreeSitterProcessor(LanguageProcessor):
                         name_node = child
                         break
 
-                entity_name = name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                entity_name = (
+                    name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                )
                 entity_type_map = {
                     "class": EntityType.CLASS,
                     "method": EntityType.METHOD,
@@ -1227,7 +1239,9 @@ class TreeSitterProcessor(LanguageProcessor):
                         name_node = child
                         break
 
-                entity_name = name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                entity_name = (
+                    name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                )
                 entity_type_map = {
                     "function": EntityType.FUNCTION,
                     "class": EntityType.CLASS,
@@ -1283,7 +1297,9 @@ class TreeSitterProcessor(LanguageProcessor):
                         name_node = child
                         break
 
-                entity_name = name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                entity_name = (
+                    name_node.text.decode("utf-8") if name_node else f"anonymous_{start_line}"
+                )
                 entity_type_map = {
                     "method": EntityType.METHOD,
                     "class": EntityType.CLASS,
@@ -1687,45 +1703,90 @@ class TreeSitterProcessor(LanguageProcessor):
             if self.language == Language.PYTHON:
                 complexity_nodes = self._count_complexity_nodes(
                     tree.root_node,
-                    {"if_statement", "for_statement", "while_statement", "try_statement",
-                     "except_clause", "with_statement", "assert_statement",
-                     "raise_statement", "boolean_operator"},
+                    {
+                        "if_statement",
+                        "for_statement",
+                        "while_statement",
+                        "try_statement",
+                        "except_clause",
+                        "with_statement",
+                        "assert_statement",
+                        "raise_statement",
+                        "boolean_operator",
+                    },
                 )
             elif self.language in [Language.JAVASCRIPT, Language.TYPESCRIPT]:
                 complexity_nodes = self._count_complexity_nodes(
                     tree.root_node,
-                    {"if_statement", "for_statement", "for_in_statement", "while_statement",
-                     "do_statement", "switch_statement", "try_statement", "catch_clause",
-                     "ternary_expression", "binary_expression"},
+                    {
+                        "if_statement",
+                        "for_statement",
+                        "for_in_statement",
+                        "while_statement",
+                        "do_statement",
+                        "switch_statement",
+                        "try_statement",
+                        "catch_clause",
+                        "ternary_expression",
+                        "binary_expression",
+                    },
                 )
             elif self.language == Language.JAVA:
                 complexity_nodes = self._count_complexity_nodes(
                     tree.root_node,
-                    {"if_statement", "for_statement", "enhanced_for_statement",
-                     "while_statement", "do_statement", "switch_expression",
-                     "try_statement", "catch_clause", "ternary_expression",
-                     "throw_statement"},
+                    {
+                        "if_statement",
+                        "for_statement",
+                        "enhanced_for_statement",
+                        "while_statement",
+                        "do_statement",
+                        "switch_expression",
+                        "try_statement",
+                        "catch_clause",
+                        "ternary_expression",
+                        "throw_statement",
+                    },
                 )
             elif self.language in [Language.C, Language.CPP]:
                 complexity_nodes = self._count_complexity_nodes(
                     tree.root_node,
-                    {"if_statement", "for_statement", "while_statement", "do_statement",
-                     "switch_statement", "case_statement", "conditional_expression",
-                     "goto_statement"},
+                    {
+                        "if_statement",
+                        "for_statement",
+                        "while_statement",
+                        "do_statement",
+                        "switch_statement",
+                        "case_statement",
+                        "conditional_expression",
+                        "goto_statement",
+                    },
                 )
             elif self.language == Language.GO:
                 complexity_nodes = self._count_complexity_nodes(
                     tree.root_node,
-                    {"if_statement", "for_statement", "expression_switch_statement",
-                     "type_switch_statement", "select_statement", "go_statement",
-                     "defer_statement"},
+                    {
+                        "if_statement",
+                        "for_statement",
+                        "expression_switch_statement",
+                        "type_switch_statement",
+                        "select_statement",
+                        "go_statement",
+                        "defer_statement",
+                    },
                 )
             elif self.language == Language.RUST:
                 complexity_nodes = self._count_complexity_nodes(
                     tree.root_node,
-                    {"if_expression", "for_expression", "while_expression", "loop_expression",
-                     "match_expression", "match_arm", "if_let_expression",
-                     "while_let_expression"},
+                    {
+                        "if_expression",
+                        "for_expression",
+                        "while_expression",
+                        "loop_expression",
+                        "match_expression",
+                        "match_arm",
+                        "if_let_expression",
+                        "while_let_expression",
+                    },
                 )
             else:
                 complexity_nodes = 0
@@ -1789,14 +1850,22 @@ class RegexLanguageConfig:
 # Pre-defined regex configs for languages without tree-sitter
 REGEX_LANGUAGE_CONFIGS: dict[Language, RegexLanguageConfig] = {
     Language.KOTLIN: RegexLanguageConfig(
-        function_patterns=[r"^\s*(?:(?:public|private|protected|internal|override|open|abstract|suspend)\s+)*fun\s+(\w+)"],
-        class_patterns=[r"^\s*(?:(?:public|private|protected|internal|open|abstract|data|sealed|enum|annotation)\s+)*class\s+(\w+)"],
+        function_patterns=[
+            r"^\s*(?:(?:public|private|protected|internal|override|open|abstract|suspend)\s+)*fun\s+(\w+)"
+        ],
+        class_patterns=[
+            r"^\s*(?:(?:public|private|protected|internal|open|abstract|data|sealed|enum|annotation)\s+)*class\s+(\w+)"
+        ],
         import_patterns=[r"^\s*import\s+([\w.]+)"],
         interface_patterns=[r"^\s*(?:(?:public|private|protected|internal)\s+)*interface\s+(\w+)"],
     ),
     Language.SWIFT: RegexLanguageConfig(
-        function_patterns=[r"^\s*(?:(?:public|private|internal|open|fileprivate|static|class|override|mutating)\s+)*func\s+(\w+)"],
-        class_patterns=[r"^\s*(?:(?:public|private|internal|open|fileprivate|final)\s+)*class\s+(\w+)"],
+        function_patterns=[
+            r"^\s*(?:(?:public|private|internal|open|fileprivate|static|class|override|mutating)\s+)*func\s+(\w+)"
+        ],
+        class_patterns=[
+            r"^\s*(?:(?:public|private|internal|open|fileprivate|final)\s+)*class\s+(\w+)"
+        ],
         import_patterns=[r"^\s*import\s+(\w+)"],
         struct_patterns=[r"^\s*(?:(?:public|private|internal)\s+)*struct\s+(\w+)"],
         interface_patterns=[r"^\s*(?:(?:public|private|internal)\s+)*protocol\s+(\w+)"],
@@ -1854,7 +1923,9 @@ REGEX_LANGUAGE_CONFIGS: dict[Language, RegexLanguageConfig] = {
         comment_multi_end="=cut",
     ),
     Language.DART: RegexLanguageConfig(
-        function_patterns=[r"^\s*(?:(?:static|async|Future|void|int|double|String|bool|dynamic)\s+)+(\w+)\s*\("],
+        function_patterns=[
+            r"^\s*(?:(?:static|async|Future|void|int|double|String|bool|dynamic)\s+)+(\w+)\s*\("
+        ],
         class_patterns=[r"^\s*(?:abstract\s+)?class\s+(\w+)"],
         import_patterns=[r'^\s*import\s+[\'"]([^\'"]+)[\'"]'],
         interface_patterns=[r"^\s*(?:abstract\s+)?class\s+(\w+)"],
@@ -1889,7 +1960,9 @@ REGEX_LANGUAGE_CONFIGS: dict[Language, RegexLanguageConfig] = {
         block_end_pattern="end",
     ),
     Language.GROOVY: RegexLanguageConfig(
-        function_patterns=[r"^\s*(?:(?:public|private|protected|static|def)\s+)*(?:def\s+)?(\w+)\s*\("],
+        function_patterns=[
+            r"^\s*(?:(?:public|private|protected|static|def)\s+)*(?:def\s+)?(\w+)\s*\("
+        ],
         class_patterns=[r"^\s*(?:(?:public|private|protected|abstract)\s+)*class\s+(\w+)"],
         import_patterns=[r"^\s*import\s+([\w.]+)"],
         interface_patterns=[r"^\s*(?:(?:public|private|protected)\s+)*interface\s+(\w+)"],
@@ -2057,8 +2130,19 @@ class RegexProcessor(LanguageProcessor):
         if self.regex_config.block_end_pattern:
             # For languages with explicit end keywords (Ruby, Lua, Elixir, etc.)
             depth = 1
-            block_start_keywords = {"def", "class", "module", "do", "if", "for", "while",
-                                    "function", "defmodule", "defp", "struct"}
+            block_start_keywords = {
+                "def",
+                "class",
+                "module",
+                "do",
+                "if",
+                "for",
+                "while",
+                "function",
+                "defmodule",
+                "defp",
+                "struct",
+            }
             for i in range(start_idx + 1, min(start_idx + 500, len(lines))):
                 stripped = lines[i].strip()
                 # Check for nested blocks
@@ -2110,15 +2194,27 @@ class RegexProcessor(LanguageProcessor):
         non_empty = [line for line in lines if line.strip()]
 
         control_keywords = [
-            "if", "else", "elif", "for", "while", "switch", "case",
-            "try", "catch", "except", "finally", "match", "when",
-            "do", "loop", "foreach", "unless", "until",
+            "if",
+            "else",
+            "elif",
+            "for",
+            "while",
+            "switch",
+            "case",
+            "try",
+            "catch",
+            "except",
+            "finally",
+            "match",
+            "when",
+            "do",
+            "loop",
+            "foreach",
+            "unless",
+            "until",
         ]
         control_count = sum(
-            1
-            for line in non_empty
-            for kw in control_keywords
-            if re.search(rf"\b{kw}\b", line)
+            1 for line in non_empty for kw in control_keywords if re.search(rf"\b{kw}\b", line)
         )
 
         line_complexity = min(1.0, len(non_empty) / 100.0)
@@ -2171,11 +2267,19 @@ class LanguageRegistry:
                 Language.CSHARP,
                 default_config,
                 RegexLanguageConfig(
-                    function_patterns=[r"^\s*(?:(?:public|private|protected|internal|static|virtual|override|abstract|async)\s+)*\w+\s+(\w+)\s*\("],
-                    class_patterns=[r"^\s*(?:(?:public|private|protected|internal|static|abstract|sealed|partial)\s+)*class\s+(\w+)"],
+                    function_patterns=[
+                        r"^\s*(?:(?:public|private|protected|internal|static|virtual|override|abstract|async)\s+)*\w+\s+(\w+)\s*\("
+                    ],
+                    class_patterns=[
+                        r"^\s*(?:(?:public|private|protected|internal|static|abstract|sealed|partial)\s+)*class\s+(\w+)"
+                    ],
                     import_patterns=[r"^\s*using\s+([a-zA-Z_][\w.]*)\s*;"],
-                    interface_patterns=[r"^\s*(?:(?:public|private|protected|internal)\s+)*interface\s+(\w+)"],
-                    struct_patterns=[r"^\s*(?:(?:public|private|protected|internal)\s+)*struct\s+(\w+)"],
+                    interface_patterns=[
+                        r"^\s*(?:(?:public|private|protected|internal)\s+)*interface\s+(\w+)"
+                    ],
+                    struct_patterns=[
+                        r"^\s*(?:(?:public|private|protected|internal)\s+)*struct\s+(\w+)"
+                    ],
                 ),
             )
         if not TREE_SITTER_PHP_AVAILABLE and Language.PHP not in self.processors:
@@ -2183,7 +2287,9 @@ class LanguageRegistry:
                 Language.PHP,
                 default_config,
                 RegexLanguageConfig(
-                    function_patterns=[r"^\s*(?:(?:public|private|protected|static)\s+)*function\s+(\w+)"],
+                    function_patterns=[
+                        r"^\s*(?:(?:public|private|protected|static)\s+)*function\s+(\w+)"
+                    ],
                     class_patterns=[r"^\s*(?:(?:abstract|final)\s+)?class\s+(\w+)"],
                     import_patterns=[
                         r"^\s*use\s+([a-zA-Z_\\][\w\\]*)",

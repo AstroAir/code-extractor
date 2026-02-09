@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
+from pysearch.core.types import Language
 from pysearch.core.types.graphrag_types import (
     CodeEntity,
     EntityRelationship,
@@ -15,7 +14,6 @@ from pysearch.core.types.graphrag_types import (
     KnowledgeGraph,
     RelationType,
 )
-from pysearch.core.types import Language
 
 
 class TestEntityType:
@@ -71,8 +69,12 @@ class TestCodeEntity:
 
     def test_defaults(self):
         e = CodeEntity(
-            id="x", name="x", entity_type=EntityType.CLASS,
-            file_path=Path("a.py"), start_line=1, end_line=1,
+            id="x",
+            name="x",
+            entity_type=EntityType.CLASS,
+            file_path=Path("a.py"),
+            start_line=1,
+            end_line=1,
         )
         assert e.signature is None
         assert e.docstring is None
@@ -121,7 +123,9 @@ class TestEntityRelationship:
 
     def test_defaults(self):
         r = EntityRelationship(
-            id="r", source_entity_id="a", target_entity_id="b",
+            id="r",
+            source_entity_id="a",
+            target_entity_id="b",
             relation_type=RelationType.USES,
         )
         assert r.properties == {}
@@ -135,14 +139,24 @@ class TestEntityRelationship:
 class TestKnowledgeGraph:
     """Tests for KnowledgeGraph dataclass."""
 
-    def _make_entity(self, id: str, name: str, etype: EntityType, fpath: str = "a.py") -> CodeEntity:
+    def _make_entity(
+        self, id: str, name: str, etype: EntityType, fpath: str = "a.py"
+    ) -> CodeEntity:
         return CodeEntity(
-            id=id, name=name, entity_type=etype,
-            file_path=Path(fpath), start_line=1, end_line=1,
+            id=id,
+            name=name,
+            entity_type=etype,
+            file_path=Path(fpath),
+            start_line=1,
+            end_line=1,
         )
 
-    def _make_relationship(self, id: str, src: str, tgt: str, rtype: RelationType) -> EntityRelationship:
-        return EntityRelationship(id=id, source_entity_id=src, target_entity_id=tgt, relation_type=rtype)
+    def _make_relationship(
+        self, id: str, src: str, tgt: str, rtype: RelationType
+    ) -> EntityRelationship:
+        return EntityRelationship(
+            id=id, source_entity_id=src, target_entity_id=tgt, relation_type=rtype
+        )
 
     def test_empty_graph(self):
         g = KnowledgeGraph()
@@ -288,8 +302,12 @@ class TestGraphRAGResult:
 
     def test_with_data(self):
         e = CodeEntity(
-            id="f1", name="main", entity_type=EntityType.FUNCTION,
-            file_path=Path("a.py"), start_line=1, end_line=1,
+            id="f1",
+            name="main",
+            entity_type=EntityType.FUNCTION,
+            file_path=Path("a.py"),
+            start_line=1,
+            end_line=1,
         )
         q = GraphRAGQuery(pattern="test")
         r = GraphRAGResult(

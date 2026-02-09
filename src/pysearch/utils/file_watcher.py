@@ -91,10 +91,10 @@ except ImportError:
     FileSystemEventHandler = _FallbackFileSystemEventHandler  # type: ignore[misc,assignment]
     Observer = _FallbackObserver  # type: ignore[assignment]
 
-from ..core.config import SearchConfig
-from ..indexing.indexer import Indexer
-from .logging_config import get_logger
-from .helpers import matches_patterns
+from ..core.config import SearchConfig  # noqa: E402
+from ..indexing.indexer import Indexer  # noqa: E402
+from .helpers import matches_patterns  # noqa: E402
+from .logging_config import get_logger  # noqa: E402
 
 
 class EventType(Enum):

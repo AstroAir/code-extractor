@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from pysearch.search.fuzzy import (
     FuzzyAlgorithm,
     FuzzyMatch,
@@ -79,8 +77,11 @@ class TestFuzzyMatch:
 
     def test_creation(self):
         m = FuzzyMatch(
-            start=0, end=5, matched_text="hello",
-            distance=1, similarity=0.8,
+            start=0,
+            end=5,
+            matched_text="hello",
+            distance=1,
+            similarity=0.8,
             algorithm=FuzzyAlgorithm.LEVENSHTEIN,
         )
         assert m.matched_text == "hello"
@@ -137,7 +138,8 @@ class TestFuzzyMatchFunction:
 
     def test_with_jaro_winkler_algorithm(self):
         matches = fuzzy_match(
-            "hello world", "helo",
+            "hello world",
+            "helo",
             max_distance=1,
             algorithm=FuzzyAlgorithm.JARO_WINKLER,
         )
@@ -145,7 +147,8 @@ class TestFuzzyMatchFunction:
 
     def test_with_damerau_levenshtein(self):
         matches = fuzzy_match(
-            "hello world", "hlelo",
+            "hello world",
+            "hlelo",
             max_distance=1,
             algorithm=FuzzyAlgorithm.DAMERAU_LEVENSHTEIN,
         )
@@ -161,14 +164,16 @@ class TestFuzzySearchAdvanced:
 
     def test_with_algorithms(self):
         matches = fuzzy_search_advanced(
-            "hello world", "helo",
+            "hello world",
+            "helo",
             algorithms=[FuzzyAlgorithm.LEVENSHTEIN],
         )
         assert isinstance(matches, list)
 
     def test_with_multiple_algorithms(self):
         matches = fuzzy_search_advanced(
-            "hello world", "helo",
+            "hello world",
+            "helo",
             algorithms=[FuzzyAlgorithm.LEVENSHTEIN, FuzzyAlgorithm.JARO_WINKLER],
         )
         assert isinstance(matches, list)
@@ -179,17 +184,20 @@ class TestMetaphone:
 
     def test_basic(self):
         from pysearch.search.fuzzy import metaphone
+
         code = metaphone("Robert")
         assert isinstance(code, str)
         assert len(code) > 0
 
     def test_empty(self):
         from pysearch.search.fuzzy import metaphone
+
         code = metaphone("")
         assert isinstance(code, str)
 
     def test_same_sound(self):
         from pysearch.search.fuzzy import metaphone
+
         code1 = metaphone("Smith")
         code2 = metaphone("Smith")
         assert code1 == code2
@@ -200,12 +208,14 @@ class TestFuzzyPattern:
 
     def test_basic(self):
         from pysearch.search.fuzzy import fuzzy_pattern
+
         pattern = fuzzy_pattern("hello", max_distance=1)
         assert isinstance(pattern, str)
         assert len(pattern) > 0
 
     def test_zero_distance(self):
         from pysearch.search.fuzzy import fuzzy_pattern
+
         pattern = fuzzy_pattern("test", max_distance=0)
         assert isinstance(pattern, str)
 

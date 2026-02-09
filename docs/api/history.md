@@ -4,7 +4,7 @@ Comprehensive search history tracking, analytics, and query management system.
 
 ## SearchHistory
 
-::: pysearch.history.SearchHistory
+::: pysearch.core.history.SearchHistory
     options:
       show_root_heading: true
       show_source: false
@@ -19,7 +19,7 @@ Comprehensive search history tracking, analytics, and query management system.
 
 ## SearchHistoryEntry
 
-::: pysearch.history.SearchHistoryEntry
+::: pysearch.core.history.SearchHistoryEntry
     options:
       show_root_heading: true
       show_source: false
@@ -33,7 +33,7 @@ Comprehensive search history tracking, analytics, and query management system.
 
 ## SearchCategory
 
-::: pysearch.history.SearchCategory
+::: pysearch.core.history.SearchCategory
     options:
       show_root_heading: true
       show_source: false

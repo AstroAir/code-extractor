@@ -40,8 +40,7 @@ class ValidationResult:
         return {
             "valid": self.is_valid,
             "errors": [
-                {"field": e.field, "message": e.message, "code": e.code}
-                for e in self.errors
+                {"field": e.field, "message": e.message, "code": e.code} for e in self.errors
             ],
         }
 
@@ -130,5 +129,7 @@ def sanitize_html(text: str) -> str:
     Use a proper library like bleach in production.
     """
     # FIXME: Replace with proper HTML sanitization library
-    dangerous_tags = re.compile(r"<(script|iframe|object|embed|form)[^>]*>.*?</\1>", re.DOTALL | re.IGNORECASE)
+    dangerous_tags = re.compile(
+        r"<(script|iframe|object|embed|form)[^>]*>.*?</\1>", re.DOTALL | re.IGNORECASE
+    )
     return dangerous_tags.sub("", text)

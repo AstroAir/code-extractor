@@ -55,7 +55,7 @@ def demo_memory_caching(engine: PySearch) -> None:
     stats = engine.get_cache_stats()
     print("\n  Cache stats:")
     for key, value in stats.items():
-        if isinstance(value, (int, float, str, bool)):
+        if isinstance(value, int | float | str | bool):
             print(f"    {key}: {value}")
 
     hit_rate = engine.get_cache_hit_rate()
@@ -229,7 +229,7 @@ def demo_indexer_stats(engine: PySearch) -> None:
     stats = engine.get_indexer_stats()
     print("  Indexer cache statistics:")
     for key, value in stats.items():
-        if isinstance(value, (int, float, str, bool)):
+        if isinstance(value, int | float | str | bool):
             print(f"    {key}: {value}")
 
     # Cleanup old cache entries

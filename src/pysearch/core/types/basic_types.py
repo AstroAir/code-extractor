@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+
 class Language(str, Enum):
     """Supported programming languages for syntax-aware processing."""
 

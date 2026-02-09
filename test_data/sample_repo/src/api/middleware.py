@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Callable
 
 
 @dataclass
@@ -37,9 +37,7 @@ class LoggingMiddleware:
         self._request_count = 0
 
     @asynccontextmanager
-    async def __call__(
-        self, context: RequestContext
-    ) -> AsyncGenerator[RequestContext, None]:
+    async def __call__(self, context: RequestContext) -> AsyncGenerator[RequestContext, None]:
         """Process request with logging.
 
         Args:
@@ -84,9 +82,7 @@ class RateLimitMiddleware:
     def _cleanup_old_requests(self, client_ip: str) -> None:
         """Remove expired request timestamps."""
         cutoff = time.time() - self.window_seconds
-        self._requests[client_ip] = [
-            t for t in self._requests[client_ip] if t > cutoff
-        ]
+        self._requests[client_ip] = [t for t in self._requests[client_ip] if t > cutoff]
 
     def is_rate_limited(self, client_ip: str) -> bool:
         """Check if a client has exceeded the rate limit.
@@ -101,9 +97,7 @@ class RateLimitMiddleware:
         return len(self._requests[client_ip]) >= self.max_requests
 
     @asynccontextmanager
-    async def __call__(
-        self, context: RequestContext
-    ) -> AsyncGenerator[RequestContext, None]:
+    async def __call__(self, context: RequestContext) -> AsyncGenerator[RequestContext, None]:
         """Process request with rate limit enforcement.
 
         Args:
@@ -133,9 +127,7 @@ class ErrorHandlerMiddleware:
         self._error_count = 0
 
     @asynccontextmanager
-    async def __call__(
-        self, context: RequestContext
-    ) -> AsyncGenerator[RequestContext, None]:
+    async def __call__(self, context: RequestContext) -> AsyncGenerator[RequestContext, None]:
         """Process request with error handling.
 
         Args:

@@ -11,6 +11,8 @@ The integrations module provides extensible interfaces for connecting
 pysearch with external tools and services.
 """
 
+from typing import Any
+
 from .multi_repo import MultiRepoSearchEngine, MultiRepoSearchResult, RepositoryInfo
 
 __all__ = [
@@ -63,7 +65,7 @@ _IDE_HOOKS_NAMES = {
 }
 
 
-def __getattr__(name: str):  # noqa: N807
+def __getattr__(name: str) -> Any:  # noqa: N807
     if name in _DISTRIBUTED_INDEXING_NAMES:
         from . import distributed_indexing
 

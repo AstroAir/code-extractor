@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from pysearch.utils.logging_config import (
     LogFormat,
     LogLevel,
@@ -45,7 +43,8 @@ class TestSearchLogger:
 
     def test_init_custom(self):
         logger = SearchLogger(
-            name="test", level=LogLevel.DEBUG,
+            name="test",
+            level=LogLevel.DEBUG,
             format_type=LogFormat.JSON,
         )
         assert logger.name == "test"
@@ -59,7 +58,8 @@ class TestSearchLogger:
     def test_with_file_logging(self, tmp_path: Path):
         log_file = tmp_path / "test.log"
         logger = SearchLogger(
-            log_file=log_file, enable_file=True,
+            log_file=log_file,
+            enable_file=True,
         )
         assert logger is not None
 

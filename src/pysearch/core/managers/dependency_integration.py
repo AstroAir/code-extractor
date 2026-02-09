@@ -151,7 +151,7 @@ class DependencyIntegrationManager:
         # Update analyzer's graph and perform impact analysis
         if self.dependency_analyzer:
             self.dependency_analyzer.graph = graph
-            return self.dependency_analyzer.find_impact_analysis(module)  # type: ignore[no-any-return]
+            return self.dependency_analyzer.find_impact_analysis(module)
         return {}
 
     def suggest_refactoring_opportunities(self, graph: Any | None = None) -> list[dict[str, Any]]:
@@ -178,7 +178,7 @@ class DependencyIntegrationManager:
         # Update analyzer's graph and get suggestions
         if self.dependency_analyzer:
             self.dependency_analyzer.graph = graph
-            return self.dependency_analyzer.suggest_refactoring_opportunities()  # type: ignore[no-any-return]
+            return self.dependency_analyzer.suggest_refactoring_opportunities()
         return []
 
     def detect_circular_dependencies(self, graph: Any | None = None) -> list[list[str]]:
@@ -204,9 +204,7 @@ class DependencyIntegrationManager:
         except Exception:
             return []
 
-    def check_dependency_path(
-        self, source: str, target: str, graph: Any | None = None
-    ) -> bool:
+    def check_dependency_path(self, source: str, target: str, graph: Any | None = None) -> bool:
         """
         Check if there is a dependency path from source module to target module.
 
@@ -255,8 +253,7 @@ class DependencyIntegrationManager:
                     [
                         source
                         for source, edges in graph.edges.items()
-                        if source != module
-                        and any(edge.target == module for edge in edges)
+                        if source != module and any(edge.target == module for edge in edges)
                     ]
                 )
 
@@ -300,8 +297,7 @@ class DependencyIntegrationManager:
                 # Check if module has no incoming dependencies (not imported by others)
                 # graph.edges values are lists of DependencyEdge objects
                 has_incoming = any(
-                    any(edge.target == module for edge in edges)
-                    for edges in graph.edges.values()
+                    any(edge.target == module for edge in edges) for edges in graph.edges.values()
                 )
 
                 # Skip entry points and main modules
@@ -316,9 +312,7 @@ class DependencyIntegrationManager:
         except Exception:
             return []
 
-    def analyze_workspace_dependencies(
-        self, workspace_config: Any
-    ) -> dict[str, Any]:
+    def analyze_workspace_dependencies(self, workspace_config: Any) -> dict[str, Any]:
         """
         Analyze dependencies across all repositories in a workspace.
 
@@ -364,12 +358,14 @@ class DependencyIntegrationManager:
                     for edge in edges:
                         target_repo = all_modules.get(edge.target)
                         if target_repo and target_repo != repo_name:
-                            cross_repo_deps.append({
-                                "source_repo": repo_name,
-                                "source_module": source,
-                                "target_repo": target_repo,
-                                "target_module": edge.target,
-                            })
+                            cross_repo_deps.append(
+                                {
+                                    "source_repo": repo_name,
+                                    "source_module": source,
+                                    "target_repo": target_repo,
+                                    "target_module": edge.target,
+                                }
+                            )
             except Exception:
                 pass
 

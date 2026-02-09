@@ -5,8 +5,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import pytest
-
 from pysearch.utils.helpers import (
     extract_context,
     file_meta,

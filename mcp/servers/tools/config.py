@@ -47,8 +47,13 @@ def register_config_tools(
         """
         try:
             resp = engine.configure_search(
-                paths, include_patterns, exclude_patterns,
-                context, parallel, workers, languages,
+                paths,
+                include_patterns,
+                exclude_patterns,
+                context,
+                parallel,
+                workers,
+                languages,
             )
             return asdict(resp)
         except Exception as e:

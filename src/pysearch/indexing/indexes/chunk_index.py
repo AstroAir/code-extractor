@@ -22,8 +22,8 @@ from ...analysis.content_addressing import (
     PathAndCacheKey,  # noqa: F401
     RefreshIndexResults,
 )
-from ...utils.logging_config import get_logger
 from ...utils.helpers import read_text_safely
+from ...utils.logging_config import get_logger
 from ..advanced.base import CodebaseIndex
 from ..advanced.chunking import ChunkingConfig, ChunkingEngine, ChunkingStrategy
 
@@ -78,7 +78,8 @@ class ChunkIndex(CodebaseIndex):
         conn = await self._get_connection()
 
         # Enhanced chunks table
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS code_chunks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 chunk_id TEXT NOT NULL,
@@ -99,10 +100,12 @@ class ChunkIndex(CodebaseIndex):
                 created_at REAL NOT NULL,
                 UNIQUE(chunk_id, content_hash)
             )
-        """)
+        """
+        )
 
         # Tags table for multi-branch support
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS chunk_tags (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 chunk_db_id INTEGER NOT NULL,
@@ -111,25 +114,34 @@ class ChunkIndex(CodebaseIndex):
                 UNIQUE(chunk_db_id, tag),
                 FOREIGN KEY (chunk_db_id) REFERENCES code_chunks (id)
             )
-        """)
+        """
+        )
 
         # Create indexes for performance
-        conn.execute("""
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_chunks_path_hash
             ON code_chunks(path, content_hash)
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_chunks_chunk_id
             ON code_chunks(chunk_id)
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_chunks_entity
             ON code_chunks(entity_name, entity_type)
-        """)
-        conn.execute("""
+        """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_chunk_tags_tag
             ON chunk_tags(tag)
-        """)
+        """
+        )
 
         conn.commit()
 

@@ -5,8 +5,6 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.core.managers.cache_integration import CacheIntegrationManager
 from pysearch.core.types import Query, SearchItem, SearchResult, SearchStats

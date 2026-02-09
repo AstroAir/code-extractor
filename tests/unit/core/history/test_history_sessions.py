@@ -5,8 +5,6 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.core.history.history_sessions import SearchSession, SessionManager
 from pysearch.core.types import Query, SearchItem, SearchResult, SearchStats
@@ -22,7 +20,10 @@ def _make_result(items_count: int = 3) -> SearchResult:
     return SearchResult(
         items=items,
         stats=SearchStats(
-            files_scanned=10, files_matched=2, items=items_count, elapsed_ms=50.0,
+            files_scanned=10,
+            files_matched=2,
+            items=items_count,
+            elapsed_ms=50.0,
         ),
     )
 
@@ -211,14 +212,24 @@ class TestSessionManagerCompare:
         mgr._loaded = True
 
         s1 = SearchSession(
-            session_id="s1", start_time=1000.0, end_time=2000.0,
-            queries=["foo", "bar"], total_searches=5, successful_searches=4,
-            primary_languages={"python"}, primary_paths={"/src"},
+            session_id="s1",
+            start_time=1000.0,
+            end_time=2000.0,
+            queries=["foo", "bar"],
+            total_searches=5,
+            successful_searches=4,
+            primary_languages={"python"},
+            primary_paths={"/src"},
         )
         s2 = SearchSession(
-            session_id="s2", start_time=3000.0, end_time=4000.0,
-            queries=["bar", "baz"], total_searches=3, successful_searches=2,
-            primary_languages={"python", "javascript"}, primary_paths={"/src", "/lib"},
+            session_id="s2",
+            start_time=3000.0,
+            end_time=4000.0,
+            queries=["bar", "baz"],
+            total_searches=3,
+            successful_searches=2,
+            primary_languages={"python", "javascript"},
+            primary_paths={"/src", "/lib"},
         )
         mgr._sessions["s1"] = s1
         mgr._sessions["s2"] = s2
@@ -258,9 +269,14 @@ class TestSessionManagerCompare:
         mgr._loaded = True
 
         session = SearchSession(
-            session_id="test_session", start_time=1000.0, end_time=2000.0,
-            queries=["foo", "bar", "foo"], total_searches=10, successful_searches=8,
-            primary_languages={"python", "javascript"}, primary_paths={"/src"},
+            session_id="test_session",
+            start_time=1000.0,
+            end_time=2000.0,
+            queries=["foo", "bar", "foo"],
+            total_searches=10,
+            successful_searches=8,
+            primary_languages={"python", "javascript"},
+            primary_paths={"/src"},
         )
         mgr._sessions["test_session"] = session
 
@@ -282,8 +298,10 @@ class TestSessionManagerCompare:
         mgr._loaded = True
 
         session = SearchSession(
-            session_id="active", start_time=time.time() - 60,
-            total_searches=2, successful_searches=1,
+            session_id="active",
+            start_time=time.time() - 60,
+            total_searches=2,
+            successful_searches=1,
         )
         mgr._sessions["active"] = session
 

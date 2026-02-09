@@ -43,10 +43,13 @@ def register_resources(
             cache_analytics = engine.resource_manager.get_cache_analytics()
             memory_usage = engine.resource_manager.get_memory_usage()
             session_analytics = engine.session_manager.get_session_analytics()
-            active_ops_count = len([
-                op for op in engine.progress_tracker.active_operations.values()
-                if op.status.value == "running"
-            ])
+            active_ops_count = len(
+                [
+                    op
+                    for op in engine.progress_tracker.active_operations.values()
+                    if op.status.value == "running"
+                ]
+            )
             stats = {
                 "total_searches": len(engine.search_history),
                 "cache_analytics": cache_analytics,

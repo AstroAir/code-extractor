@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import multiprocessing as mp
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -13,16 +11,16 @@ from pysearch.core.config import SearchConfig
 from pysearch.integrations.distributed_indexing import (
     DistributedIndexingEngine,
     IndexingWorker,
+    WorkerStats,
     WorkItem,
     WorkItemType,
     WorkQueue,
-    WorkerStats,
 )
-
 
 # ---------------------------------------------------------------------------
 # WorkItemType
 # ---------------------------------------------------------------------------
+
 
 class TestWorkItemType:
     """Tests for WorkItemType enum."""
@@ -45,6 +43,7 @@ class TestWorkItemType:
 # ---------------------------------------------------------------------------
 # WorkItem
 # ---------------------------------------------------------------------------
+
 
 class TestWorkItem:
     """Tests for WorkItem dataclass."""
@@ -96,6 +95,7 @@ class TestWorkItem:
 # WorkerStats
 # ---------------------------------------------------------------------------
 
+
 class TestWorkerStats:
     """Tests for WorkerStats dataclass."""
 
@@ -118,6 +118,7 @@ class TestWorkerStats:
 # ---------------------------------------------------------------------------
 # WorkQueue
 # ---------------------------------------------------------------------------
+
 
 class TestWorkQueue:
     """Tests for WorkQueue class."""
@@ -227,6 +228,7 @@ class TestWorkQueue:
 # IndexingWorker
 # ---------------------------------------------------------------------------
 
+
 class TestIndexingWorker:
     """Tests for IndexingWorker class."""
 
@@ -267,6 +269,7 @@ class TestIndexingWorker:
 # ---------------------------------------------------------------------------
 # DistributedIndexingEngine
 # ---------------------------------------------------------------------------
+
 
 class TestDistributedIndexingEngine:
     """Tests for DistributedIndexingEngine class."""

@@ -5,14 +5,14 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.core.history.history_core import SearchCategory, SearchHistory, SearchHistoryEntry
-from pysearch.core.types import OutputFormat, Query, SearchItem, SearchResult, SearchStats
+from pysearch.core.types import Query, SearchItem, SearchResult, SearchStats
 
 
-def _make_result(items_count: int = 3, files_matched: int = 2, elapsed_ms: float = 50.0) -> SearchResult:
+def _make_result(
+    items_count: int = 3, files_matched: int = 2, elapsed_ms: float = 50.0
+) -> SearchResult:
     return SearchResult(
         items=[],
         stats=SearchStats(
@@ -27,8 +27,11 @@ def _make_result(items_count: int = 3, files_matched: int = 2, elapsed_ms: float
 
 def _make_result_with_items(tmp_path: Path) -> SearchResult:
     item = SearchItem(
-        file=tmp_path / "a.py", start_line=1, end_line=1,
-        lines=["x"], match_spans=[(0, (0, 1))],
+        file=tmp_path / "a.py",
+        start_line=1,
+        end_line=1,
+        lines=["x"],
+        match_spans=[(0, (0, 1))],
     )
     stats = SearchStats(files_scanned=1, files_matched=1, items=1, elapsed_ms=1.0)
     return SearchResult(items=[item], stats=stats)
@@ -67,8 +70,14 @@ class TestSearchHistoryEntry:
 
     def test_defaults(self):
         entry = SearchHistoryEntry(
-            timestamp=1.0, query_pattern="x", use_regex=False,
-            use_ast=False, context=0, files_matched=0, items_count=0, elapsed_ms=0.0,
+            timestamp=1.0,
+            query_pattern="x",
+            use_regex=False,
+            use_ast=False,
+            context=0,
+            files_matched=0,
+            items_count=0,
+            elapsed_ms=0.0,
         )
         assert entry.filters is None
         assert entry.session_id is None
@@ -301,6 +310,7 @@ class TestSearchHistoryEnhanced:
         h = SearchHistory(cfg)
         h.add_search(Query(pattern="old"), _make_result())
         import time as _time
+
         _time.sleep(0.05)
         h.add_search(Query(pattern="new"), _make_result())
 
@@ -347,18 +357,33 @@ class TestSearchHistoryEnhanced:
         h.load()
         h._ensure_managers_loaded()
         from pysearch.core.history.history_core import SearchHistoryEntry
-        h._history.append(SearchHistoryEntry(
-            timestamp=time.time(), query_pattern="py_search",
-            use_regex=False, use_ast=False, context=0,
-            files_matched=1, items_count=1, elapsed_ms=10.0,
-            languages={"python"},
-        ))
-        h._history.append(SearchHistoryEntry(
-            timestamp=time.time(), query_pattern="js_search",
-            use_regex=False, use_ast=False, context=0,
-            files_matched=1, items_count=1, elapsed_ms=10.0,
-            languages={"javascript"},
-        ))
+
+        h._history.append(
+            SearchHistoryEntry(
+                timestamp=time.time(),
+                query_pattern="py_search",
+                use_regex=False,
+                use_ast=False,
+                context=0,
+                files_matched=1,
+                items_count=1,
+                elapsed_ms=10.0,
+                languages={"python"},
+            )
+        )
+        h._history.append(
+            SearchHistoryEntry(
+                timestamp=time.time(),
+                query_pattern="js_search",
+                use_regex=False,
+                use_ast=False,
+                context=0,
+                files_matched=1,
+                items_count=1,
+                elapsed_ms=10.0,
+                languages={"javascript"},
+            )
+        )
 
         py_entries = h.get_history_by_language("python")
         assert len(py_entries) == 1
@@ -368,12 +393,19 @@ class TestSearchHistoryEnhanced:
         cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=tmp_path / "cache")
         h = SearchHistory(cfg)
         h.load()
-        h._history.append(SearchHistoryEntry(
-            timestamp=time.time(), query_pattern="test",
-            use_regex=False, use_ast=False, context=0,
-            files_matched=1, items_count=1, elapsed_ms=10.0,
-            languages={"Python"},
-        ))
+        h._history.append(
+            SearchHistoryEntry(
+                timestamp=time.time(),
+                query_pattern="test",
+                use_regex=False,
+                use_ast=False,
+                context=0,
+                files_matched=1,
+                items_count=1,
+                elapsed_ms=10.0,
+                languages={"Python"},
+            )
+        )
 
         result = h.get_history_by_language("python")
         assert len(result) == 1
@@ -405,8 +437,13 @@ class TestSearchHistoryEnhanced:
         # Add an old entry
         old_entry = SearchHistoryEntry(
             timestamp=time.time() - 200 * 86400,  # 200 days ago
-            query_pattern="old", use_regex=False, use_ast=False,
-            context=0, files_matched=0, items_count=0, elapsed_ms=0.0,
+            query_pattern="old",
+            use_regex=False,
+            use_ast=False,
+            context=0,
+            files_matched=0,
+            items_count=0,
+            elapsed_ms=0.0,
         )
         h._history.append(old_entry)
         h.add_search(Query(pattern="recent"), _make_result())
@@ -431,16 +468,30 @@ class TestSearchHistoryEnhanced:
 
         now = time.time()
         for i in range(3):
-            h._history.append(SearchHistoryEntry(
-                timestamp=now + i * 0.5,  # Within 2 seconds
-                query_pattern="duplicate", use_regex=False, use_ast=False,
-                context=0, files_matched=1, items_count=1, elapsed_ms=10.0,
-            ))
-        h._history.append(SearchHistoryEntry(
-            timestamp=now + 10,
-            query_pattern="unique", use_regex=False, use_ast=False,
-            context=0, files_matched=1, items_count=1, elapsed_ms=10.0,
-        ))
+            h._history.append(
+                SearchHistoryEntry(
+                    timestamp=now + i * 0.5,  # Within 2 seconds
+                    query_pattern="duplicate",
+                    use_regex=False,
+                    use_ast=False,
+                    context=0,
+                    files_matched=1,
+                    items_count=1,
+                    elapsed_ms=10.0,
+                )
+            )
+        h._history.append(
+            SearchHistoryEntry(
+                timestamp=now + 10,
+                query_pattern="unique",
+                use_regex=False,
+                use_ast=False,
+                context=0,
+                files_matched=1,
+                items_count=1,
+                elapsed_ms=10.0,
+            )
+        )
 
         removed = h.deduplicate_history()
         assert removed == 2

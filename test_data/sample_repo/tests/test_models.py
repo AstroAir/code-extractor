@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from src.models.user import User, UserRole
 from src.models.post import Post, PostStatus
+from src.models.user import User, UserRole
 
 
 class TestUserModel:
@@ -43,7 +43,9 @@ class TestPostModel:
     """Tests for the Post model."""
 
     def test_create_post(self) -> None:
-        post = Post(title="Hello World", content="This is my first post content.", author_id="user1")
+        post = Post(
+            title="Hello World", content="This is my first post content.", author_id="user1"
+        )
         assert post.status == PostStatus.DRAFT
 
     def test_publish_post(self) -> None:

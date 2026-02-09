@@ -130,7 +130,9 @@ class TestDetectLanguageByShebang:
         assert detect_language_by_shebang("#!/bin/sh\necho hello") == Language.SHELL
 
     def test_node_shebang(self):
-        assert detect_language_by_shebang("#!/usr/bin/env node\nconsole.log()") == Language.JAVASCRIPT
+        assert (
+            detect_language_by_shebang("#!/usr/bin/env node\nconsole.log()") == Language.JAVASCRIPT
+        )
 
     def test_ruby_shebang(self):
         assert detect_language_by_shebang("#!/usr/bin/env ruby\nputs 'hi'") == Language.RUBY
@@ -264,8 +266,18 @@ class TestIsTextFile:
 
     @pytest.mark.parametrize(
         "filename",
-        ["main.py", "data.json", "page.html", "style.css", "config.yaml",
-         "script.sh", "notes.md", "data.xml", "query.sql", "app.ts"],
+        [
+            "main.py",
+            "data.json",
+            "page.html",
+            "style.css",
+            "config.yaml",
+            "script.sh",
+            "notes.md",
+            "data.xml",
+            "query.sql",
+            "app.ts",
+        ],
     )
     def test_text_files(self, filename: str):
         assert is_text_file(Path(filename)) is True
@@ -285,8 +297,16 @@ class TestIsTextFile:
 
     @pytest.mark.parametrize(
         "filename",
-        ["main.lua", "lib.pl", "app.dart", "server.ex", "module.hs",
-         "script.jl", "build.groovy", "main.zig"],
+        [
+            "main.lua",
+            "lib.pl",
+            "app.dart",
+            "server.ex",
+            "module.hs",
+            "script.jl",
+            "build.groovy",
+            "main.zig",
+        ],
     )
     def test_new_language_text_files(self, filename: str):
         assert is_text_file(Path(filename)) is True
@@ -360,12 +380,12 @@ class TestNewLanguageDetection:
         assert result == Language.SHELL
 
     def test_content_detection_lua(self):
-        lua_code = 'local function greet()\n    local x = 1\nend'
+        lua_code = "local function greet()\n    local x = 1\nend"
         result = detect_language(Path("unknown_file"), lua_code)
         assert result == Language.LUA
 
     def test_content_detection_elixir(self):
-        ex_code = 'defmodule MyApp do\n  defp helper do\n    :ok |> IO.inspect()\n  end\nend'
+        ex_code = "defmodule MyApp do\n  defp helper do\n    :ok |> IO.inspect()\n  end\nend"
         result = detect_language(Path("unknown_file"), ex_code)
         assert result == Language.ELIXIR
 
@@ -385,7 +405,9 @@ class TestNewLanguageDependencyParsing:
         from pysearch.analysis.dependency_analysis import DependencyAnalyzer
 
         f = tmp_path / "main.rs"
-        f.write_text("use std::io;\nuse std::collections::HashMap;\nextern crate serde;\n", encoding="utf-8")
+        f.write_text(
+            "use std::io;\nuse std::collections::HashMap;\nextern crate serde;\n", encoding="utf-8"
+        )
         analyzer = DependencyAnalyzer()
         imports = analyzer.analyze_file(f)
         modules = [i.module for i in imports]
@@ -396,7 +418,9 @@ class TestNewLanguageDependencyParsing:
         from pysearch.analysis.dependency_analysis import DependencyAnalyzer
 
         f = tmp_path / "app.php"
-        f.write_text("<?php\nuse App\\Models\\User;\nrequire_once 'config.php';\n", encoding="utf-8")
+        f.write_text(
+            "<?php\nuse App\\Models\\User;\nrequire_once 'config.php';\n", encoding="utf-8"
+        )
         analyzer = DependencyAnalyzer()
         imports = analyzer.analyze_file(f)
         modules = [i.module for i in imports]
@@ -418,7 +442,9 @@ class TestNewLanguageDependencyParsing:
         from pysearch.analysis.dependency_analysis import DependencyAnalyzer
 
         f = tmp_path / "Main.kt"
-        f.write_text("import kotlin.collections.mutableListOf\nimport java.io.File\n", encoding="utf-8")
+        f.write_text(
+            "import kotlin.collections.mutableListOf\nimport java.io.File\n", encoding="utf-8"
+        )
         analyzer = DependencyAnalyzer()
         imports = analyzer.analyze_file(f)
         modules = [i.module for i in imports]
@@ -439,7 +465,9 @@ class TestNewLanguageDependencyParsing:
         from pysearch.analysis.dependency_analysis import DependencyAnalyzer
 
         f = tmp_path / "main.dart"
-        f.write_text("import 'package:flutter/material.dart';\nimport 'dart:io';\n", encoding="utf-8")
+        f.write_text(
+            "import 'package:flutter/material.dart';\nimport 'dart:io';\n", encoding="utf-8"
+        )
         analyzer = DependencyAnalyzer()
         imports = analyzer.analyze_file(f)
         modules = [i.module for i in imports]

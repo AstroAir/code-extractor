@@ -55,24 +55,23 @@ from ..search.scorer import (
 )
 from ..storage.qdrant_client import QdrantConfig
 from ..storage.vector_db import EmbeddingConfig, MultiProviderVectorManager
-from ..indexing.cache import CacheManager
 from ..utils.error_handling import ErrorCollector, create_error_report
 from ..utils.file_watcher import FileEvent
+from ..utils.helpers import create_file_metadata
 from ..utils.logging_config import SearchLogger, get_logger
 from ..utils.metadata_filters import apply_metadata_filters, get_file_author
-from ..utils.helpers import create_file_metadata
 from .config import SearchConfig
 from .history import SearchHistory
 from .history.history_core import SearchCategory, SearchHistoryEntry
 from .history.history_export import ExportFormat, HistoryExporter
-from .managers.hybrid_search import HybridSearchManager
 from .managers.cache_integration import CacheIntegrationManager
 from .managers.dependency_integration import DependencyIntegrationManager
-from .managers.indexing_integration import IndexingIntegrationManager
+from .managers.distributed_indexing_integration import DistributedIndexingManager
 from .managers.file_watching import FileWatchingManager
 from .managers.graphrag_integration import GraphRAGIntegrationManager
-from .managers.distributed_indexing_integration import DistributedIndexingManager
+from .managers.hybrid_search import HybridSearchManager
 from .managers.ide_integration import IDEIntegrationManager
+from .managers.indexing_integration import IndexingIntegrationManager
 from .managers.multi_repo_integration import MultiRepoIntegrationManager
 from .managers.parallel_processing import ParallelSearchManager
 from .types import (
@@ -620,8 +619,8 @@ class PySearch:
         )
 
         # Get files to search
-        changed = []
-        removed = []
+        changed: list[Path] = []
+        removed: list[Path] = []
         total_seen = 0
         try:
             changed, removed, total_seen = self.indexer.scan()
@@ -750,9 +749,7 @@ class PySearch:
         """
         return self.dependency_integration.suggest_refactoring_opportunities(graph)
 
-    def check_dependency_path(
-        self, source: str, target: str, graph: Any | None = None
-    ) -> bool:
+    def check_dependency_path(self, source: str, target: str, graph: Any | None = None) -> bool:
         """
         Check if there is a dependency path from source module to target module.
 
@@ -1184,9 +1181,7 @@ class PySearch:
         """Check if IDE integration is enabled."""
         return self.ide_integration.is_ide_enabled()
 
-    def jump_to_definition(
-        self, file_path: str, line: int, symbol: str
-    ) -> dict[str, Any] | None:
+    def jump_to_definition(self, file_path: str, line: int, symbol: str) -> dict[str, Any] | None:
         """
         Find the definition of a symbol.
 
@@ -1230,9 +1225,7 @@ class PySearch:
         if not self.ide_integration.is_ide_enabled():
             self.logger.error("IDE integration not enabled")
             return []
-        return self.ide_integration.find_references(
-            file_path, line, symbol, include_definition
-        )
+        return self.ide_integration.find_references(file_path, line, symbol, include_definition)
 
     def provide_completion(
         self, file_path: str, line: int, column: int, prefix: str = ""
@@ -1488,7 +1481,7 @@ class PySearch:
 
         engine = self.multi_repo_integration.multi_repo_engine
         if engine:
-            return engine.get_repository_info(name)  # type: ignore[no-any-return]
+            return engine.get_repository_info(name)
         return None
 
     def search_all_repositories(
@@ -1540,7 +1533,7 @@ class PySearch:
         if not engine:
             return None
 
-        return engine.search_all(  # type: ignore[no-any-return]
+        return engine.search_all(
             pattern=pattern,
             use_regex=use_regex,
             use_ast=use_ast,
@@ -1668,9 +1661,7 @@ class PySearch:
             ...     auto_discover=True, max_depth=2
             ... )
         """
-        ws = self.multi_repo_integration.create_workspace(
-            name, root_path, description, **metadata
-        )
+        ws = self.multi_repo_integration.create_workspace(name, root_path, description, **metadata)
         if ws is None:
             self.logger.error("Failed to create workspace")
             return False
@@ -1930,7 +1921,7 @@ class PySearch:
 
             for match in matches:
                 # Find line number for this match
-                line_num = text[:match.start].count("\n") + 1
+                line_num = text[: match.start].count("\n") + 1
                 key = (str(path), line_num)
                 if key in seen_keys:
                     continue
@@ -1941,12 +1932,14 @@ class PySearch:
 
                 ctx_lines = split_lines_keepends(text)
                 ctx_s, ctx_e, slice_lines = extract_context(
-                    ctx_lines, line_num, line_num,
+                    ctx_lines,
+                    line_num,
+                    line_num,
                     window=kwargs.get("context", self.cfg.context),
                 )
 
                 # Calculate column within line
-                line_start_offset = sum(len(l) for l in lines[:line_num - 1]) + (line_num - 1)
+                line_start_offset = sum(len(ln) for ln in lines[: line_num - 1]) + (line_num - 1)
                 col_start = match.start - line_start_offset
                 col_end = match.end - line_start_offset
 
@@ -2028,7 +2021,8 @@ class PySearch:
             >>> for suggestion, score in suggestions:
             ...     print(f"  {suggestion} (similarity: {score:.2f})")
         """
-        from ..search.fuzzy import FuzzyAlgorithm, suggest_corrections as _suggest
+        from ..search.fuzzy import FuzzyAlgorithm
+        from ..search.fuzzy import suggest_corrections as _suggest
 
         # Parse algorithm
         try:
@@ -2124,7 +2118,7 @@ class PySearch:
 
     def get_search_sessions(self, limit: int | None = None) -> list[Any]:
         """Get search sessions, most recent first."""
-        return self.history.get_sessions(limit)  # type: ignore[no-any-return]
+        return self.history.get_sessions(limit)
 
     def end_current_session(self) -> None:
         """Manually end the current search session."""
@@ -2202,8 +2196,11 @@ class PySearch:
         entries = list(self.history._history)
         self.history.load()
         return exporter.export_history(
-            entries, output_path, export_fmt,
-            start_time=start_time, end_time=end_time,
+            entries,
+            output_path,
+            export_fmt,
+            start_time=start_time,
+            end_time=end_time,
         )
 
     def export_history_to_string(
@@ -2219,8 +2216,10 @@ class PySearch:
         self.history.load()
         entries = list(self.history._history)
         return exporter.export_history_to_string(
-            entries, export_fmt,
-            start_time=start_time, end_time=end_time,
+            entries,
+            export_fmt,
+            start_time=start_time,
+            end_time=end_time,
         )
 
     def import_history(self, input_path: str, *, merge: bool = True) -> int:
@@ -2237,9 +2236,7 @@ class PySearch:
         exporter = HistoryExporter(self.cfg)
         self.history.load()
         existing = list(self.history._history) if merge else None
-        imported = exporter.import_history(
-            input_path, merge=merge, existing_entries=existing
-        )
+        imported = exporter.import_history(input_path, merge=merge, existing_entries=existing)
         self.history._history.clear()
         for entry in imported:
             self.history._history.append(entry)
@@ -2526,9 +2523,7 @@ class PySearch:
             self.logger.warning(f"Boolean query error: {e}")
             return False
 
-    def get_results_grouped_by_file(
-        self, result: SearchResult
-    ) -> dict[Path, list[SearchItem]]:
+    def get_results_grouped_by_file(self, result: SearchResult) -> dict[Path, list[SearchItem]]:
         """
         Group search results by file for organized output.
 
@@ -2963,9 +2958,7 @@ class PySearch:
         """
         self.history._ensure_managers_loaded()
         if self.history._analytics_manager:
-            return self.history._analytics_manager.get_usage_patterns(
-                list(self.history._history)
-            )
+            return self.history._analytics_manager.get_usage_patterns(list(self.history._history))
         return {}
 
     # ── Multi-Provider Vector Management ──

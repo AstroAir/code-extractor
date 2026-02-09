@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import asdict
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -63,15 +62,17 @@ def register_history_tools(
             end_ts = None
             if start_date:
                 from datetime import datetime as dt
+
                 start_ts = dt.strptime(start_date, "%Y-%m-%d").timestamp()
             if end_date:
                 from datetime import datetime as dt
-                end_ts = dt.strptime(end_date, "%Y-%m-%d").replace(
-                    hour=23, minute=59, second=59
-                ).timestamp()
-            return eng.export_history_to_string(
-                fmt, start_time=start_ts, end_time=end_ts
-            )
+
+                end_ts = (
+                    dt.strptime(end_date, "%Y-%m-%d")
+                    .replace(hour=23, minute=59, second=59)
+                    .timestamp()
+                )
+            return eng.export_history_to_string(fmt, start_time=start_ts, end_time=end_ts)
         except Exception as e:
             raise ToolError(f"Failed to export history: {e}") from e
 
@@ -106,6 +107,7 @@ def register_history_tools(
                 entries = eng.get_search_history(limit)
 
             from dataclasses import asdict
+
             result = []
             for entry in entries:
                 d = asdict(entry)
@@ -214,7 +216,9 @@ def register_history_tools(
             elif action == "stats":
                 return eng.get_detailed_history_stats()
             else:
-                return {"error": f"Unknown action: {action}. Use 'cleanup', 'deduplicate', or 'stats'"}
+                return {
+                    "error": f"Unknown action: {action}. Use 'cleanup', 'deduplicate', or 'stats'"
+                }
         except Exception as e:
             raise ToolError(f"Failed to manage history: {e}") from e
 

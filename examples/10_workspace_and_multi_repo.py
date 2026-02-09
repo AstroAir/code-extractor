@@ -118,7 +118,7 @@ def demo_pysearch_workspace(engine: PySearch) -> None:
     summary = engine.get_workspace_summary()
     print("\n  Workspace summary:")
     for key, value in summary.items():
-        if isinstance(value, (int, float, str, bool)):
+        if isinstance(value, int | float | str | bool):
             print(f"    {key}: {value}")
 
     # Save workspace

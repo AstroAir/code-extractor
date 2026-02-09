@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from pysearch.core.config import SearchConfig
 from pysearch.core.managers.ide_integration import IDEIntegrationManager

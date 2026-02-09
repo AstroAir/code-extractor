@@ -5,13 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.utils.file_watcher import (
     EventType,
     FileEvent,
-    FileWatcher,
     WatchManager,
     matches_patterns,
 )

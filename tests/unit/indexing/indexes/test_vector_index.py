@@ -42,7 +42,10 @@ def _make_tag() -> IndexTag:
 
 
 def _make_refresh_results(
-    compute=None, delete=None, add_tag=None, remove_tag=None,
+    compute=None,
+    delete=None,
+    add_tag=None,
+    remove_tag=None,
 ) -> RefreshIndexResults:
     return RefreshIndexResults(
         compute=compute or [],
@@ -52,9 +55,7 @@ def _make_refresh_results(
     )
 
 
-_skip_no_lancedb = pytest.mark.skipif(
-    not _lancedb_available(), reason="LanceDB not installed"
-)
+_skip_no_lancedb = pytest.mark.skipif(not _lancedb_available(), reason="LanceDB not installed")
 
 
 @_skip_no_lancedb
@@ -118,13 +119,17 @@ class TestVectorIndexUpdate:
         item = PathAndCacheKey(path="/test/file.py", cache_key="abc123")
         results = _make_refresh_results(compute=[item])
 
-        with patch.object(idx.chunking_engine, "chunk_file", new_callable=AsyncMock) as mock_cf, \
-             patch(
-                 "pysearch.indexing.indexes.vector_index.read_text_safely",
-                 return_value="def hello(): pass",
-             ), \
-             patch.object(idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock) as mock_exists, \
-             patch.object(idx.vector_manager, "index_chunks", new_callable=AsyncMock) as mock_index:
+        with (
+            patch.object(idx.chunking_engine, "chunk_file", new_callable=AsyncMock) as mock_cf,
+            patch(
+                "pysearch.indexing.indexes.vector_index.read_text_safely",
+                return_value="def hello(): pass",
+            ),
+            patch.object(
+                idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock
+            ) as mock_exists,
+            patch.object(idx.vector_manager, "index_chunks", new_callable=AsyncMock) as mock_index,
+        ):
             mock_cf.return_value = [mock_chunk]
             mock_exists.return_value = False
 
@@ -148,13 +153,19 @@ class TestVectorIndexUpdate:
         item = PathAndCacheKey(path="/test/file.py", cache_key="abc")
         results = _make_refresh_results(compute=[item])
 
-        with patch.object(idx.chunking_engine, "chunk_file", new_callable=AsyncMock) as mock_cf, \
-             patch(
-                 "pysearch.indexing.indexes.vector_index.read_text_safely",
-                 return_value="code",
-             ), \
-             patch.object(idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock) as mock_exists, \
-             patch.object(idx.vector_manager, "update_chunks", new_callable=AsyncMock) as mock_update:
+        with (
+            patch.object(idx.chunking_engine, "chunk_file", new_callable=AsyncMock) as mock_cf,
+            patch(
+                "pysearch.indexing.indexes.vector_index.read_text_safely",
+                return_value="code",
+            ),
+            patch.object(
+                idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock
+            ) as mock_exists,
+            patch.object(
+                idx.vector_manager, "update_chunks", new_callable=AsyncMock
+            ) as mock_update,
+        ):
             mock_cf.return_value = [mock_chunk]
             mock_exists.return_value = True
 
@@ -174,10 +185,15 @@ class TestVectorIndexUpdate:
         item = PathAndCacheKey(path="/test/empty.py", cache_key="empty")
         results = _make_refresh_results(compute=[item])
 
-        with patch(
-            "pysearch.indexing.indexes.vector_index.read_text_safely",
-            return_value=None,
-        ), patch.object(idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock) as mock_exists:
+        with (
+            patch(
+                "pysearch.indexing.indexes.vector_index.read_text_safely",
+                return_value=None,
+            ),
+            patch.object(
+                idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock
+            ) as mock_exists,
+        ):
             mock_exists.return_value = False
             async for _ in idx.update(tag, results, mark_complete):
                 pass
@@ -194,7 +210,9 @@ class TestVectorIndexUpdate:
         item = PathAndCacheKey(path="/test/f.py", cache_key="h1")
         results = _make_refresh_results(add_tag=[item])
 
-        with patch.object(idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock) as mock_exists:
+        with patch.object(
+            idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock
+        ) as mock_exists:
             mock_exists.return_value = False
             async for _ in idx.update(tag, results, mark_complete):
                 pass
@@ -211,8 +229,12 @@ class TestVectorIndexUpdate:
         item = PathAndCacheKey(path="/test/f.py", cache_key="h1")
         results = _make_refresh_results(remove_tag=[item])
 
-        with patch.object(idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock) as mock_exists, \
-             patch.object(idx.vector_manager, "delete_chunks", new_callable=AsyncMock):
+        with (
+            patch.object(
+                idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock
+            ) as mock_exists,
+            patch.object(idx.vector_manager, "delete_chunks", new_callable=AsyncMock),
+        ):
             mock_exists.return_value = False
             async for _ in idx.update(tag, results, mark_complete):
                 pass
@@ -229,9 +251,15 @@ class TestVectorIndexUpdate:
         item = PathAndCacheKey(path="/test/f.py", cache_key="h1")
         results = _make_refresh_results(delete=[item])
 
-        with patch.object(idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock) as mock_exists, \
-             patch.object(idx.vector_manager, "delete_chunks", new_callable=AsyncMock), \
-             patch.object(idx.vector_manager, "cleanup_orphaned_vectors", new_callable=AsyncMock) as mock_cleanup:
+        with (
+            patch.object(
+                idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock
+            ) as mock_exists,
+            patch.object(idx.vector_manager, "delete_chunks", new_callable=AsyncMock),
+            patch.object(
+                idx.vector_manager, "cleanup_orphaned_vectors", new_callable=AsyncMock
+            ) as mock_cleanup,
+        ):
             mock_exists.return_value = False
             mock_cleanup.return_value = 0
 
@@ -250,7 +278,9 @@ class TestVectorIndexUpdate:
         mark_complete = MagicMock()
         results = _make_refresh_results()
 
-        with patch.object(idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock) as mock_exists:
+        with patch.object(
+            idx.vector_manager.vector_db, "collection_exists", new_callable=AsyncMock
+        ) as mock_exists:
             mock_exists.return_value = False
             updates = []
             async for update in idx.update(tag, results, mark_complete):
@@ -278,7 +308,13 @@ class TestVectorIndexRetrieve:
         mock_result.start_line = 1
         mock_result.end_line = 2
         mock_result.similarity_score = 0.95
-        mock_result.metadata = {"language": "python", "chunk_type": "function", "entity_name": "hello", "complexity_score": 0.5, "quality_score": 0.8}
+        mock_result.metadata = {
+            "language": "python",
+            "chunk_type": "function",
+            "entity_name": "hello",
+            "complexity_score": 0.5,
+            "quality_score": 0.8,
+        }
 
         with patch.object(idx.vector_manager, "search", new_callable=AsyncMock) as mock_search:
             mock_search.return_value = [mock_result]
@@ -299,7 +335,8 @@ class TestVectorIndexRetrieve:
         with patch.object(idx.vector_manager, "search", new_callable=AsyncMock) as mock_search:
             mock_search.return_value = []
             await idx.retrieve(
-                "query", tag,
+                "query",
+                tag,
                 language="python",
                 file_path="/test/f.py",
                 chunk_type="function",
@@ -346,9 +383,17 @@ class TestVectorIndexRetrieve:
             results = await idx.retrieve("q", tag)
 
         expected_keys = {
-            "chunk_id", "content", "file_path", "start_line", "end_line",
-            "similarity_score", "language", "chunk_type", "entity_name",
-            "complexity_score", "quality_score",
+            "chunk_id",
+            "content",
+            "file_path",
+            "start_line",
+            "end_line",
+            "similarity_score",
+            "language",
+            "chunk_type",
+            "entity_name",
+            "complexity_score",
+            "quality_score",
         }
         assert set(results[0].keys()) == expected_keys
 
@@ -370,8 +415,14 @@ class TestVectorIndexGetSimilarChunks:
         mock_result.file_path = "/f.py"
         mock_result.similarity_score = 0.85
 
-        with patch.object(idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock) as mock_embed, \
-             patch.object(idx.vector_manager.vector_db, "search_vectors", new_callable=AsyncMock) as mock_sv:
+        with (
+            patch.object(
+                idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock
+            ) as mock_embed,
+            patch.object(
+                idx.vector_manager.vector_db, "search_vectors", new_callable=AsyncMock
+            ) as mock_sv,
+        ):
             mock_embed.return_value = [0.1, 0.2, 0.3]
             mock_sv.return_value = [mock_result]
 
@@ -399,8 +450,14 @@ class TestVectorIndexGetSimilarChunks:
         mock_other.file_path = "/g.py"
         mock_other.similarity_score = 0.8
 
-        with patch.object(idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock) as mock_embed, \
-             patch.object(idx.vector_manager.vector_db, "search_vectors", new_callable=AsyncMock) as mock_sv:
+        with (
+            patch.object(
+                idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock
+            ) as mock_embed,
+            patch.object(
+                idx.vector_manager.vector_db, "search_vectors", new_callable=AsyncMock
+            ) as mock_sv,
+        ):
             mock_embed.return_value = [0.1]
             mock_sv.return_value = [mock_self, mock_other]
 
@@ -416,7 +473,9 @@ class TestVectorIndexGetSimilarChunks:
         idx = VectorIndex(config=_make_config(tmp_path))
         tag = _make_tag()
 
-        with patch.object(idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock) as mock_embed:
+        with patch.object(
+            idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock
+        ) as mock_embed:
             mock_embed.side_effect = Exception("embed error")
             results = await idx.get_similar_chunks("code", tag)
 
@@ -434,7 +493,9 @@ class TestVectorIndexGetStatistics:
         idx = VectorIndex(config=_make_config(tmp_path))
         tag = _make_tag()
 
-        with patch.object(idx.vector_manager, "get_collection_stats", new_callable=AsyncMock) as mock_stats:
+        with patch.object(
+            idx.vector_manager, "get_collection_stats", new_callable=AsyncMock
+        ) as mock_stats:
             mock_stats.return_value = {
                 "total_vectors": 100,
                 "provider": "lancedb",
@@ -455,7 +516,9 @@ class TestVectorIndexGetStatistics:
         idx = VectorIndex(config=_make_config(tmp_path))
         tag = _make_tag()
 
-        with patch.object(idx.vector_manager, "get_collection_stats", new_callable=AsyncMock) as mock_stats:
+        with patch.object(
+            idx.vector_manager, "get_collection_stats", new_callable=AsyncMock
+        ) as mock_stats:
             mock_stats.side_effect = Exception("stats error")
             stats = await idx.get_statistics(tag)
 
@@ -473,7 +536,9 @@ class TestVectorIndexOptimizeIndex:
         idx = VectorIndex(config=_make_config(tmp_path))
         tag = _make_tag()
 
-        with patch.object(idx.vector_manager, "optimize_collection", new_callable=AsyncMock) as mock_opt:
+        with patch.object(
+            idx.vector_manager, "optimize_collection", new_callable=AsyncMock
+        ) as mock_opt:
             await idx.optimize_index(tag)
 
         mock_opt.assert_called_once()
@@ -485,7 +550,9 @@ class TestVectorIndexOptimizeIndex:
         idx = VectorIndex(config=_make_config(tmp_path))
         tag = _make_tag()
 
-        with patch.object(idx.vector_manager, "optimize_collection", new_callable=AsyncMock) as mock_opt:
+        with patch.object(
+            idx.vector_manager, "optimize_collection", new_callable=AsyncMock
+        ) as mock_opt:
             mock_opt.side_effect = Exception("optimize error")
             await idx.optimize_index(tag)  # should not raise
 
@@ -500,7 +567,9 @@ class TestVectorIndexRerankResults:
 
         idx = VectorIndex(config=_make_config(tmp_path))
 
-        with patch.object(idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock):
+        with patch.object(
+            idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock
+        ):
             results = await idx.rerank_results([], "query")
 
         assert results == []
@@ -528,7 +597,9 @@ class TestVectorIndexRerankResults:
             },
         ]
 
-        with patch.object(idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock) as mock_embed:
+        with patch.object(
+            idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock
+        ) as mock_embed:
             mock_embed.side_effect = Exception("no embeddings")
             reranked = await idx.rerank_results(results, "query")
 
@@ -543,11 +614,25 @@ class TestVectorIndexRerankResults:
         idx = VectorIndex(config=_make_config(tmp_path))
 
         results = [
-            {"similarity_score": 0.5, "quality_score": 1.0, "complexity_score": 0.5, "content": "x", "entity_name": ""},
+            {
+                "similarity_score": 0.5,
+                "quality_score": 1.0,
+                "complexity_score": 0.5,
+                "content": "x",
+                "entity_name": "",
+            },
         ]
-        boost = {"quality_score": 1.0, "complexity_score": 0.0, "exact_match": 0.0, "entity_name_match": 0.0, "cross_similarity": 0.0}
+        boost = {
+            "quality_score": 1.0,
+            "complexity_score": 0.0,
+            "exact_match": 0.0,
+            "entity_name_match": 0.0,
+            "cross_similarity": 0.0,
+        }
 
-        with patch.object(idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock) as mock_embed:
+        with patch.object(
+            idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock
+        ) as mock_embed:
             mock_embed.side_effect = Exception("no embeddings")
             reranked = await idx.rerank_results(results, "query", boost_factors=boost)
 
@@ -561,11 +646,25 @@ class TestVectorIndexRerankResults:
         idx = VectorIndex(config=_make_config(tmp_path))
 
         results = [
-            {"similarity_score": 0.3, "quality_score": 0.0, "complexity_score": 0.0, "content": "", "entity_name": ""},
-            {"similarity_score": 0.9, "quality_score": 0.0, "complexity_score": 0.0, "content": "", "entity_name": ""},
+            {
+                "similarity_score": 0.3,
+                "quality_score": 0.0,
+                "complexity_score": 0.0,
+                "content": "",
+                "entity_name": "",
+            },
+            {
+                "similarity_score": 0.9,
+                "quality_score": 0.0,
+                "complexity_score": 0.0,
+                "content": "",
+                "entity_name": "",
+            },
         ]
 
-        with patch.object(idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock) as mock_embed:
+        with patch.object(
+            idx.vector_manager.embedding_provider, "embed_query", new_callable=AsyncMock
+        ) as mock_embed:
             mock_embed.side_effect = Exception("no embeddings")
             reranked = await idx.rerank_results(results, "query")
 
@@ -626,7 +725,9 @@ class TestVectorIndexCleanupIndex:
         idx = VectorIndex(config=_make_config(tmp_path))
         tag = _make_tag()
 
-        with patch.object(idx.vector_manager, "cleanup_orphaned_vectors", new_callable=AsyncMock) as mock_cleanup:
+        with patch.object(
+            idx.vector_manager, "cleanup_orphaned_vectors", new_callable=AsyncMock
+        ) as mock_cleanup:
             mock_cleanup.return_value = 5
             removed = await idx.cleanup_index(tag, valid_file_paths={"/a.py"})
 
@@ -640,7 +741,9 @@ class TestVectorIndexCleanupIndex:
         idx = VectorIndex(config=_make_config(tmp_path))
         tag = _make_tag()
 
-        with patch.object(idx.vector_manager, "cleanup_orphaned_vectors", new_callable=AsyncMock) as mock_cleanup:
+        with patch.object(
+            idx.vector_manager, "cleanup_orphaned_vectors", new_callable=AsyncMock
+        ) as mock_cleanup:
             mock_cleanup.side_effect = Exception("cleanup error")
             removed = await idx.cleanup_index(tag)
 

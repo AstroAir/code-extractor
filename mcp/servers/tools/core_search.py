@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
-    from fastmcp.exceptions import ToolError
 
     from ..engine import PySearchEngine
 
@@ -44,7 +43,9 @@ def register_core_search_tools(
         """
         _validate(pattern=pattern, paths=paths, context=context)
         try:
-            resp = engine.search_text(pattern, paths, context, case_sensitive, session_id=session_id)
+            resp = engine.search_text(
+                pattern, paths, context, case_sensitive, session_id=session_id
+            )
             return asdict(resp)
         except Exception as e:
             raise ToolError(f"Text search failed: {e}") from e
@@ -72,7 +73,9 @@ def register_core_search_tools(
         """
         _validate(is_regex=True, pattern=pattern, paths=paths, context=context)
         try:
-            resp = engine.search_regex(pattern, paths, context, case_sensitive, session_id=session_id)
+            resp = engine.search_regex(
+                pattern, paths, context, case_sensitive, session_id=session_id
+            )
             return asdict(resp)
         except Exception as e:
             raise ToolError(f"Regex search failed: {e}") from e
@@ -107,7 +110,13 @@ def register_core_search_tools(
         _validate(pattern=pattern, paths=paths, context=context)
         try:
             resp = engine.search_ast(
-                pattern, func_name, class_name, decorator, imported, paths, context,
+                pattern,
+                func_name,
+                class_name,
+                decorator,
+                imported,
+                paths,
+                context,
                 session_id=session_id,
             )
             return asdict(resp)

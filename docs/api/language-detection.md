@@ -6,7 +6,7 @@ Automatic programming language detection and file type classification system.
 
 ### detect_language
 
-::: pysearch.language_detection.detect_language
+::: pysearch.analysis.language_detection.detect_language
     options:
       show_root_heading: true
       show_source: false
@@ -18,7 +18,7 @@ Automatic programming language detection and file type classification system.
 
 ### is_text_file
 
-::: pysearch.language_detection.is_text_file
+::: pysearch.analysis.language_detection.is_text_file
     options:
       show_root_heading: true
       show_source: false
@@ -30,7 +30,7 @@ Automatic programming language detection and file type classification system.
 
 ### get_language_extensions
 
-::: pysearch.language_detection.get_language_extensions
+::: pysearch.analysis.language_detection.get_language_extensions
     options:
       show_root_heading: true
       show_source: false
@@ -42,7 +42,7 @@ Automatic programming language detection and file type classification system.
 
 ### get_language_extensions
 
-::: pysearch.language_detection.get_language_extensions
+::: pysearch.analysis.language_detection.get_language_extensions
     options:
       show_root_heading: true
       show_source: false

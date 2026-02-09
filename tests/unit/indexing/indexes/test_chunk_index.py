@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from pysearch.analysis.content_addressing import (
-    IndexingProgressUpdate,
     IndexTag,
     PathAndCacheKey,
     RefreshIndexResults,
@@ -327,9 +326,7 @@ class TestChunkIndexUpdate:
         tag = _make_tag()
         mark_complete = MagicMock()
 
-        items = [
-            PathAndCacheKey(path=f"/test/f{i}.py", cache_key=f"hash{i}") for i in range(3)
-        ]
+        items = [PathAndCacheKey(path=f"/test/f{i}.py", cache_key=f"hash{i}") for i in range(3)]
         results = _make_refresh_results(compute=items)
 
         mock_chunk = MagicMock()
@@ -502,10 +499,21 @@ class TestChunkIndexRetrieve:
         assert len(results) == 1
         r = results[0]
         expected_keys = {
-            "id", "chunk_id", "path", "content", "language",
-            "start_line", "end_line", "chunk_type", "entity_name",
-            "entity_type", "complexity_score", "quality_score",
-            "dependencies", "overlap_with", "metadata",
+            "id",
+            "chunk_id",
+            "path",
+            "content",
+            "language",
+            "start_line",
+            "end_line",
+            "chunk_type",
+            "entity_name",
+            "entity_type",
+            "complexity_score",
+            "quality_score",
+            "dependencies",
+            "overlap_with",
+            "metadata",
         }
         assert set(r.keys()) == expected_keys
 
@@ -540,7 +548,17 @@ class TestChunkIndexGetChunksByFile:
                 (chunk_id, path, content_hash, content, language, start_line, end_line,
                  chunk_type, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (f"c{i}", path, f"h{i}", f"content {i}", "python", i * 10 + 1, i * 10 + 10, "function", now),
+                (
+                    f"c{i}",
+                    path,
+                    f"h{i}",
+                    f"content {i}",
+                    "python",
+                    i * 10 + 1,
+                    i * 10 + 10,
+                    "function",
+                    now,
+                ),
             )
             conn.execute(
                 "INSERT INTO chunk_tags (chunk_db_id, tag, created_at) VALUES (?, ?, ?)",
@@ -617,11 +635,13 @@ class TestChunkIndexGetStatistics:
         now = time.time()
         tag_string = tag.to_string()
 
-        for i, (ctype, lang) in enumerate([
-            ("function", "python"),
-            ("function", "python"),
-            ("class", "javascript"),
-        ]):
+        for i, (ctype, lang) in enumerate(
+            [
+                ("function", "python"),
+                ("function", "python"),
+                ("class", "javascript"),
+            ]
+        ):
             cursor = conn.execute(
                 """INSERT INTO code_chunks
                 (chunk_id, path, content_hash, content, language, start_line, end_line,

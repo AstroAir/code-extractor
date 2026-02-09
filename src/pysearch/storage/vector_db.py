@@ -186,7 +186,7 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
         self._model = None
         self._available = False
         try:
-            from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
+            from sentence_transformers import SentenceTransformer
 
             self._model = SentenceTransformer(config.model_name)
             self._available = True
@@ -211,7 +211,7 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
                 # Run synchronous encode in executor to avoid blocking event loop
                 loop = asyncio.get_event_loop()
                 batch_embeddings = await loop.run_in_executor(
-                    None, lambda b=batch: self._model.encode(b, show_progress_bar=False).tolist()
+                    None, lambda b=batch: self._model.encode(b, show_progress_bar=False).tolist()  # type: ignore[misc]
                 )
                 embeddings.extend(batch_embeddings)
 
@@ -441,9 +441,7 @@ class LanceDBProvider(VectorDatabase):
         table = await db.open_table(collection_name)
 
         # Sanitize IDs to prevent injection
-        sanitized_ids = [
-            self._sanitize_filter_value(vid) for vid in vector_ids
-        ]
+        sanitized_ids = [self._sanitize_filter_value(vid) for vid in vector_ids]
         id_list = "', '".join(sanitized_ids)
         condition = f"id IN ('{id_list}')"
 
@@ -465,11 +463,13 @@ class QdrantProvider(VectorDatabase):
 
     def __init__(self, db_path: Path, embedding_provider: EmbeddingProvider):
         super().__init__(db_path, embedding_provider)
-        self._store = None
+        self._store: Any = None
         self._initialized = False
 
         if not QDRANT_AVAILABLE:
-            raise RuntimeError("Qdrant not available. Install with: pip install qdrant-client numpy")
+            raise RuntimeError(
+                "Qdrant not available. Install with: pip install qdrant-client numpy"
+            )
 
     async def _get_store(self) -> Any:
         """Get or create the underlying QdrantVectorStore."""
@@ -665,10 +665,10 @@ class ChromaProvider(VectorDatabase):
         for _, _, meta in vectors:
             clean_meta = {}
             for k, v in meta.items():
-                if isinstance(v, (str, int, float, bool)):
+                if isinstance(v, str | int | float | bool):
                     clean_meta[k] = v
                 elif v is not None:
-                    clean_meta[k] = json.dumps(v) if isinstance(v, (list, dict)) else str(v)
+                    clean_meta[k] = json.dumps(v) if isinstance(v, list | dict) else str(v)
             metadatas.append(clean_meta)
 
         loop = asyncio.get_event_loop()
@@ -704,7 +704,7 @@ class ChromaProvider(VectorDatabase):
                 if len(conditions) == 1:
                     where_filter = conditions[0]
                 elif len(conditions) > 1:
-                    where_filter = {"$and": conditions}
+                    where_filter = {"$and": conditions}  # type: ignore[dict-item]
 
             loop = asyncio.get_event_loop()
             results = await loop.run_in_executor(
@@ -834,7 +834,9 @@ class VectorIndexManager:
             return LanceDBProvider(db_path, embedding_provider)
         elif provider == "qdrant":
             if not QDRANT_AVAILABLE:
-                raise RuntimeError("Qdrant not available. Install with: pip install qdrant-client numpy")
+                raise RuntimeError(
+                    "Qdrant not available. Install with: pip install qdrant-client numpy"
+                )
             return QdrantProvider(db_path, embedding_provider)
         elif provider == "chroma":
             if not CHROMA_AVAILABLE:
@@ -842,8 +844,7 @@ class VectorIndexManager:
             return ChromaProvider(db_path, embedding_provider)
         else:
             raise ValueError(
-                f"Unsupported vector database: {provider}. "
-                f"Supported: lancedb, qdrant, chroma"
+                f"Unsupported vector database: {provider}. " f"Supported: lancedb, qdrant, chroma"
             )
 
     async def index_chunks(

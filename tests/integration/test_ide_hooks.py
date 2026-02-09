@@ -7,12 +7,10 @@ completion, hover, document symbols, workspace symbols, and diagnostics.
 """
 
 import os
-import tempfile
 from pathlib import Path
 
 from pysearch import OutputFormat, PySearch, Query, SearchConfig
 from pysearch.integrations.ide_hooks import IDEIntegration, ide_query
-
 
 # ---------------------------------------------------------------------------
 # ide_query integration tests
@@ -145,7 +143,7 @@ class TestIdeQueryIntegration:
         stats = result["stats"]
         for field in ("files_scanned", "files_matched", "items", "elapsed_ms", "indexed_files"):
             assert field in stats
-            assert isinstance(stats[field], (int, float))
+            assert isinstance(stats[field], int | float)
 
         assert stats["files_scanned"] >= 3
         assert stats["files_matched"] >= 3
@@ -169,9 +167,7 @@ class TestIDEIntegrationWithEngine:
 
     def test_jump_to_definition(self, tmp_path: Path):
         """Test jump-to-definition finds a real function definition."""
-        (tmp_path / "lib.py").write_text(
-            "def my_helper(x):\n    return x + 1\n", encoding="utf-8"
-        )
+        (tmp_path / "lib.py").write_text("def my_helper(x):\n    return x + 1\n", encoding="utf-8")
         (tmp_path / "main.py").write_text(
             "from lib import my_helper\nresult = my_helper(42)\n", encoding="utf-8"
         )
@@ -186,9 +182,7 @@ class TestIDEIntegrationWithEngine:
 
     def test_jump_to_definition_class(self, tmp_path: Path):
         """Test jump-to-definition for a class."""
-        (tmp_path / "models.py").write_text(
-            "class UserModel:\n    pass\n", encoding="utf-8"
-        )
+        (tmp_path / "models.py").write_text("class UserModel:\n    pass\n", encoding="utf-8")
 
         engine = self._make_engine(tmp_path)
         integration = IDEIntegration(engine)
@@ -217,9 +211,7 @@ class TestIDEIntegrationWithEngine:
 
     def test_find_references_exclude_definition(self, tmp_path: Path):
         """Test find-references can exclude the definition."""
-        (tmp_path / "a.py").write_text(
-            "def compute(x):\n    return x\n", encoding="utf-8"
-        )
+        (tmp_path / "a.py").write_text("def compute(x):\n    return x\n", encoding="utf-8")
         (tmp_path / "b.py").write_text("from a import compute\ncompute(1)\n", encoding="utf-8")
 
         engine = self._make_engine(tmp_path)
@@ -247,8 +239,7 @@ class TestIDEIntegrationWithEngine:
     def test_get_workspace_symbols(self, tmp_path: Path):
         """Test searching workspace symbols."""
         (tmp_path / "utils.py").write_text(
-            "def parse_input(data):\n    pass\n\n"
-            "def parse_output(data):\n    pass\n",
+            "def parse_input(data):\n    pass\n\n" "def parse_output(data):\n    pass\n",
             encoding="utf-8",
         )
 
@@ -296,8 +287,7 @@ class TestIDEIntegrationWithEngine:
     def test_provide_completion(self, tmp_path: Path):
         """Test completion returns suggestions."""
         (tmp_path / "api.py").write_text(
-            "def handle_request(req):\n    pass\n\n"
-            "def handle_response(res):\n    pass\n",
+            "def handle_request(req):\n    pass\n\n" "def handle_response(res):\n    pass\n",
             encoding="utf-8",
         )
 

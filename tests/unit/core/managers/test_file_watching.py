@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.core.managers.file_watching import FileWatchingManager
 

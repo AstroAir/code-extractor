@@ -147,7 +147,7 @@ def demo_impact_analysis(engine: PySearch) -> None:
     print(f"  Module: {target_module}")
     if isinstance(impact, dict):
         for key, value in list(impact.items())[:6]:
-            if isinstance(value, (int, float, str, bool)):
+            if isinstance(value, int | float | str | bool):
                 print(f"    {key}: {value}")
             elif isinstance(value, list):
                 print(f"    {key}: {len(value)} items")

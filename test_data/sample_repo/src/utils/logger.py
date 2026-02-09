@@ -10,7 +10,6 @@ import logging
 import sys
 from typing import TextIO
 
-
 _configured = False
 
 

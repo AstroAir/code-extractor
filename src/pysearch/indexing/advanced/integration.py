@@ -212,9 +212,7 @@ class IndexingOrchestrator:
             changed, removed, _total = indexer.scan()
             has_changes = len(changed) > 0 or len(removed) > 0
             if has_changes:
-                logger.debug(
-                    f"Detected changes: {len(changed)} modified, {len(removed)} removed"
-                )
+                logger.debug(f"Detected changes: {len(changed)} modified, {len(removed)} removed")
             return has_changes
         except Exception as e:
             logger.error(f"Error checking for changes: {e}")
@@ -354,7 +352,7 @@ class IndexSearchEngine:
 
         # Apply vector re-ranking for semantic boost if vector index is available
         try:
-            vector_index = self.orchestrator.indexing_engine.coordinator.get_index(
+            vector_index = self.orchestrator.indexing_engine.coordinator.get_index(  # type: ignore[union-attr]
                 "enhanced_vectors"
             )
             if vector_index and hasattr(vector_index, "rerank_results"):
@@ -532,8 +530,12 @@ class IndexSearchEngine:
         )
         if snippets_index and hasattr(snippets_index, "search_entities"):
             return await snippets_index.search_entities(
-                query, tag, entity_types=entity_types, languages=languages,
-                min_quality=min_quality, limit=limit,
+                query,
+                tag,
+                entity_types=entity_types,
+                languages=languages,
+                min_quality=min_quality,
+                limit=limit,
             )
         return []
 
@@ -605,9 +607,7 @@ class IndexSearchEngine:
             artifact_id="enhanced_chunks",
         )
 
-        chunk_index = self.orchestrator.indexing_engine.coordinator.get_index(
-            "enhanced_chunks"
-        )
+        chunk_index = self.orchestrator.indexing_engine.coordinator.get_index("enhanced_chunks")
         if chunk_index and hasattr(chunk_index, "get_chunks_by_file"):
             return await chunk_index.get_chunks_by_file(file_path, tag)
         return []
@@ -673,9 +673,7 @@ class IndexSearchEngine:
             artifact_id="enhanced_vectors",
         )
 
-        vector_index = self.orchestrator.indexing_engine.coordinator.get_index(
-            "enhanced_vectors"
-        )
+        vector_index = self.orchestrator.indexing_engine.coordinator.get_index("enhanced_vectors")
         if vector_index and hasattr(vector_index, "get_similar_chunks"):
             return await vector_index.get_similar_chunks(
                 chunk_content, tag, limit, exclude_chunk_id
@@ -696,9 +694,7 @@ class IndexSearchEngine:
         )
 
         # Optimize vector index
-        vector_index = self.orchestrator.indexing_engine.coordinator.get_index(
-            "enhanced_vectors"
-        )
+        vector_index = self.orchestrator.indexing_engine.coordinator.get_index("enhanced_vectors")
         if vector_index and hasattr(vector_index, "optimize_index"):
             await vector_index.optimize_index(tag)
 

@@ -44,8 +44,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from ..core.config import SearchConfig
 from ..analysis.content_addressing import IndexingProgressUpdate
+from ..core.config import SearchConfig
 from ..indexing.advanced.engine import IndexingEngine
 from ..utils.logging_config import get_logger
 
@@ -164,7 +164,7 @@ class WorkQueue:
     async def _check_dependencies(self) -> None:
         """Check if any pending items can be processed due to completed dependencies."""
         items_to_enqueue: list[WorkItem] = []
-        for item_id, item in list(self._pending.items()):
+        for _item_id, item in list(self._pending.items()):
             if not item.dependencies:
                 continue
             if all(dep_id in self._completed for dep_id in item.dependencies):
@@ -284,7 +284,6 @@ class IndexingWorker:
         respecting include/exclude patterns and language filters from config.
         Discovered files are stored in item.data["discovered_files"].
         """
-        from pathlib import Path
 
         from ..utils.helpers import file_meta, iter_files
 
@@ -308,9 +307,7 @@ class IndexingWorker:
                 logger.debug(f"Skipping {file_path}: {e}")
 
         item.data["discovered_files"] = discovered
-        logger.info(
-            f"Worker {self.worker_id} discovered {len(discovered)} files in {directory}"
-        )
+        logger.info(f"Worker {self.worker_id} discovered {len(discovered)} files in {directory}")
 
     async def _process_content_extraction(self, item: WorkItem) -> None:
         """Process content extraction work item.
@@ -352,10 +349,11 @@ class IndexingWorker:
             from ..search.matchers import extract_ast_entities
 
             raw_entities = extract_ast_entities(Path(file_path), content, language)
-            entities = [
-                {"name": e.name, "type": e.entity_type, "line": e.line}
-                for e in raw_entities
-            ] if raw_entities else []
+            entities = (
+                [{"name": e.name, "type": e.entity_type, "line": e.line} for e in raw_entities]
+                if raw_entities
+                else []
+            )
         except (ImportError, Exception) as e:
             logger.debug(f"AST parsing not available for {file_path}: {e}")
 
@@ -382,13 +380,15 @@ class IndexingWorker:
         while start < len(lines):
             end = min(start + chunk_size, len(lines))
             chunk_content = "\n".join(lines[start:end])
-            chunks.append({
-                "chunk_id": f"{file_path}:chunk_{chunk_idx}",
-                "content": chunk_content,
-                "start_line": start + 1,
-                "end_line": end,
-                "file_path": file_path,
-            })
+            chunks.append(
+                {
+                    "chunk_id": f"{file_path}:chunk_{chunk_idx}",
+                    "content": chunk_content,
+                    "start_line": start + 1,
+                    "end_line": end,
+                    "file_path": file_path,
+                }
+            )
             chunk_idx += 1
             start = end - chunk_overlap if end < len(lines) else end
 
@@ -402,9 +402,7 @@ class IndexingWorker:
         if vector indexing is enabled, otherwise stores placeholder metadata.
         """
         chunks = item.data.get("chunks", [])
-        logger.debug(
-            f"Worker {self.worker_id} generating embeddings for {len(chunks)} chunks"
-        )
+        logger.debug(f"Worker {self.worker_id} generating embeddings for {len(chunks)} chunks")
 
         # Delegate to the indexing engine if it supports embedding
         if hasattr(self.indexing_engine, "coordinator"):
@@ -433,9 +431,7 @@ class IndexingWorker:
                 directory=directory,
             )
         else:
-            async for _update in self.indexing_engine.refresh_index(
-                directories=[directory]
-            ):
+            async for _update in self.indexing_engine.refresh_index(directories=[directory]):
                 pass  # consume progress updates silently
 
     async def _update_resource_usage(self) -> None:
@@ -584,8 +580,7 @@ class DistributedIndexingEngine:
                 if not discovery_done:
                     # Check if all discovery items have completed
                     all_discovery_complete = all(
-                        f"discover_{d}" in self.work_queue._completed
-                        for d in directories
+                        f"discover_{d}" in self.work_queue._completed for d in directories
                     )
                     if all_discovery_complete and not pipeline_items_created:
                         discovery_done = True
@@ -593,7 +588,7 @@ class DistributedIndexingEngine:
 
                         # Collect all discovered files from completed discovery items
                         all_files: list[str] = []
-                        for item_id, item in self.work_queue._completed.items():
+                        for _item_id, item in self.work_queue._completed.items():
                             if item.item_type == WorkItemType.FILE_DISCOVERY:
                                 discovered = item.data.get("discovered_files", [])
                                 all_files.extend(discovered)
@@ -609,51 +604,61 @@ class DistributedIndexingEngine:
 
                             # CONTENT_EXTRACTION depends on discovery
                             extract_id = f"extract_{file_id}"
-                            await self.work_queue.add_work_item(WorkItem(
-                                item_id=extract_id,
-                                item_type=WorkItemType.CONTENT_EXTRACTION,
-                                priority=8,
-                                data={"file_path": file_path},
-                            ))
+                            await self.work_queue.add_work_item(
+                                WorkItem(
+                                    item_id=extract_id,
+                                    item_type=WorkItemType.CONTENT_EXTRACTION,
+                                    priority=8,
+                                    data={"file_path": file_path},
+                                )
+                            )
 
                             # ENTITY_PARSING depends on content extraction
                             parse_id = f"parse_{file_id}"
-                            await self.work_queue.add_work_item(WorkItem(
-                                item_id=parse_id,
-                                item_type=WorkItemType.ENTITY_PARSING,
-                                priority=6,
-                                data={"file_path": file_path},
-                                dependencies=[extract_id],
-                            ))
+                            await self.work_queue.add_work_item(
+                                WorkItem(
+                                    item_id=parse_id,
+                                    item_type=WorkItemType.ENTITY_PARSING,
+                                    priority=6,
+                                    data={"file_path": file_path},
+                                    dependencies=[extract_id],
+                                )
+                            )
 
                             # CHUNKING depends on content extraction
                             chunk_id = f"chunk_{file_id}"
-                            await self.work_queue.add_work_item(WorkItem(
-                                item_id=chunk_id,
-                                item_type=WorkItemType.CHUNKING,
-                                priority=5,
-                                data={"file_path": file_path},
-                                dependencies=[extract_id],
-                            ))
+                            await self.work_queue.add_work_item(
+                                WorkItem(
+                                    item_id=chunk_id,
+                                    item_type=WorkItemType.CHUNKING,
+                                    priority=5,
+                                    data={"file_path": file_path},
+                                    dependencies=[extract_id],
+                                )
+                            )
 
                             # EMBEDDING_GENERATION depends on chunking
                             embed_id = f"embed_{file_id}"
-                            await self.work_queue.add_work_item(WorkItem(
-                                item_id=embed_id,
-                                item_type=WorkItemType.EMBEDDING_GENERATION,
-                                priority=4,
-                                data={"file_path": file_path},
-                                dependencies=[chunk_id],
-                            ))
+                            await self.work_queue.add_work_item(
+                                WorkItem(
+                                    item_id=embed_id,
+                                    item_type=WorkItemType.EMBEDDING_GENERATION,
+                                    priority=4,
+                                    data={"file_path": file_path},
+                                    dependencies=[chunk_id],
+                                )
+                            )
 
                         # INDEX_UPDATE at the end (one per directory)
                         for directory in directories:
-                            await self.work_queue.add_work_item(WorkItem(
-                                item_id=f"index_update_{directory}",
-                                item_type=WorkItemType.INDEX_UPDATE,
-                                priority=2,
-                                data={"directory": directory},
-                            ))
+                            await self.work_queue.add_work_item(
+                                WorkItem(
+                                    item_id=f"index_update_{directory}",
+                                    item_type=WorkItemType.INDEX_UPDATE,
+                                    priority=2,
+                                    data={"directory": directory},
+                                )
+                            )
 
                 # Calculate progress
                 total_items = (
@@ -680,7 +685,11 @@ class DistributedIndexingEngine:
                     last_update = current_time
 
                 # Check if done (only after pipeline items are created)
-                if pipeline_items_created and stats["pending_items"] == 0 and stats["queue_size"] == 0:
+                if (
+                    pipeline_items_created
+                    and stats["pending_items"] == 0
+                    and stats["queue_size"] == 0
+                ):
                     break
 
                 # Check for timeout

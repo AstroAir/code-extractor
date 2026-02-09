@@ -31,7 +31,10 @@ def _make_tag() -> IndexTag:
 
 
 def _make_refresh_results(
-    compute=None, delete=None, add_tag=None, remove_tag=None,
+    compute=None,
+    delete=None,
+    add_tag=None,
+    remove_tag=None,
 ) -> RefreshIndexResults:
     return RefreshIndexResults(
         compute=compute or [],
@@ -228,12 +231,15 @@ class TestCodeSnippetsIndexUpdate:
         mock_processor.analyze_dependencies.return_value = ["os"]
         mock_processor.calculate_complexity.return_value = 0.5
 
-        with patch(
-            "pysearch.indexing.indexes.code_snippets_index.read_text_safely",
-            return_value="def my_func(x: int) -> str:\n    pass\n",
-        ), patch(
-            "pysearch.indexing.indexes.code_snippets_index.language_registry",
-        ) as mock_registry:
+        with (
+            patch(
+                "pysearch.indexing.indexes.code_snippets_index.read_text_safely",
+                return_value="def my_func(x: int) -> str:\n    pass\n",
+            ),
+            patch(
+                "pysearch.indexing.indexes.code_snippets_index.language_registry",
+            ) as mock_registry,
+        ):
             mock_registry.get_processor.return_value = mock_processor
 
             updates = []
@@ -295,9 +301,7 @@ class TestCodeSnippetsIndexUpdate:
 
         mark_complete.assert_called_once_with([item], "remove_tag")
         conn = await idx._get_connection()
-        cursor = conn.execute(
-            "SELECT COUNT(*) FROM snippet_tags WHERE tag = ?", (tag.to_string(),)
-        )
+        cursor = conn.execute("SELECT COUNT(*) FROM snippet_tags WHERE tag = ?", (tag.to_string(),))
         assert cursor.fetchone()[0] == 0
 
     @pytest.mark.asyncio
@@ -403,10 +407,21 @@ class TestCodeSnippetsIndexRetrieve:
         assert len(results) == 1
         r = results[0]
         expected_keys = {
-            "id", "path", "content_hash", "name", "entity_type",
-            "signature", "docstring", "content", "language",
-            "start_line", "end_line", "complexity_score", "quality_score",
-            "dependencies", "metadata",
+            "id",
+            "path",
+            "content_hash",
+            "name",
+            "entity_type",
+            "signature",
+            "docstring",
+            "content",
+            "language",
+            "start_line",
+            "end_line",
+            "complexity_score",
+            "quality_score",
+            "dependencies",
+            "metadata",
         }
         assert set(r.keys()) == expected_keys
 
@@ -474,8 +489,14 @@ class TestCodeSnippetsIndexGetEntitiesByFile:
         results = await idx.get_entities_by_file("/test/file0.py", tag)
         assert len(results) == 1
         expected_keys = {
-            "id", "name", "entity_type", "signature",
-            "start_line", "end_line", "complexity_score", "quality_score",
+            "id",
+            "name",
+            "entity_type",
+            "signature",
+            "start_line",
+            "end_line",
+            "complexity_score",
+            "quality_score",
         }
         assert set(results[0].keys()) == expected_keys
 
@@ -597,8 +618,19 @@ class TestCodeSnippetsIndexSearchEntities:
         assert len(results) == 1
         r = results[0]
         expected_keys = {
-            "id", "path", "name", "entity_type", "signature",
-            "docstring", "content", "language", "start_line", "end_line",
-            "complexity_score", "quality_score", "dependencies", "metadata",
+            "id",
+            "path",
+            "name",
+            "entity_type",
+            "signature",
+            "docstring",
+            "content",
+            "language",
+            "start_line",
+            "end_line",
+            "complexity_score",
+            "quality_score",
+            "dependencies",
+            "metadata",
         }
         assert set(r.keys()) == expected_keys

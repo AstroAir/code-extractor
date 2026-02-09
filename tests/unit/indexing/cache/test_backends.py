@@ -5,10 +5,8 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.types import SearchResult, SearchStats
-from pysearch.indexing.cache.backends import CacheBackend, DiskCache, MemoryCache
+from pysearch.indexing.cache.backends import DiskCache, MemoryCache
 from pysearch.indexing.cache.models import CacheEntry
 
 
@@ -133,7 +131,7 @@ class TestDiskCache:
 
     def test_init_creates_directory(self, tmp_path: Path):
         sub_dir = tmp_path / "sub" / "cache"
-        cache = DiskCache(cache_dir=sub_dir, max_size=100)
+        DiskCache(cache_dir=sub_dir, max_size=100)
         assert sub_dir.exists()
 
     def test_set_and_get(self, tmp_path: Path):

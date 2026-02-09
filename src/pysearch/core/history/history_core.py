@@ -431,23 +431,19 @@ class SearchHistory:
         self.load()
         lang_lower = language.lower()
         filtered = [
-            e for e in reversed(self._history)
-            if e.languages and lang_lower in {l.lower() for l in e.languages}
+            e
+            for e in reversed(self._history)
+            if e.languages and lang_lower in {lang.lower() for lang in e.languages}
         ]
         if limit:
             return filtered[:limit]
         return filtered
 
-    def search_history(
-        self, query: str, limit: int | None = None
-    ) -> list[SearchHistoryEntry]:
+    def search_history(self, query: str, limit: int | None = None) -> list[SearchHistoryEntry]:
         """Full-text search across query patterns in history."""
         self.load()
         query_lower = query.lower()
-        filtered = [
-            e for e in reversed(self._history)
-            if query_lower in e.query_pattern.lower()
-        ]
+        filtered = [e for e in reversed(self._history) if query_lower in e.query_pattern.lower()]
         if limit:
             return filtered[:limit]
         return filtered
@@ -504,14 +500,14 @@ class SearchHistory:
         """Get all bookmarks."""
         self._ensure_managers_loaded()
         if self._bookmark_manager:
-            return self._bookmark_manager.get_bookmarks()  # type: ignore[no-any-return]
+            return self._bookmark_manager.get_bookmarks()
         return {}
 
     def remove_bookmark(self, name: str) -> bool:
         """Remove a bookmark by name."""
         self._ensure_managers_loaded()
         if self._bookmark_manager:
-            return self._bookmark_manager.remove_bookmark(name)  # type: ignore[no-any-return]
+            return self._bookmark_manager.remove_bookmark(name)
         return False
 
     def get_current_session(self) -> Any:
@@ -532,14 +528,14 @@ class SearchHistory:
         """Get comprehensive search analytics."""
         self._ensure_managers_loaded()
         if self._analytics_manager:
-            return self._analytics_manager.get_search_analytics(self._history, days)  # type: ignore[no-any-return]
+            return self._analytics_manager.get_search_analytics(self._history, days)
         return {}
 
     def get_pattern_suggestions(self, partial_pattern: str, limit: int = 5) -> list[str]:
         """Get pattern suggestions based on search history."""
         self._ensure_managers_loaded()
         if self._analytics_manager:
-            return self._analytics_manager.get_pattern_suggestions(  # type: ignore[no-any-return]
+            return self._analytics_manager.get_pattern_suggestions(
                 self._history, partial_pattern, limit
             )
         return []
@@ -549,42 +545,42 @@ class SearchHistory:
         """Create a new bookmark folder."""
         self._ensure_managers_loaded()
         if self._bookmark_manager:
-            return self._bookmark_manager.create_folder(name, description)  # type: ignore[no-any-return]
+            return self._bookmark_manager.create_folder(name, description)
         return False
 
     def delete_folder(self, name: str) -> bool:
         """Delete a bookmark folder."""
         self._ensure_managers_loaded()
         if self._bookmark_manager:
-            return self._bookmark_manager.delete_folder(name)  # type: ignore[no-any-return]
+            return self._bookmark_manager.delete_folder(name)
         return False
 
     def add_bookmark_to_folder(self, bookmark_name: str, folder_name: str) -> bool:
         """Add a bookmark to a folder."""
         self._ensure_managers_loaded()
         if self._bookmark_manager:
-            return self._bookmark_manager.add_bookmark_to_folder(bookmark_name, folder_name)  # type: ignore[no-any-return]
+            return self._bookmark_manager.add_bookmark_to_folder(bookmark_name, folder_name)
         return False
 
     def remove_bookmark_from_folder(self, bookmark_name: str, folder_name: str) -> bool:
         """Remove a bookmark from a folder."""
         self._ensure_managers_loaded()
         if self._bookmark_manager:
-            return self._bookmark_manager.remove_bookmark_from_folder(bookmark_name, folder_name)  # type: ignore[no-any-return]
+            return self._bookmark_manager.remove_bookmark_from_folder(bookmark_name, folder_name)
         return False
 
     def get_folders(self) -> dict[str, Any]:
         """Get all bookmark folders."""
         self._ensure_managers_loaded()
         if self._bookmark_manager:
-            return self._bookmark_manager.get_folders()  # type: ignore[no-any-return]
+            return self._bookmark_manager.get_folders()
         return {}
 
     def get_bookmarks_in_folder(self, folder_name: str) -> list[Any]:
         """Get all bookmarks in a specific folder."""
         self._ensure_managers_loaded()
         if self._bookmark_manager:
-            return self._bookmark_manager.get_bookmarks_in_folder(folder_name)  # type: ignore[no-any-return]
+            return self._bookmark_manager.get_bookmarks_in_folder(folder_name)
         return []
 
     # Session delegation
@@ -599,25 +595,19 @@ class SearchHistory:
         """Rate a search result (1-5 stars)."""
         self._ensure_managers_loaded()
         if self._analytics_manager:
-            return self._analytics_manager.rate_search(  # type: ignore[no-any-return]
-                list(self._history), pattern, rating
-            )
+            return self._analytics_manager.rate_search(list(self._history), pattern, rating)
         return False
 
     def add_tags_to_search(self, pattern: str, tags: set[str]) -> bool:
         """Add tags to a search in history."""
         self._ensure_managers_loaded()
         if self._analytics_manager:
-            return self._analytics_manager.add_tags_to_search(  # type: ignore[no-any-return]
-                list(self._history), pattern, tags
-            )
+            return self._analytics_manager.add_tags_to_search(list(self._history), pattern, tags)
         return False
 
     def search_history_by_tags(self, tags: set[str]) -> list[SearchHistoryEntry]:
         """Find searches by tags."""
         self._ensure_managers_loaded()
         if self._analytics_manager:
-            return self._analytics_manager.search_history_by_tags(  # type: ignore[no-any-return]
-                list(self._history), tags
-            )
+            return self._analytics_manager.search_history_by_tags(list(self._history), tags)
         return []

@@ -542,9 +542,7 @@ class EntityExtractor:
             )
 
         # Method declarations (receiver)
-        method_pattern = re.compile(
-            r"^\s*func\s+\([^)]+\)\s+(\w+)\s*\(", re.MULTILINE
-        )
+        method_pattern = re.compile(r"^\s*func\s+\([^)]+\)\s+(\w+)\s*\(", re.MULTILINE)
         for match in method_pattern.finditer(content):
             line_num = content[: match.start()].count("\n") + 1
             entities.append(
@@ -561,9 +559,7 @@ class EntityExtractor:
             )
 
         # Type declarations (struct/interface)
-        type_pattern = re.compile(
-            r"^\s*type\s+(\w+)\s+(struct|interface)\s*\{", re.MULTILINE
-        )
+        type_pattern = re.compile(r"^\s*type\s+(\w+)\s+(struct|interface)\s*\{", re.MULTILINE)
         for match in type_pattern.finditer(content):
             line_num = content[: match.start()].count("\n") + 1
             etype = EntityType.CLASS if match.group(2) == "struct" else EntityType.INTERFACE
@@ -589,9 +585,7 @@ class EntityExtractor:
         entities = []
 
         # Function items
-        fn_pattern = re.compile(
-            r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)", re.MULTILINE
-        )
+        fn_pattern = re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)", re.MULTILINE)
         for match in fn_pattern.finditer(content):
             line_num = content[: match.start()].count("\n") + 1
             entities.append(
@@ -608,7 +602,11 @@ class EntityExtractor:
             )
 
         # Struct/Enum/Trait
-        for keyword, etype in [("struct", EntityType.STRUCT), ("enum", EntityType.ENUM), ("trait", EntityType.INTERFACE)]:
+        for keyword, etype in [
+            ("struct", EntityType.STRUCT),
+            ("enum", EntityType.ENUM),
+            ("trait", EntityType.INTERFACE),
+        ]:
             pat = re.compile(rf"^\s*(?:pub\s+)?{keyword}\s+(\w+)", re.MULTILINE)
             for match in pat.finditer(content):
                 line_num = content[: match.start()].count("\n") + 1
@@ -723,9 +721,7 @@ class EntityExtractor:
             )
 
         # Classes
-        class_pattern = re.compile(
-            r"^\s*(?:abstract\s+|final\s+)?class\s+(\w+)", re.MULTILINE
-        )
+        class_pattern = re.compile(r"^\s*(?:abstract\s+|final\s+)?class\s+(\w+)", re.MULTILINE)
         for match in class_pattern.finditer(content):
             line_num = content[: match.start()].count("\n") + 1
             entities.append(
@@ -909,7 +905,11 @@ class EntityExtractor:
                 )
             )
 
-        for keyword, etype in [("class", EntityType.CLASS), ("struct", EntityType.STRUCT), ("protocol", EntityType.INTERFACE)]:
+        for keyword, etype in [
+            ("class", EntityType.CLASS),
+            ("struct", EntityType.STRUCT),
+            ("protocol", EntityType.INTERFACE),
+        ]:
             pat = re.compile(
                 rf"^\s*(?:(?:public|private|internal|open|fileprivate|final)\s+)*{keyword}\s+(\w+)",
                 re.MULTILINE,
@@ -955,7 +955,11 @@ class EntityExtractor:
                 )
             )
 
-        for keyword, etype in [("class", EntityType.CLASS), ("object", EntityType.MODULE), ("trait", EntityType.INTERFACE)]:
+        for keyword, etype in [
+            ("class", EntityType.CLASS),
+            ("object", EntityType.MODULE),
+            ("trait", EntityType.INTERFACE),
+        ]:
             pat = re.compile(
                 rf"^\s*(?:(?:abstract|sealed|final|case|implicit)\s+)*{keyword}\s+(\w+)",
                 re.MULTILINE,
@@ -983,9 +987,7 @@ class EntityExtractor:
         """Extract entities from Dart using regex patterns."""
         entities = []
 
-        class_pattern = re.compile(
-            r"^\s*(?:abstract\s+)?class\s+(\w+)", re.MULTILINE
-        )
+        class_pattern = re.compile(r"^\s*(?:abstract\s+)?class\s+(\w+)", re.MULTILINE)
         for match in class_pattern.finditer(content):
             line_num = content[: match.start()].count("\n") + 1
             entities.append(
@@ -1028,9 +1030,7 @@ class EntityExtractor:
         """Extract entities from Lua using regex patterns."""
         entities = []
 
-        func_pattern = re.compile(
-            r"^\s*(?:local\s+)?function\s+([\w.]+)\s*\(", re.MULTILINE
-        )
+        func_pattern = re.compile(r"^\s*(?:local\s+)?function\s+([\w.]+)\s*\(", re.MULTILINE)
         for match in func_pattern.finditer(content):
             line_num = content[: match.start()].count("\n") + 1
             entities.append(

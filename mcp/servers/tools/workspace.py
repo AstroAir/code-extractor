@@ -73,13 +73,18 @@ def register_workspace_tools(
         try:
             eng = engine._get_engine()
             success = eng.create_workspace(
-                name, root_path, description,
-                auto_discover=auto_discover, max_depth=max_depth,
+                name,
+                root_path,
+                description,
+                auto_discover=auto_discover,
+                max_depth=max_depth,
             )
             if not success:
                 raise ToolError("Failed to create workspace")
             result: dict[str, Any] = {
-                "created": True, "name": name, "root_path": root_path,
+                "created": True,
+                "name": name,
+                "root_path": root_path,
             }
             if auto_discover:
                 result["summary"] = eng.get_workspace_summary()

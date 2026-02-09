@@ -411,13 +411,13 @@ def handle_file_error(
     """
     # Classify the error
     error: SearchError
-    if isinstance(exception, (FileNotFoundError, IsADirectoryError)):
+    if isinstance(exception, FileNotFoundError | IsADirectoryError):
         error = FileAccessError(f"Cannot {operation} file: {exception}", file_path)
     elif isinstance(exception, BuiltinPermissionError):
         error = PermissionError(f"Permission denied during {operation}: {exception}", file_path)
-    elif isinstance(exception, (UnicodeDecodeError, UnicodeError)):
+    elif isinstance(exception, UnicodeDecodeError | UnicodeError):
         error = EncodingError(f"Encoding error during {operation}: {exception}", file_path)
-    elif isinstance(exception, (SyntaxError, IndentationError)):
+    elif isinstance(exception, SyntaxError | IndentationError):
         line_num = getattr(exception, "lineno", None)
         error = ParsingError(f"Parsing error during {operation}: {exception}", file_path, line_num)
     else:
@@ -647,13 +647,13 @@ class AdvancedErrorCollector:
 
         # Exception-based categorization
         if exception:
-            if isinstance(exception, (FileNotFoundError, BuiltinPermissionError)):
+            if isinstance(exception, FileNotFoundError | BuiltinPermissionError):
                 return ErrorCategory.FILE_ACCESS
-            elif isinstance(exception, (ConnectionError, TimeoutError)):
+            elif isinstance(exception, ConnectionError | TimeoutError):
                 return ErrorCategory.NETWORK
             elif isinstance(exception, MemoryError):
                 return ErrorCategory.MEMORY
-            elif isinstance(exception, (SyntaxError, ValueError)):
+            elif isinstance(exception, SyntaxError | ValueError):
                 return ErrorCategory.PARSING
             elif isinstance(exception, ImportError):
                 return ErrorCategory.DEPENDENCY
@@ -992,9 +992,7 @@ class RecoveryManager:
         try:
             import urllib.request
 
-            req = urllib.request.Request(
-                "https://httpbin.org/status/200", method="HEAD"
-            )
+            req = urllib.request.Request("https://httpbin.org/status/200", method="HEAD")
             with urllib.request.urlopen(req, timeout=5) as response:
                 if response.status == 200:
                     _logger.info("Network connectivity restored")
@@ -1075,9 +1073,7 @@ class RecoveryManager:
             "total_recovery_attempts": total_attempts,
             "successful_recoveries": self.successful_recoveries,
             "failed_recoveries": self.failed_recoveries,
-            "recovery_success_rate": (
-                self.successful_recoveries / max(total_attempts, 1)
-            ),
+            "recovery_success_rate": (self.successful_recoveries / max(total_attempts, 1)),
             "active_circuit_breakers": len(
                 [cb for cb in self.circuit_breakers.values() if cb.state != "closed"]
             ),

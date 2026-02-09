@@ -190,14 +190,14 @@ def demo_analytics(engine: PySearch) -> None:
     analytics = engine.get_search_analytics(days=30)
     print("  Analytics (last 30 days):")
     for key, value in analytics.items():
-        if isinstance(value, (int, float, str)):
+        if isinstance(value, int | float | str):
             print(f"    {key}: {value}")
 
     # Detailed stats
     stats = engine.get_detailed_history_stats()
     print("\n  Detailed stats:")
     for key, value in list(stats.items())[:10]:
-        if isinstance(value, (int, float, str)):
+        if isinstance(value, int | float | str):
             print(f"    {key}: {value}")
 
     # Search trends

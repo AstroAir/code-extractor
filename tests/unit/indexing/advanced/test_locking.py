@@ -6,8 +6,6 @@ import json
 import time
 from pathlib import Path
 
-import pytest
-
 from pysearch.indexing.advanced.locking import IndexLock
 
 
@@ -92,6 +90,7 @@ class TestIndexLock:
 
         # Small delay to ensure timestamp difference
         import asyncio
+
         await asyncio.sleep(0.05)
 
         await lock.update_timestamp()

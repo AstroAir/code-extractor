@@ -4,16 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from pysearch.search.semantic_advanced import (
     CodeSemanticAnalyzer,
     SemanticConcept,
     SemanticEmbedding,
-    SemanticMatch,
     SemanticSearchEngine,
 )
-from pysearch.core.types import SearchItem
 
 
 class TestSemanticConcept:
@@ -33,7 +29,11 @@ class TestSemanticConcept:
 
     def test_defaults(self):
         c = SemanticConcept(
-            name="x", category="var", context="", confidence=1.0, line_number=1,
+            name="x",
+            category="var",
+            context="",
+            confidence=1.0,
+            line_number=1,
         )
         assert c.metadata == {}
 
@@ -104,9 +104,7 @@ class TestSemanticSearchEngine:
     def test_search_semantic_with_file_path(self):
         engine = SemanticSearchEngine()
         content = "def connect_database():\n    conn = sqlite3.connect('db')\n    return conn\n"
-        results = engine.search_semantic(
-            "database connection", content, file_path=Path("db.py")
-        )
+        results = engine.search_semantic("database connection", content, file_path=Path("db.py"))
         assert isinstance(results, list)
 
     def test_search_semantic_empty_content(self):

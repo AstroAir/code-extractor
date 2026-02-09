@@ -10,7 +10,6 @@ import os
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache
-from typing import Any
 
 
 class Environment(Enum):

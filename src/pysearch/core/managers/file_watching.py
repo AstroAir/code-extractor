@@ -55,9 +55,7 @@ class FileWatchingManager:
         """Set the indexer instance for auto-updates."""
         self._indexer = indexer
 
-    def set_cache_invalidation_callback(
-        self, callback: Callable[[list[Any]], None]
-    ) -> None:
+    def set_cache_invalidation_callback(self, callback: Callable[[list[Any]], None]) -> None:
         """Set the callback to invoke when files change, for cache invalidation.
 
         Args:
@@ -161,7 +159,7 @@ class FileWatchingManager:
             return {}
 
         try:
-            return self.watch_manager.get_all_stats()  # type: ignore[no-any-return]
+            return self.watch_manager.get_all_stats()
         except Exception:
             return {}
 
@@ -191,7 +189,7 @@ class FileWatchingManager:
 
         try:
             if self.watch_manager:
-                return self.watch_manager.add_watcher(  # type: ignore[no-any-return]
+                return self.watch_manager.add_watcher(
                     name=name,
                     path=path,
                     config=self.config,
@@ -216,7 +214,7 @@ class FileWatchingManager:
             return False
 
         try:
-            return self.watch_manager.remove_watcher(name)  # type: ignore[no-any-return]
+            return self.watch_manager.remove_watcher(name)
         except Exception:
             return False
 
@@ -231,7 +229,7 @@ class FileWatchingManager:
             return []
 
         try:
-            return self.watch_manager.list_watchers()  # type: ignore[no-any-return]
+            return self.watch_manager.list_watchers()
         except Exception:
             return []
 
@@ -265,7 +263,7 @@ class FileWatchingManager:
             return {}
 
         try:
-            return self.watch_manager.get_watcher_status(name)  # type: ignore[no-any-return]
+            return self.watch_manager.get_watcher_status(name)
         except Exception:
             return {}
 

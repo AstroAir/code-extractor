@@ -4,15 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from pysearch.core.types import Language
 from pysearch.indexing.metadata.analysis import (
     calculate_entity_complexity,
     calculate_file_complexity,
-    extract_imports,
-    extract_dependencies,
     create_entity_text,
+    extract_dependencies,
+    extract_imports,
 )
 
 
@@ -77,9 +75,14 @@ class TestCalculateEntityComplexity:
 
     def test_basic(self):
         from pysearch.core.types import CodeEntity, EntityType
+
         entity = CodeEntity(
-            id="e1", name="process", entity_type=EntityType.FUNCTION,
-            file_path=Path("test.py"), start_line=1, end_line=5,
+            id="e1",
+            name="process",
+            entity_type=EntityType.FUNCTION,
+            file_path=Path("test.py"),
+            start_line=1,
+            end_line=5,
             signature="def process():",
         )
         content = "def process():\n    if x:\n        for i in r:\n            pass\n    return\n"
@@ -88,9 +91,14 @@ class TestCalculateEntityComplexity:
 
     def test_no_signature_returns_zero(self):
         from pysearch.core.types import CodeEntity, EntityType
+
         entity = CodeEntity(
-            id="e2", name="x", entity_type=EntityType.VARIABLE,
-            file_path=Path("test.py"), start_line=1, end_line=1,
+            id="e2",
+            name="x",
+            entity_type=EntityType.VARIABLE,
+            file_path=Path("test.py"),
+            start_line=1,
+            end_line=1,
             signature=None,
         )
         score = calculate_entity_complexity(entity, "x = 1\n")
@@ -98,9 +106,14 @@ class TestCalculateEntityComplexity:
 
     def test_capped_at_50(self):
         from pysearch.core.types import CodeEntity, EntityType
+
         entity = CodeEntity(
-            id="e3", name="huge", entity_type=EntityType.FUNCTION,
-            file_path=Path("test.py"), start_line=1, end_line=300,
+            id="e3",
+            name="huge",
+            entity_type=EntityType.FUNCTION,
+            file_path=Path("test.py"),
+            start_line=1,
+            end_line=300,
             signature="def huge():",
         )
         content = "\n".join(["if x:" for _ in range(300)])
@@ -113,9 +126,14 @@ class TestCreateEntityText:
 
     def test_basic(self):
         from pysearch.core.types import CodeEntity, EntityType
+
         entity = CodeEntity(
-            id="e1", name="main", entity_type=EntityType.FUNCTION,
-            file_path=Path("test.py"), start_line=1, end_line=5,
+            id="e1",
+            name="main",
+            entity_type=EntityType.FUNCTION,
+            file_path=Path("test.py"),
+            start_line=1,
+            end_line=5,
             signature="def main():",
         )
         text = create_entity_text(entity)
@@ -124,29 +142,46 @@ class TestCreateEntityText:
 
     def test_with_docstring(self):
         from pysearch.core.types import CodeEntity, EntityType
+
         entity = CodeEntity(
-            id="e2", name="helper", entity_type=EntityType.FUNCTION,
-            file_path=Path("test.py"), start_line=1, end_line=5,
-            signature="def helper():", docstring="Helps with things.",
+            id="e2",
+            name="helper",
+            entity_type=EntityType.FUNCTION,
+            file_path=Path("test.py"),
+            start_line=1,
+            end_line=5,
+            signature="def helper():",
+            docstring="Helps with things.",
         )
         text = create_entity_text(entity)
         assert "Helps with things." in text
 
     def test_with_properties(self):
         from pysearch.core.types import CodeEntity, EntityType
+
         entity = CodeEntity(
-            id="e3", name="cls", entity_type=EntityType.CLASS,
-            file_path=Path("test.py"), start_line=1, end_line=10,
-            signature="class cls:", properties={"decorator": "dataclass"},
+            id="e3",
+            name="cls",
+            entity_type=EntityType.CLASS,
+            file_path=Path("test.py"),
+            start_line=1,
+            end_line=10,
+            signature="class cls:",
+            properties={"decorator": "dataclass"},
         )
         text = create_entity_text(entity)
         assert "decorator" in text
 
     def test_name_only(self):
         from pysearch.core.types import CodeEntity, EntityType
+
         entity = CodeEntity(
-            id="e4", name="x", entity_type=EntityType.VARIABLE,
-            file_path=Path("test.py"), start_line=1, end_line=1,
+            id="e4",
+            name="x",
+            entity_type=EntityType.VARIABLE,
+            file_path=Path("test.py"),
+            start_line=1,
+            end_line=1,
         )
         text = create_entity_text(entity)
         assert text == "x"

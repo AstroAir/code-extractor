@@ -4,7 +4,7 @@ The indexer provides efficient file scanning and caching capabilities with incre
 
 ## Indexer
 
-::: pysearch.indexer.Indexer
+::: pysearch.indexing.indexer.Indexer
     options:
       show_root_heading: true
       show_source: false
@@ -19,7 +19,7 @@ The indexer provides efficient file scanning and caching capabilities with incre
 
 ## IndexRecord
 
-::: pysearch.indexer.IndexRecord
+::: pysearch.indexing.indexer.IndexRecord
     options:
       show_root_heading: true
       show_source: false

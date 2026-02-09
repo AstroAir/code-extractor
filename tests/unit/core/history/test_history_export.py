@@ -90,7 +90,9 @@ class TestHistoryExporterExport:
         out = tmp_path / "filtered.json"
 
         count = exporter.export_history(
-            entries, out, ExportFormat.JSON,
+            entries,
+            out,
+            ExportFormat.JSON,
             start_time=now - 1000,
         )
 
@@ -109,7 +111,9 @@ class TestHistoryExporterExport:
         out = tmp_path / "filtered.json"
 
         count = exporter.export_history(
-            entries, out, ExportFormat.JSON,
+            entries,
+            out,
+            ExportFormat.JSON,
             end_time=now - 50000,
         )
 
@@ -269,10 +273,42 @@ class TestHistoryExporterBackupRestore:
         cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=cache_dir)
 
         # Create some history data
-        history_data = {"version": 1, "entries": [{"timestamp": 1.0, "query_pattern": "test", "use_regex": False, "use_ast": False, "context": 0, "files_matched": 0, "items_count": 0, "elapsed_ms": 0.0, "category": "general", "success_score": 0.0}]}
+        history_data = {
+            "version": 1,
+            "entries": [
+                {
+                    "timestamp": 1.0,
+                    "query_pattern": "test",
+                    "use_regex": False,
+                    "use_ast": False,
+                    "context": 0,
+                    "files_matched": 0,
+                    "items_count": 0,
+                    "elapsed_ms": 0.0,
+                    "category": "general",
+                    "success_score": 0.0,
+                }
+            ],
+        }
         (cache_dir / "search_history.json").write_text(json.dumps(history_data), encoding="utf-8")
 
-        bookmarks_data = {"version": 1, "bookmarks": {"bm1": {"timestamp": 1.0, "query_pattern": "bm", "use_regex": False, "use_ast": False, "context": 0, "files_matched": 0, "items_count": 0, "elapsed_ms": 0.0, "category": "general", "success_score": 0.0}}}
+        bookmarks_data = {
+            "version": 1,
+            "bookmarks": {
+                "bm1": {
+                    "timestamp": 1.0,
+                    "query_pattern": "bm",
+                    "use_regex": False,
+                    "use_ast": False,
+                    "context": 0,
+                    "files_matched": 0,
+                    "items_count": 0,
+                    "elapsed_ms": 0.0,
+                    "category": "general",
+                    "success_score": 0.0,
+                }
+            },
+        }
         (cache_dir / "bookmarks.json").write_text(json.dumps(bookmarks_data), encoding="utf-8")
 
         exporter = HistoryExporter(cfg)
@@ -297,7 +333,23 @@ class TestHistoryExporterBackupRestore:
         backup_data = {
             "version": 1,
             "backup_time": time.time(),
-            "history": {"version": 1, "entries": [{"timestamp": 1.0, "query_pattern": "restored", "use_regex": False, "use_ast": False, "context": 0, "files_matched": 1, "items_count": 2, "elapsed_ms": 10.0, "category": "general", "success_score": 0.5}]},
+            "history": {
+                "version": 1,
+                "entries": [
+                    {
+                        "timestamp": 1.0,
+                        "query_pattern": "restored",
+                        "use_regex": False,
+                        "use_ast": False,
+                        "context": 0,
+                        "files_matched": 1,
+                        "items_count": 2,
+                        "elapsed_ms": 10.0,
+                        "category": "general",
+                        "success_score": 0.5,
+                    }
+                ],
+            },
             "bookmarks": {"version": 1, "bookmarks": {}},
             "bookmark_folders": {"version": 1, "folders": {}},
             "sessions": {"version": 1, "sessions": {}},
@@ -393,7 +445,23 @@ class TestHistoryExporterBackupRestore:
         cfg = SearchConfig(paths=[str(tmp_path)], cache_dir=cache_dir)
 
         # Create initial data
-        history_data = {"version": 1, "entries": [{"timestamp": 1.0, "query_pattern": "roundtrip", "use_regex": False, "use_ast": False, "context": 0, "files_matched": 1, "items_count": 3, "elapsed_ms": 25.0, "category": "general", "success_score": 0.7}]}
+        history_data = {
+            "version": 1,
+            "entries": [
+                {
+                    "timestamp": 1.0,
+                    "query_pattern": "roundtrip",
+                    "use_regex": False,
+                    "use_ast": False,
+                    "context": 0,
+                    "files_matched": 1,
+                    "items_count": 3,
+                    "elapsed_ms": 25.0,
+                    "category": "general",
+                    "success_score": 0.7,
+                }
+            ],
+        }
         (cache_dir / "search_history.json").write_text(json.dumps(history_data), encoding="utf-8")
 
         exporter = HistoryExporter(cfg)

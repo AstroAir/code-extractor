@@ -67,8 +67,18 @@ class TestExports:
         import pysearch.cli as cli_module
 
         expected = {
-            "main", "cli", "find_cmd", "history_cmd", "bookmarks_cmd",
-            "semantic_cmd", "index_cmd", "deps_cmd", "watch_cmd",
-            "cache_cmd", "config_cmd", "repo_cmd", "errors_cmd",
+            "main",
+            "cli",
+            "find_cmd",
+            "history_cmd",
+            "bookmarks_cmd",
+            "semantic_cmd",
+            "index_cmd",
+            "deps_cmd",
+            "watch_cmd",
+            "cache_cmd",
+            "config_cmd",
+            "repo_cmd",
+            "errors_cmd",
         }
         assert set(cli_module.__all__) == expected

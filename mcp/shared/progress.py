@@ -36,14 +36,26 @@ class _MockSearchBase:
         self.current_config = None
 
     async def search_regex(self, pattern: str, paths: list[str] | None, context: int) -> Any:
-        from ..servers.pysearch_mcp_server import SearchResponse
-        return SearchResponse(items=[], stats={"files_scanned": 0}, query_info={},
-                              total_matches=0, execution_time_ms=0)
+        from ..servers.engine import SearchResponse
+
+        return SearchResponse(
+            items=[],
+            stats={"files_scanned": 0},
+            query_info={},
+            total_matches=0,
+            execution_time_ms=0,
+        )
 
     async def search_text(self, pattern: str, paths: list[str] | None, context: int) -> Any:
-        from ..servers.pysearch_mcp_server import SearchResponse
-        return SearchResponse(items=[], stats={"files_scanned": 0}, query_info={},
-                              total_matches=0, execution_time_ms=0)
+        from ..servers.engine import SearchResponse
+
+        return SearchResponse(
+            items=[],
+            stats={"files_scanned": 0},
+            query_info={},
+            total_matches=0,
+            execution_time_ms=0,
+        )
 
     async def analyze_file_content(
         self, file_path: str, include_complexity: bool, include_quality: bool
@@ -52,6 +64,7 @@ class _MockSearchBase:
             complexity_score = 1.0
             code_quality_score = 1.0
             language = "python"
+
         return _MockResult()
 
 
@@ -315,7 +328,7 @@ class ProgressAwareSearchServer(_MockSearchBase):
 
                     re.compile(pattern)
                 except re.error as e:
-                    raise ValueError(f"Invalid regex pattern: {e}")
+                    raise ValueError(f"Invalid regex pattern: {e}") from e
 
             # Step 2: Scan and index files
             self.progress_tracker.update_progress(
@@ -512,9 +525,9 @@ class ProgressAwareSearchServer(_MockSearchBase):
                             },
                         )
 
-                    except asyncio.TimeoutError:
+                    except asyncio.TimeoutError as e:
                         analysis_task.cancel()
-                        raise ValueError("Analysis timeout (>30s)")
+                        raise ValueError("Analysis timeout (>30s)") from e
 
                 except Exception as e:
                     failed_analyses += 1

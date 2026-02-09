@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.core.managers.multi_repo_integration import MultiRepoIntegrationManager
 
@@ -120,9 +118,10 @@ class TestMultiRepoIntegrationManager:
         mock_engine = MagicMock()
         mock_engine.search_repositories.return_value = {"results": []}
         mgr.multi_repo_engine = mock_engine
-        result = mgr.search_repositories("test", repositories=["repo1"])
+        mgr.search_repositories("test", repositories=["repo1"])
         mock_engine.search_repositories.assert_called_once_with(
-            repositories=["repo1"], query="test",
+            repositories=["repo1"],
+            query="test",
         )
 
     def test_get_repository_stats_no_engine(self):

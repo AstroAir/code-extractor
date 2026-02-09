@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
 from pysearch.core.config import SearchConfig
 from pysearch.core.history.history_analytics import AnalyticsManager
 from pysearch.core.history.history_core import SearchCategory, SearchHistoryEntry
@@ -315,10 +313,7 @@ class TestAnalyticsTrends:
 
     def test_get_top_failed_patterns_with_limit(self):
         mgr = AnalyticsManager(SearchConfig())
-        entries = [
-            _make_entry(f"fail_{i}", items_count=0)
-            for i in range(20)
-        ]
+        entries = [_make_entry(f"fail_{i}", items_count=0) for i in range(20)]
         result = mgr.get_top_failed_patterns(entries, limit=5)
         assert len(result) == 5
 

@@ -104,6 +104,7 @@ from .core.types import (
     SearchResult,
     SearchStats,
 )
+from .core.workspace import RepositoryConfig, WorkspaceConfig, WorkspaceManager
 from .utils.error_handling import (
     EncodingError,
     FileAccessError,
@@ -117,7 +118,6 @@ from .utils.logging_config import (
     enable_debug_logging,
     get_logger,
 )
-from .core.workspace import RepositoryConfig, WorkspaceConfig, WorkspaceManager
 from .utils.metadata_filters import create_metadata_filters
 
 # Metadata indexing functionality (optional)
@@ -126,8 +126,8 @@ try:
     from .indexing.advanced.integration import (  # noqa: F401
         IndexSearchEngine,
         IndexSearchResult,
-        index_search,
         ensure_indexed,
+        index_search,
     )
 
     METADATA_INDEXING_AVAILABLE = True

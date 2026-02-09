@@ -6,7 +6,7 @@ The matchers module provides core pattern matching functionality for different s
 
 ### search_in_file
 
-::: pysearch.matchers.search_in_file
+::: pysearch.search.matchers.search_in_file
     options:
       show_root_heading: true
       show_source: false
@@ -18,7 +18,7 @@ The matchers module provides core pattern matching functionality for different s
 
 ### find_text_regex_matches
 
-::: pysearch.matchers.find_text_regex_matches
+::: pysearch.search.matchers.find_text_regex_matches
     options:
       show_root_heading: true
       show_source: false
@@ -30,7 +30,7 @@ The matchers module provides core pattern matching functionality for different s
 
 ### find_ast_blocks
 
-::: pysearch.matchers.find_ast_blocks
+::: pysearch.search.matchers.find_ast_blocks
     options:
       show_root_heading: true
       show_source: false
@@ -42,7 +42,7 @@ The matchers module provides core pattern matching functionality for different s
 
 ### ast_node_matches_filters
 
-::: pysearch.matchers.ast_node_matches_filters
+::: pysearch.search.matchers.ast_node_matches_filters
     options:
       show_root_heading: true
       show_source: false
@@ -56,7 +56,7 @@ The matchers module provides core pattern matching functionality for different s
 
 ### group_matches_into_blocks
 
-::: pysearch.matchers.group_matches_into_blocks
+::: pysearch.search.matchers.group_matches_into_blocks
     options:
       show_root_heading: true
       show_source: false

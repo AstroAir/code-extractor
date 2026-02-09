@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import hashlib
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 from src.config import get_settings
 from src.models.user import User, UserRole
@@ -43,9 +44,7 @@ def create_token(user: User) -> str:
     """
     settings = get_settings()
     payload = f"{user.id}:{user.username}:{user.role.value}:{time.time()}"
-    token = hashlib.sha256(
-        f"{payload}:{settings.secret_key}".encode()
-    ).hexdigest()
+    token = hashlib.sha256(f"{payload}:{settings.secret_key}".encode()).hexdigest()
     return token
 
 

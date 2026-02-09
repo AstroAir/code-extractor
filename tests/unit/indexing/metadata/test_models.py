@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
 from pysearch.indexing.metadata.models import (
     EntityMetadata,
     FileMetadata,
@@ -32,8 +30,12 @@ class TestEntityMetadata:
 
     def test_defaults(self):
         em = EntityMetadata(
-            entity_id="e1", name="x", entity_type="var",
-            file_path="a.py", start_line=1, end_line=1,
+            entity_id="e1",
+            name="x",
+            entity_type="var",
+            file_path="a.py",
+            start_line=1,
+            end_line=1,
         )
         assert em.signature is None
         assert em.docstring is None
@@ -45,11 +47,18 @@ class TestEntityMetadata:
 
     def test_with_optional_fields(self):
         em = EntityMetadata(
-            entity_id="e2", name="MyClass", entity_type="class",
-            file_path="a.py", start_line=1, end_line=20,
-            signature="class MyClass:", docstring="A class.",
-            language="python", scope="module",
-            complexity_score=5.0, semantic_embedding=[0.1, 0.2],
+            entity_id="e2",
+            name="MyClass",
+            entity_type="class",
+            file_path="a.py",
+            start_line=1,
+            end_line=20,
+            signature="class MyClass:",
+            docstring="A class.",
+            language="python",
+            scope="module",
+            complexity_score=5.0,
+            semantic_embedding=[0.1, 0.2],
             properties={"decorators": ["dataclass"]},
         )
         assert em.signature == "class MyClass:"
@@ -63,8 +72,12 @@ class TestEntityMetadata:
     def test_last_updated_default(self):
         before = time.time()
         em = EntityMetadata(
-            entity_id="e1", name="x", entity_type="var",
-            file_path="a.py", start_line=1, end_line=1,
+            entity_id="e1",
+            name="x",
+            entity_type="var",
+            file_path="a.py",
+            start_line=1,
+            end_line=1,
         )
         after = time.time()
         assert before <= em.last_updated <= after
@@ -100,11 +113,17 @@ class TestFileMetadata:
 
     def test_with_optional_fields(self):
         fm = FileMetadata(
-            file_path="b.py", size=2048, mtime=1.0,
-            sha1="abc123", language="python", line_count=100,
-            entity_count=5, complexity_score=10.0,
+            file_path="b.py",
+            size=2048,
+            mtime=1.0,
+            sha1="abc123",
+            language="python",
+            line_count=100,
+            entity_count=5,
+            complexity_score=10.0,
             semantic_summary="A module for data processing",
-            imports=["import os"], exports=["main"],
+            imports=["import os"],
+            exports=["main"],
             dependencies=["os", "sys"],
         )
         assert fm.sha1 == "abc123"

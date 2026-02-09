@@ -246,9 +246,7 @@ class SessionManager:
 
         return len(old_sessions)
 
-    def compare_sessions(
-        self, session_id_1: str, session_id_2: str
-    ) -> dict[str, Any]:
+    def compare_sessions(self, session_id_1: str, session_id_2: str) -> dict[str, Any]:
         """
         Compare two sessions and return their differences.
 
@@ -282,14 +280,10 @@ class SessionManager:
         s2_duration = (s2.end_time or time.time()) - s2.start_time
 
         s1_success_rate = (
-            s1.successful_searches / s1.total_searches
-            if s1.total_searches > 0
-            else 0.0
+            s1.successful_searches / s1.total_searches if s1.total_searches > 0 else 0.0
         )
         s2_success_rate = (
-            s2.successful_searches / s2.total_searches
-            if s2.total_searches > 0
-            else 0.0
+            s2.successful_searches / s2.total_searches if s2.total_searches > 0 else 0.0
         )
 
         return {
@@ -354,9 +348,7 @@ class SessionManager:
             "start_time_iso": datetime.fromtimestamp(session.start_time).isoformat(),
             "end_time": session.end_time,
             "end_time_iso": (
-                datetime.fromtimestamp(session.end_time).isoformat()
-                if session.end_time
-                else None
+                datetime.fromtimestamp(session.end_time).isoformat() if session.end_time else None
             ),
             "is_active": session.end_time is None,
             "duration_seconds": duration,
@@ -368,7 +360,9 @@ class SessionManager:
             "total_queries": len(queries),
             "unique_queries": len(unique_queries),
             "repeated_queries": repeated_queries,
-            "primary_languages": sorted(session.primary_languages) if session.primary_languages else [],
+            "primary_languages": (
+                sorted(session.primary_languages) if session.primary_languages else []
+            ),
             "primary_paths": sorted(session.primary_paths) if session.primary_paths else [],
             "searches_per_minute": (
                 session.total_searches / (duration / 60) if duration > 0 else 0.0

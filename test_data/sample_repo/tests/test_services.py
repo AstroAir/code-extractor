@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 
-from src.services.auth import AuthService, create_token, verify_token
-from src.services.user_service import UserService
+from src.models.user import User
+from src.services.auth import create_token, verify_token
 from src.services.post_service import PostService
-from src.models.user import User, UserRole
 
 
 class TestAuthService:

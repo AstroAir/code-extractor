@@ -248,12 +248,9 @@ class HistoryExporter:
 
         if merge and existing_entries:
             # Merge: deduplicate by (timestamp, query_pattern)
-            existing_keys = {
-                (e.timestamp, e.query_pattern) for e in existing_entries
-            }
+            existing_keys = {(e.timestamp, e.query_pattern) for e in existing_entries}
             new_entries = [
-                e for e in imported
-                if (e.timestamp, e.query_pattern) not in existing_keys
+                e for e in imported if (e.timestamp, e.query_pattern) not in existing_keys
             ]
             return list(existing_entries) + new_entries
 
@@ -281,12 +278,9 @@ class HistoryExporter:
         imported = self._parse_import_data(data)
 
         if merge and existing_entries:
-            existing_keys = {
-                (e.timestamp, e.query_pattern) for e in existing_entries
-            }
+            existing_keys = {(e.timestamp, e.query_pattern) for e in existing_entries}
             new_entries = [
-                e for e in imported
-                if (e.timestamp, e.query_pattern) not in existing_keys
+                e for e in imported if (e.timestamp, e.query_pattern) not in existing_keys
             ]
             return list(existing_entries) + new_entries
 

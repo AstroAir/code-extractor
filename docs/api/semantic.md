@@ -6,7 +6,7 @@ The semantic search module provides lightweight semantic matching capabilities w
 
 ### semantic_similarity_score
 
-::: pysearch.semantic.semantic_similarity_score
+::: pysearch.search.semantic.semantic_similarity_score
     options:
       show_root_heading: true
       show_source: false
@@ -18,7 +18,7 @@ The semantic search module provides lightweight semantic matching capabilities w
 
 ### concept_to_patterns
 
-::: pysearch.semantic.concept_to_patterns
+::: pysearch.search.semantic.concept_to_patterns
     options:
       show_root_heading: true
       show_source: false
@@ -30,7 +30,7 @@ The semantic search module provides lightweight semantic matching capabilities w
 
 ### expand_semantic_query
 
-::: pysearch.semantic.expand_semantic_query
+::: pysearch.search.semantic.expand_semantic_query
     options:
       show_root_heading: true
       show_source: false
@@ -44,7 +44,7 @@ The semantic search module provides lightweight semantic matching capabilities w
 
 ### SemanticSearchEngine
 
-::: pysearch.semantic_advanced.SemanticSearchEngine
+::: pysearch.search.semantic_advanced.SemanticSearchEngine
     options:
       show_root_heading: true
       show_source: false

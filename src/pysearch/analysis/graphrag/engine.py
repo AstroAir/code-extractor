@@ -973,7 +973,9 @@ class GraphRAGEngine:
 
         logger.info("Knowledge graph reset complete")
 
-    async def batch_find_similar(self, entity_ids: list[str], limit: int = 10) -> dict[str, list[CodeEntity]]:
+    async def batch_find_similar(
+        self, entity_ids: list[str], limit: int = 10
+    ) -> dict[str, list[CodeEntity]]:
         """Find similar entities for multiple entities using batch vector search.
 
         Uses Qdrant's batch_search API for efficient multi-query similarity search.

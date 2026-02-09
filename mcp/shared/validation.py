@@ -382,7 +382,7 @@ class InputValidator:
         result = ValidationResult()
 
         # Type check
-        if not isinstance(threshold, (int, float)):
+        if not isinstance(threshold, int | float):
             result.add_error(
                 ValidationError(
                     "Similarity threshold must be a number", field_name, type(threshold)

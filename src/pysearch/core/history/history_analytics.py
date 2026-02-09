@@ -313,13 +313,9 @@ class AnalyticsManager:
             daily_times[day].append(entry.elapsed_ms)
 
         daily_success_rates = {
-            day: sum(s) / len(s) if s else 0.0
-            for day, s in daily_success.items()
+            day: sum(s) / len(s) if s else 0.0 for day, s in daily_success.items()
         }
-        daily_avg_times = {
-            day: sum(t) / len(t) if t else 0.0
-            for day, t in daily_times.items()
-        }
+        daily_avg_times = {day: sum(t) / len(t) if t else 0.0 for day, t in daily_times.items()}
 
         # Calculate overall trend direction
         sorted_days = sorted(daily_counts.keys())
@@ -343,7 +339,7 @@ class AnalyticsManager:
             "daily_avg_times": daily_avg_times,
             "trend": trend,
             "total_days_active": len(daily_counts),
-            "peak_day": max(daily_counts, key=daily_counts.get) if daily_counts else None,
+            "peak_day": max(daily_counts, key=lambda k: daily_counts[k]) if daily_counts else None,
             "peak_count": max(daily_counts.values()) if daily_counts else 0,
         }
 
@@ -384,21 +380,25 @@ class AnalyticsManager:
                 prev_count = prev_cats.get(cat, 0)
                 curr_count = curr_cats.get(cat, 0)
                 if prev_count > 0 and curr_count > prev_count * 1.5:
-                    shifts.append({
-                        "category": cat,
-                        "week": curr_week,
-                        "direction": "increase",
-                        "from_count": prev_count,
-                        "to_count": curr_count,
-                    })
+                    shifts.append(
+                        {
+                            "category": cat,
+                            "week": curr_week,
+                            "direction": "increase",
+                            "from_count": prev_count,
+                            "to_count": curr_count,
+                        }
+                    )
                 elif curr_count > 0 and prev_count > curr_count * 1.5:
-                    shifts.append({
-                        "category": cat,
-                        "week": curr_week,
-                        "direction": "decrease",
-                        "from_count": prev_count,
-                        "to_count": curr_count,
-                    })
+                    shifts.append(
+                        {
+                            "category": cat,
+                            "week": curr_week,
+                            "direction": "decrease",
+                            "from_count": prev_count,
+                            "to_count": curr_count,
+                        }
+                    )
 
         return {
             "weekly_categories": {k: dict(v) for k, v in weekly_cats.items()},
@@ -419,9 +419,7 @@ class AnalyticsManager:
         Returns:
             List of failed pattern info sorted by failure count
         """
-        pattern_stats: dict[str, dict[str, int]] = defaultdict(
-            lambda: {"total": 0, "failed": 0}
-        )
+        pattern_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "failed": 0})
 
         for entry in history_entries:
             stats = pattern_stats[entry.query_pattern]
@@ -440,5 +438,5 @@ class AnalyticsManager:
             if stats["failed"] > 0
         ]
 
-        failed_patterns.sort(key=lambda x: x["failed_searches"], reverse=True)
+        failed_patterns.sort(key=lambda x: x["failed_searches"], reverse=True)  # type: ignore[arg-type,return-value]
         return failed_patterns[:limit]

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -13,7 +12,6 @@ from pysearch.core.workspace import (
     WorkspaceConfig,
     WorkspaceManager,
 )
-
 
 # ---------------------------------------------------------------------------
 # RepositoryConfig
@@ -76,16 +74,18 @@ class TestRepositoryConfig:
         assert cfg.enabled is True
 
     def test_from_dict_full(self):
-        cfg = RepositoryConfig.from_dict({
-            "name": "r",
-            "path": "/p",
-            "priority": "low",
-            "enabled": False,
-            "project_type": "node",
-            "include": ["**/*.js"],
-            "exclude": ["**/dist/**"],
-            "metadata": {"version": "1.0"},
-        })
+        cfg = RepositoryConfig.from_dict(
+            {
+                "name": "r",
+                "path": "/p",
+                "priority": "low",
+                "enabled": False,
+                "project_type": "node",
+                "include": ["**/*.js"],
+                "exclude": ["**/dist/**"],
+                "metadata": {"version": "1.0"},
+            }
+        )
         assert cfg.priority == "low"
         assert cfg.enabled is False
         assert cfg.project_type == "node"
@@ -522,11 +522,16 @@ path = "/path/to/repo2"
             max_workers=8,
             repositories=[
                 RepositoryConfig(
-                    name="r1", path="/path/r1", priority="high",
-                    project_type="python", include=["**/*.py"],
+                    name="r1",
+                    path="/path/r1",
+                    priority="high",
+                    project_type="python",
+                    include=["**/*.py"],
                 ),
                 RepositoryConfig(
-                    name="r2", path="/path/r2", priority="low",
+                    name="r2",
+                    path="/path/r2",
+                    priority="low",
                     enabled=False,
                 ),
             ],

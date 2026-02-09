@@ -61,21 +61,48 @@ from .helpers import highlight_spans
 
 # File extension to Pygments lexer name mapping
 _EXTENSION_LEXER_MAP: dict[str, str] = {
-    ".py": "python", ".pyw": "python", ".pyi": "python",
-    ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript",
-    ".ts": "typescript", ".tsx": "typescript",
-    ".java": "java", ".kt": "kotlin", ".scala": "scala",
-    ".c": "c", ".h": "c",
-    ".cpp": "cpp", ".cxx": "cpp", ".cc": "cpp", ".hpp": "cpp",
-    ".cs": "csharp", ".go": "go", ".rs": "rust",
-    ".php": "php", ".rb": "ruby", ".swift": "swift",
-    ".sh": "bash", ".bash": "bash", ".zsh": "zsh",
-    ".ps1": "powershell", ".sql": "sql",
-    ".html": "html", ".htm": "html", ".css": "css",
-    ".scss": "scss", ".sass": "sass", ".less": "less",
-    ".xml": "xml", ".json": "json",
-    ".yaml": "yaml", ".yml": "yaml", ".toml": "toml",
-    ".md": "markdown", ".r": "r", ".R": "r",
+    ".py": "python",
+    ".pyw": "python",
+    ".pyi": "python",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".mjs": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".java": "java",
+    ".kt": "kotlin",
+    ".scala": "scala",
+    ".c": "c",
+    ".h": "c",
+    ".cpp": "cpp",
+    ".cxx": "cpp",
+    ".cc": "cpp",
+    ".hpp": "cpp",
+    ".cs": "csharp",
+    ".go": "go",
+    ".rs": "rust",
+    ".php": "php",
+    ".rb": "ruby",
+    ".swift": "swift",
+    ".sh": "bash",
+    ".bash": "bash",
+    ".zsh": "zsh",
+    ".ps1": "powershell",
+    ".sql": "sql",
+    ".html": "html",
+    ".htm": "html",
+    ".css": "css",
+    ".scss": "scss",
+    ".sass": "sass",
+    ".less": "less",
+    ".xml": "xml",
+    ".json": "json",
+    ".yaml": "yaml",
+    ".yml": "yaml",
+    ".toml": "toml",
+    ".md": "markdown",
+    ".r": "r",
+    ".R": "r",
     ".m": "matlab",
 }
 
@@ -108,6 +135,7 @@ def to_json_bytes(result: SearchResult) -> bytes:
         Uses orjson for performance, which is significantly faster than
         the standard library json module for large result sets.
     """
+
     def default(obj: Any) -> Any:
         if isinstance(obj, Path):
             return str(obj)
@@ -192,7 +220,10 @@ def render_highlight_console(result: SearchResult, console: Console | None = Non
         code = "\n".join(it.lines)
         lexer = _detect_lexer(it.file)
         syntax = Syntax(
-            code, lexer, line_numbers=True, start_line=it.start_line,
+            code,
+            lexer,
+            line_numbers=True,
+            start_line=it.start_line,
         )
         console.print(f"[bold]{it.file}:{it.start_line}-{it.end_line}[/bold]")
         console.print(syntax)
