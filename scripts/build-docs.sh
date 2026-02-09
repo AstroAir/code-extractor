@@ -4,6 +4,13 @@
 
 set -e  # Exit on any error
 
+# Auto-detect uv for consistent environment
+if command -v uv &>/dev/null; then
+    PY="uv run python"
+else
+    PY="python"
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -41,7 +48,7 @@ check_dependencies() {
         exit 1
     fi
     
-    if ! python -c "import mkdocstrings" >/dev/null 2>&1; then
+    if ! $PY -c "import mkdocstrings" >/dev/null 2>&1; then
         log_error "mkdocstrings not found. Install with: pip install mkdocstrings[python]"
         exit 1
     fi
@@ -62,12 +69,12 @@ clean_build() {
 validate_docs() {
     log_info "Validating documentation structure..."
     
-    # Check required files
+    # Check required files (paths must match actual project structure)
     required_files=(
         "docs/index.md"
-        "docs/installation.md"
-        "docs/usage.md"
-        "docs/configuration.md"
+        "docs/getting-started/installation.md"
+        "docs/guide/usage.md"
+        "docs/guide/configuration.md"
         "mkdocs.yml"
     )
     
